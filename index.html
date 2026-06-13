@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Lynncat — Independent app developer. Puzzle games and utilities for iPhone, iPad, and Apple Watch.">
+<title>Lynncat — Independent App Developer</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f0f0f;
+    --surface: #1a1a1a;
+    --border: #2a2a2a;
+    --text: #f0f0f0;
+    --muted: #888;
+    --accent: #f5a623;
+    --accent2: #e07020;
+    --radius: 16px;
+  }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height: 1.6; }
+
+  /* NAV */
+  nav { display: flex; align-items: center; justify-content: space-between; padding: 20px 40px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: rgba(15,15,15,0.92); backdrop-filter: blur(12px); z-index: 100; }
+  .nav-logo { font-size: 20px; font-weight: 700; color: var(--accent); letter-spacing: -0.5px; text-decoration: none; }
+  .nav-links a { color: var(--muted); text-decoration: none; margin-left: 28px; font-size: 15px; transition: color .2s; }
+  .nav-links a:hover { color: var(--text); }
+
+  /* HERO */
+  .hero { text-align: center; padding: 100px 24px 80px; max-width: 700px; margin: 0 auto; }
+  .hero-cat { font-size: 64px; margin-bottom: 20px; }
+  .hero h1 { font-size: clamp(36px, 6vw, 56px); font-weight: 800; letter-spacing: -1.5px; line-height: 1.1; margin-bottom: 20px; }
+  .hero h1 span { background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .hero p { font-size: 18px; color: var(--muted); max-width: 480px; margin: 0 auto 36px; }
+  .hero-badges { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .badge { font-size: 13px; padding: 6px 14px; border: 1px solid var(--border); border-radius: 100px; color: var(--muted); }
+
+  /* APPS */
+  .section { max-width: 900px; margin: 0 auto; padding: 60px 24px; }
+  .section-title { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); margin-bottom: 32px; }
+  .apps { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 20px; }
+  .app-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; transition: border-color .2s, transform .2s; text-decoration: none; color: inherit; display: block; }
+  .app-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .app-card-header { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+  .app-icon { width: 60px; height: 60px; border-radius: 14px; background: linear-gradient(135deg, #3a2010, #1a0e06); display: flex; align-items: center; justify-content: center; font-size: 30px; flex-shrink: 0; }
+  .app-meta { flex: 1; }
+  .app-name { font-size: 18px; font-weight: 700; margin-bottom: 3px; }
+  .app-category { font-size: 12px; color: var(--accent); font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; }
+  .app-desc { font-size: 14px; color: var(--muted); line-height: 1.6; margin-bottom: 20px; }
+  .app-platforms { display: flex; gap: 8px; flex-wrap: wrap; }
+  .platform-tag { font-size: 12px; padding: 4px 10px; background: rgba(255,255,255,0.06); border-radius: 6px; color: var(--muted); }
+  .app-cta { display: inline-flex; align-items: center; gap: 6px; margin-top: 20px; font-size: 14px; font-weight: 600; color: var(--accent); }
+  .app-cta svg { transition: transform .2s; }
+  .app-card:hover .app-cta svg { transform: translateX(3px); }
+
+  /* FOOTER */
+  footer { border-top: 1px solid var(--border); padding: 40px 24px; text-align: center; }
+  footer p { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+  footer a { color: var(--muted); text-decoration: none; }
+  footer a:hover { color: var(--text); }
+  .footer-links { display: flex; gap: 20px; justify-content: center; margin-top: 12px; }
+
+  @media (max-width: 600px) {
+    nav { padding: 16px 20px; }
+    .nav-links { display: none; }
+    .apps { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-logo" href="/">🐱 Lynncat</a>
+  <div class="nav-links">
+    <a href="#apps">Apps</a>
+    <a href="mailto:amwpessy@gmail.com">Contact</a>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="hero-cat">🐱</div>
+  <h1>Apps made with<br><span>care and craft</span></h1>
+  <p>Independent developer building puzzle games and utilities for iPhone, iPad, and Apple Watch.</p>
+  <div class="hero-badges">
+    <span class="badge">📱 iPhone &amp; iPad</span>
+    <span class="badge">⌚ Apple Watch</span>
+    <span class="badge">🌏 3 Languages</span>
+    <span class="badge">🔒 No data collected</span>
+  </div>
+</section>
+
+<section class="section" id="apps">
+  <p class="section-title">Apps</p>
+  <div class="apps">
+    <a class="app-card" href="/sokoban/">
+      <div class="app-card-header">
+        <div class="app-icon">📦</div>
+        <div class="app-meta">
+          <div class="app-name">Lynncat Sokoban</div>
+          <div class="app-category">Puzzle Game</div>
+        </div>
+      </div>
+      <p class="app-desc">120 handcrafted warehouse puzzle levels. Push every crate to its target — simple rules, deep strategy, satisfying solutions.</p>
+      <div class="app-platforms">
+        <span class="platform-tag">iPhone</span>
+        <span class="platform-tag">iPad</span>
+        <span class="platform-tag">Apple Watch</span>
+        <span class="platform-tag">Free + IAP</span>
+      </div>
+      <div class="app-cta">
+        Learn more
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+    </a>
+    <!-- 以後新 App 加在這裡 -->
+  </div>
+</section>
+
+<footer>
+  <p>© 2026 Lynncat · <a href="mailto:amwpessy@gmail.com">amwpessy@gmail.com</a></p>
+  <div class="footer-links">
+    <a href="/sokoban/privacy.html">Privacy Policy</a>
+    <a href="/sokoban/support.html">Support</a>
+  </div>
+</footer>
+
+</body>
+</html>

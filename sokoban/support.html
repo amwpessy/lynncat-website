@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Support — Lynncat Sokoban</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --bg: #0f0f0f; --surface: #1a1a1a; --border: #2a2a2a; --text: #f0f0f0; --muted: #888; --accent: #f5a623; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height: 1.7; padding: 40px 24px 80px; }
+  .container { max-width: 700px; margin: 0 auto; }
+  nav { display: flex; align-items: center; justify-content: space-between; padding: 0 0 32px; border-bottom: 1px solid var(--border); margin-bottom: 48px; }
+  .nav-logo { font-size: 18px; font-weight: 700; color: var(--accent); text-decoration: none; }
+  a { color: var(--accent); }
+  .app-header { display: flex; align-items: center; gap: 16px; margin-bottom: 40px; }
+  .app-icon { width: 64px; height: 64px; border-radius: 16px; background: linear-gradient(135deg, #4a2814, #1a0e06); display: flex; align-items: center; justify-content: center; font-size: 32px; }
+  .app-header h1 { font-size: 24px; font-weight: 700; }
+  .app-header p { font-size: 14px; color: var(--muted); margin-top: 3px; }
+  h2 { font-size: 16px; font-weight: 600; color: var(--accent); margin: 36px 0 16px; }
+  .faq { display: flex; flex-direction: column; gap: 12px; }
+  .faq-item { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .faq-q { padding: 18px 20px; font-size: 15px; font-weight: 600; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+  .faq-q:hover { background: rgba(255,255,255,0.03); }
+  .faq-q::after { content: "+"; font-size: 20px; color: var(--muted); flex-shrink: 0; }
+  .faq-item.open .faq-q::after { content: "−"; }
+  .faq-a { display: none; padding: 0 20px 18px; font-size: 14px; color: #bbb; line-height: 1.7; }
+  .faq-item.open .faq-a { display: block; }
+  .contact-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 32px; text-align: center; margin-top: 40px; }
+  .contact-card .icon { font-size: 40px; margin-bottom: 12px; }
+  .contact-card h3 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+  .contact-card p { font-size: 14px; color: var(--muted); margin-bottom: 20px; }
+  .contact-btn { display: inline-block; background: var(--accent); color: #000; font-weight: 600; font-size: 15px; padding: 12px 28px; border-radius: 100px; text-decoration: none; }
+  footer { border-top: 1px solid var(--border); padding-top: 28px; margin-top: 60px; text-align: center; font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="container">
+  <nav>
+    <a class="nav-logo" href="/">🐱 Lynncat</a>
+    <a href="/sokoban/" style="color:var(--muted);text-decoration:none;font-size:14px;">← Lynncat Sokoban</a>
+  </nav>
+
+  <div class="app-header">
+    <div class="app-icon">📦</div>
+    <div>
+      <h1>Support</h1>
+      <p>Lynncat Sokoban</p>
+    </div>
+  </div>
+
+  <h2>Frequently Asked Questions</h2>
+  <div class="faq">
+    <div class="faq-item">
+      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">How do I control the game?</div>
+      <div class="faq-a">On iPhone and iPad: swipe anywhere on the board in the direction you want to move, or tap the D-pad buttons at the bottom. On Apple Watch: swipe directly on the board.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Can I undo a move?</div>
+      <div class="faq-a">Yes — tap the ↩ undo button to go back one step. You can undo as many times as you like, all the way back to the start of the level.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Why did a crate turn red?</div>
+      <div class="faq-a">A red crate means it has been pushed into a corner or position from which it can never reach a target — the level is now unsolvable from this state. Tap undo to reverse the move.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">I bought the full game on iPhone — do I need to pay again on Apple Watch?</div>
+      <div class="faq-a">No. The purchase is linked to your Apple ID. Tap "Restore Purchases" on the paywall screen on any device and it will unlock immediately at no extra charge.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">How do I restore a purchase?</div>
+      <div class="faq-a">Tap any locked level (Level 16+) to open the unlock screen, then tap "Restore Purchases" at the bottom. Make sure you're signed in with the same Apple ID you used to purchase.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">The Apple Watch app says "will connect on demand" — is that normal?</div>
+      <div class="faq-a">Yes, that's normal. The Watch app runs independently and connects wirelessly when needed. Make sure your Watch is unlocked and your iPhone is nearby with Bluetooth on.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Does the game collect any of my data?</div>
+      <div class="faq-a">No. No data is collected, transmitted, or stored anywhere other than your own device. See our <a href="/sokoban/privacy.html">Privacy Policy</a> for full details.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">I'm stuck on a level — any hints?</div>
+      <div class="faq-a">Every level is solvable — verified by an A* algorithm solver. Use unlimited undo to experiment. General tip: plan where each crate needs to go before pushing, and think about which crate to move first. Avoid pushing crates into corners unless that corner has a target.</div>
+    </div>
+  </div>
+
+  <div class="contact-card">
+    <div class="icon">✉️</div>
+    <h3>Still need help?</h3>
+    <p>Send us an email and we'll get back to you as soon as possible.</p>
+    <a class="contact-btn" href="mailto:amwpessy@gmail.com?subject=Lynncat Sokoban Support">Email Support</a>
+  </div>
+
+  <footer>
+    <p>© 2026 Lynncat · <a href="/sokoban/privacy.html" style="color:var(--muted)">Privacy Policy</a></p>
+  </footer>
+</div>
+</body>
+</html>

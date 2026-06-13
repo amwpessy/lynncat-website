@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Lynncat Sokoban — 120 warehouse puzzle levels for iPhone, iPad, and Apple Watch. Free to start, one-time unlock for all 120 levels.">
+<title>Lynncat Sokoban — Classic Puzzle Game</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f0f0f; --surface: #1a1a1a; --border: #2a2a2a;
+    --text: #f0f0f0; --muted: #888; --accent: #f5a623; --accent2: #e07020; --radius: 16px;
+  }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height: 1.6; }
+  a { color: var(--accent); }
+
+  nav { display: flex; align-items: center; justify-content: space-between; padding: 20px 40px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: rgba(15,15,15,0.92); backdrop-filter: blur(12px); z-index: 100; }
+  .nav-logo { font-size: 18px; font-weight: 700; color: var(--accent); text-decoration: none; }
+  .nav-back { color: var(--muted); text-decoration: none; font-size: 14px; }
+  .nav-back:hover { color: var(--text); }
+
+  /* HERO */
+  .hero { max-width: 800px; margin: 0 auto; padding: 80px 24px 60px; text-align: center; }
+  .app-icon-large { width: 120px; height: 120px; border-radius: 28px; background: linear-gradient(135deg, #4a2814, #1a0e06); display: flex; align-items: center; justify-content: center; font-size: 60px; margin: 0 auto 28px; box-shadow: 0 20px 60px rgba(245,166,35,0.15); }
+  .hero h1 { font-size: clamp(32px, 5vw, 48px); font-weight: 800; letter-spacing: -1px; margin-bottom: 16px; }
+  .hero p { font-size: 18px; color: var(--muted); max-width: 500px; margin: 0 auto 32px; }
+  .cta-group { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn { display: inline-block; padding: 14px 28px; border-radius: 100px; font-size: 16px; font-weight: 600; text-decoration: none; transition: transform .15s, opacity .15s; }
+  .btn:hover { transform: translateY(-1px); opacity: .9; }
+  .btn-primary { background: var(--accent); color: #000; }
+  .btn-secondary { border: 1px solid var(--border); color: var(--text); }
+  .release-note { font-size: 13px; color: var(--muted); margin-top: 14px; }
+
+  /* FEATURES */
+  .section { max-width: 900px; margin: 0 auto; padding: 60px 24px; }
+  .section h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); margin-bottom: 32px; }
+  .features { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+  .feat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; }
+  .feat-icon { font-size: 28px; margin-bottom: 12px; }
+  .feat h3 { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+  .feat p { font-size: 14px; color: var(--muted); }
+
+  /* LEVELS */
+  .levels-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+  .level-block { border-radius: 8px; padding: 12px 6px; text-align: center; }
+  .level-block .tier { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 4px; }
+  .level-block .count { font-size: 22px; font-weight: 800; }
+  .level-block .range { font-size: 11px; margin-top: 2px; }
+  .l1 { background: rgba(80,200,80,0.12); color: #6cd66c; }
+  .l2 { background: rgba(100,180,255,0.12); color: #78b8ff; }
+  .l3 { background: rgba(255,200,60,0.12); color: #ffc83c; }
+  .l4 { background: rgba(255,140,60,0.12); color: #ff8c3c; }
+  .l5 { background: rgba(255,80,80,0.12); color: #ff6060; }
+  .l6 { background: rgba(180,60,255,0.12); color: #c060ff; }
+
+  /* PRICING */
+  .pricing { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 600px; margin: 0 auto; }
+  .price-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; text-align: center; }
+  .price-card.featured { border-color: var(--accent); }
+  .price-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 12px; }
+  .price-label.gold { color: var(--accent); }
+  .price-amount { font-size: 36px; font-weight: 800; margin-bottom: 8px; }
+  .price-desc { font-size: 13px; color: var(--muted); }
+
+  /* PLATFORMS */
+  .platforms { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+  .plat { display: flex; align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 22px; }
+  .plat-icon { font-size: 24px; }
+  .plat-name { font-size: 14px; font-weight: 600; }
+  .plat-note { font-size: 12px; color: var(--muted); }
+
+  footer { border-top: 1px solid var(--border); padding: 40px 24px; text-align: center; }
+  footer p { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+  .footer-links { display: flex; gap: 20px; justify-content: center; margin-top: 12px; }
+  .footer-links a { color: var(--muted); text-decoration: none; font-size: 13px; }
+  .footer-links a:hover { color: var(--text); }
+
+  @media (max-width: 600px) {
+    nav { padding: 16px 20px; }
+    .levels-grid { grid-template-columns: repeat(3, 1fr); }
+    .pricing { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-logo" href="/">🐱 Lynncat</a>
+  <a class="nav-back" href="/">← All Apps</a>
+</nav>
+
+<section class="hero">
+  <div class="app-icon-large">📦</div>
+  <h1>Lynncat Sokoban</h1>
+  <p>120 warehouse puzzle levels. Push every crate onto its target. Simple rules — deep strategy.</p>
+  <div class="cta-group">
+    <a class="btn btn-primary" href="https://apps.apple.com/app/lynncat-sokoban/id000000000">
+      ↓ Download on App Store
+    </a>
+    <a class="btn btn-secondary" href="#levels">See Levels</a>
+  </div>
+  <p class="release-note">Free to start · One-time unlock for all 120 levels</p>
+</section>
+
+<!-- FEATURES -->
+<section class="section">
+  <h2>Features</h2>
+  <div class="features">
+    <div class="feat">
+      <div class="feat-icon">🧠</div>
+      <h3>Genuinely Hard</h3>
+      <p>Every level is filtered for "interestingness" — crates block each other, order matters, and the optimal path is never obvious.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">⌚</div>
+      <h3>Apple Watch</h3>
+      <p>60 classic levels run natively on Apple Watch — no iPhone required nearby. Swipe on the board to play.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">↩️</div>
+      <h3>Unlimited Undo</h3>
+      <p>Made a wrong move? Undo it. Experiment freely and learn the puzzle without restarting every time.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">🔴</div>
+      <h3>Dead-end Detection</h3>
+      <p>Crates glow red when pushed into an unsolvable corner — instant feedback so you know when to undo.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">🌐</div>
+      <h3>3 Languages</h3>
+      <p>Full interface in English, Simplified Chinese, and Traditional Chinese — automatically chosen by your device.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">🔒</div>
+      <h3>No Data Collected</h3>
+      <p>No account. No tracking. No ads. Progress saves locally on your device and nowhere else.</p>
+    </div>
+  </div>
+</section>
+
+<!-- LEVELS -->
+<section class="section" id="levels">
+  <h2>120 Levels</h2>
+  <div class="levels-grid" style="margin-bottom:24px;">
+    <div class="level-block l1"><div class="tier">Hard</div><div class="count">20</div><div class="range">iPhone</div></div>
+    <div class="level-block l2"><div class="tier">Hard</div><div class="count">20</div><div class="range">iPhone</div></div>
+    <div class="level-block l3"><div class="tier">Very Hard</div><div class="count">20</div><div class="range">iPhone</div></div>
+    <div class="level-block l4"><div class="tier">Extreme</div><div class="count">20</div><div class="range">Watch</div></div>
+    <div class="level-block l5"><div class="tier">Extreme</div><div class="count">20</div><div class="range">Watch</div></div>
+    <div class="level-block l6"><div class="tier">Inferno</div><div class="count">20</div><div class="range">Watch</div></div>
+  </div>
+  <p style="font-size:14px; color:var(--muted);">iPhone and iPad get 60 high-difficulty levels (4–6 crates, 20–34 minimum pushes). Apple Watch gets its own 60-level track. All 120 levels are verified solvable by an A* algorithm solver.</p>
+</section>
+
+<!-- PRICING -->
+<section class="section">
+  <h2>Pricing</h2>
+  <div class="pricing">
+    <div class="price-card">
+      <div class="price-label">Free</div>
+      <div class="price-amount">$0</div>
+      <div class="price-desc">First 15 levels on all platforms, forever</div>
+    </div>
+    <div class="price-card featured">
+      <div class="price-label gold">Full Game</div>
+      <div class="price-amount">$1.99</div>
+      <div class="price-desc">One-time purchase — all 120 levels, iPhone + Watch</div>
+    </div>
+  </div>
+</section>
+
+<!-- PLATFORMS -->
+<section class="section">
+  <h2>Available On</h2>
+  <div class="platforms">
+    <div class="plat">
+      <div class="plat-icon">📱</div>
+      <div><div class="plat-name">iPhone &amp; iPad</div><div class="plat-note">iOS 16+</div></div>
+    </div>
+    <div class="plat">
+      <div class="plat-icon">⌚</div>
+      <div><div class="plat-name">Apple Watch</div><div class="plat-note">watchOS 9+ · Independent</div></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p>© 2026 Lynncat · <a href="mailto:amwpessy@gmail.com" style="color:var(--muted)">amwpessy@gmail.com</a></p>
+  <div class="footer-links">
+    <a href="/sokoban/privacy.html">Privacy Policy</a>
+    <a href="/sokoban/support.html">Support</a>
+    <a href="/">All Apps</a>
+  </div>
+</footer>
+
+</body>
+</html>
