@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy Policy — Ironhold</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --bg: #0f0f0f; --surface: #1a1a1a; --border: #2a2a2a; --text: #f0f0f0; --muted: #888; --accent: #f5a623; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height: 1.75; padding: 40px 24px 80px; }
+  nav { display: flex; align-items: center; justify-content: space-between; padding: 0 0 32px; border-bottom: 1px solid var(--border); margin-bottom: 48px; }
+  .nav-logo { font-size: 18px; font-weight: 700; color: var(--accent); text-decoration: none; }
+  a { color: var(--accent); }
+  .container { max-width: 700px; margin: 0 auto; }
+  .app-header { display: flex; align-items: center; gap: 16px; margin-bottom: 40px; }
+  .app-icon { width: 64px; height: 64px; border-radius: 16px; background: linear-gradient(135deg, #5a1f14, #1a0a06); display: flex; align-items: center; justify-content: center; font-size: 32px; }
+  .app-header h1 { font-size: 24px; font-weight: 700; }
+  .app-header p { font-size: 14px; color: var(--muted); margin-top: 3px; }
+  .lang-switcher { display: flex; gap: 8px; margin-bottom: 36px; }
+  .lang-btn { padding: 6px 16px; border-radius: 100px; border: 1px solid var(--border); color: var(--muted); font-size: 13px; background: none; cursor: pointer; transition: all .15s; font-family: inherit; }
+  .lang-btn.active { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
+  .badge-clean { display: inline-block; background: rgba(80,200,80,0.12); color: #6cd66c; border: 1px solid rgba(80,200,80,0.25); border-radius: 6px; font-size: 13px; font-weight: 600; padding: 4px 12px; margin-bottom: 24px; }
+  h2 { font-size: 16px; font-weight: 600; color: var(--accent); margin: 28px 0 10px; }
+  p { font-size: 15px; color: #ccc; margin-bottom: 10px; }
+  ul { padding-left: 20px; margin-bottom: 12px; }
+  li { font-size: 15px; color: #ccc; margin-bottom: 6px; }
+  .updated { font-size: 13px; color: var(--muted); margin-top: 24px; }
+  .lang-section { display: none; }
+  .lang-section.active { display: block; }
+  footer { border-top: 1px solid var(--border); padding-top: 28px; margin-top: 60px; text-align: center; font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="container">
+  <nav>
+    <a class="nav-logo" href="/">🐱 Lynncat</a>
+    <a href="/ironhold/" style="color:var(--muted);text-decoration:none;font-size:14px;">← Ironhold</a>
+  </nav>
+
+  <div class="app-header">
+    <div class="app-icon">🏯</div>
+    <div>
+      <h1>Privacy Policy</h1>
+      <p>Ironhold · 鐵壁雄關</p>
+    </div>
+  </div>
+
+  <div class="lang-switcher">
+    <button class="lang-btn active" onclick="setLang('en')">English</button>
+    <button class="lang-btn" onclick="setLang('zht')">繁體中文</button>
+  </div>
+
+  <!-- English -->
+  <div class="lang-section active" id="lang-en">
+    <div class="badge-clean">✓ No personal data collected</div>
+    <h2>Overview</h2>
+    <p>Ironhold is developed by Lynncat (lynncat.com). We are committed to your privacy. This policy explains our data practices.</p>
+    <h2>What We Collect</h2>
+    <p><strong>Nothing.</strong> Specifically:</p>
+    <ul>
+      <li>No account or registration required</li>
+      <li>No name, email, or contact information collected</li>
+      <li>No location data</li>
+      <li>No device identifiers</li>
+      <li>No analytics or tracking SDKs</li>
+      <li>No advertising networks</li>
+    </ul>
+    <h2>Local Storage</h2>
+    <p>Game progress, best waves, upgrades and your local leaderboard name are saved on your device using Apple's standard UserDefaults API. This data never leaves your device.</p>
+    <h2>Game Center</h2>
+    <p>Global leaderboards are optional. If you sign in to Game Center, your score and Game Center alias are handled by Apple, not by us. Apple's Privacy Policy applies: <a href="https://www.apple.com/privacy/">apple.com/privacy</a>. The game works fully offline if you choose not to use Game Center.</p>
+    <h2>No In-App Purchases</h2>
+    <p>Ironhold is completely free with no in-app purchases and no advertising.</p>
+    <h2>Children</h2>
+    <p>Ironhold contains only mild, abstract strategy combat and is suitable for general audiences. We do not knowingly collect information from anyone.</p>
+    <h2>Contact</h2>
+    <p>Questions? Email <a href="mailto:amwpessy@gmail.com">amwpessy@gmail.com</a></p>
+    <p class="updated">Last updated: June 2026</p>
+  </div>
+
+  <!-- 繁體中文 -->
+  <div class="lang-section" id="lang-zht">
+    <div class="badge-clean">✓ 不收集任何個人資料</div>
+    <h2>概述</h2>
+    <p>鐵壁雄關由 Lynncat（lynncat.com）開發。我們承諾保護您的隱私。本政策說明我們的資料處理方式。</p>
+    <h2>資料收集</h2>
+    <p><strong>我們不收集任何資料。</strong>具體包括：</p>
+    <ul>
+      <li>無需註冊帳號</li>
+      <li>不收集姓名、電子郵件或任何聯絡方式</li>
+      <li>不收集位置資訊</li>
+      <li>不收集裝置識別碼</li>
+      <li>不使用任何分析或追蹤 SDK</li>
+      <li>不接入任何廣告網路</li>
+    </ul>
+    <h2>本機儲存</h2>
+    <p>遊戲進度、最佳波數、強化與本機排行榜名號透過 Apple UserDefaults 儲存於裝置本機，不會上傳至任何伺服器。</p>
+    <h2>Game Center</h2>
+    <p>全球排行榜為可選功能。若您登入 Game Center，您的分數與 Game Center 暱稱由 Apple 處理，而非由我們處理。適用 Apple 隱私權政策：<a href="https://www.apple.com/tw/privacy/">apple.com/tw/privacy</a>。若不使用 Game Center，遊戲仍可完全離線進行。</p>
+    <h2>無應用程式內購</h2>
+    <p>鐵壁雄關完全免費，無內購、無廣告。</p>
+    <h2>兒童</h2>
+    <p>鐵壁雄關僅含輕度、抽象的策略對戰內容，適合一般大眾。我們不會在知情情況下收集任何人的資訊。</p>
+    <h2>聯絡方式</h2>
+    <p>如有問題，請發送電子郵件至 <a href="mailto:amwpessy@gmail.com">amwpessy@gmail.com</a></p>
+    <p class="updated">最後更新：2026年6月</p>
+  </div>
+
+  <footer>
+    <p>© 2026 Lynncat · lynncat.com</p>
+  </footer>
+</div>
+
+<script>
+function setLang(lang) {
+  document.querySelectorAll('.lang-section').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.lang-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('lang-' + lang).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>

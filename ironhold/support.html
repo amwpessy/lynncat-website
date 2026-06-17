@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Support — Ironhold</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --bg: #0f0f0f; --surface: #1a1a1a; --border: #2a2a2a; --text: #f0f0f0; --muted: #888; --accent: #f5a623; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height: 1.75; padding: 40px 24px 80px; }
+  nav { display: flex; align-items: center; justify-content: space-between; padding: 0 0 32px; border-bottom: 1px solid var(--border); margin-bottom: 48px; }
+  .nav-logo { font-size: 18px; font-weight: 700; color: var(--accent); text-decoration: none; }
+  a { color: var(--accent); }
+  .container { max-width: 700px; margin: 0 auto; }
+  .app-header { display: flex; align-items: center; gap: 16px; margin-bottom: 40px; }
+  .app-icon { width: 64px; height: 64px; border-radius: 16px; background: linear-gradient(135deg, #5a1f14, #1a0a06); display: flex; align-items: center; justify-content: center; font-size: 32px; }
+  .app-header h1 { font-size: 24px; font-weight: 700; }
+  .app-header p { font-size: 14px; color: var(--muted); margin-top: 3px; }
+  .lang-switcher { display: flex; gap: 8px; margin-bottom: 36px; }
+  .lang-btn { padding: 6px 16px; border-radius: 100px; border: 1px solid var(--border); color: var(--muted); font-size: 13px; background: none; cursor: pointer; transition: all .15s; font-family: inherit; }
+  .lang-btn.active { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
+  h2 { font-size: 16px; font-weight: 600; color: var(--accent); margin: 28px 0 8px; }
+  p { font-size: 15px; color: #ccc; margin-bottom: 10px; }
+  .qa { border-bottom: 1px solid var(--border); padding: 18px 0; }
+  .qa:last-of-type { border-bottom: none; }
+  .qa h3 { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+  .qa p { font-size: 14px; color: var(--muted); margin: 0; }
+  .contact-box { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 24px; text-align: center; margin-top: 32px; }
+  .lang-section { display: none; }
+  .lang-section.active { display: block; }
+  footer { border-top: 1px solid var(--border); padding-top: 28px; margin-top: 60px; text-align: center; font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="container">
+  <nav>
+    <a class="nav-logo" href="/">🐱 Lynncat</a>
+    <a href="/ironhold/" style="color:var(--muted);text-decoration:none;font-size:14px;">← Ironhold</a>
+  </nav>
+
+  <div class="app-header">
+    <div class="app-icon">🏯</div>
+    <div>
+      <h1>Support</h1>
+      <p>Ironhold · 鐵壁雄關</p>
+    </div>
+  </div>
+
+  <div class="lang-switcher">
+    <button class="lang-btn active" onclick="setLang('en')">English</button>
+    <button class="lang-btn" onclick="setLang('zht')">繁體中文</button>
+  </div>
+
+  <!-- English -->
+  <div class="lang-section active" id="lang-en">
+    <div class="qa"><h3>What is Ironhold?</h3><p>An ink-painted strategy tower defense. You defend a city wall against endless escalating waves by deploying defenders across several lanes.</p></div>
+    <div class="qa"><h3>How do I play?</h3><p>Recruit defenders into lanes using the resources you earn. Hold off each wave; survive as long as you can. A powerful boss arrives every five waves.</p></div>
+    <div class="qa"><h3>Is there any strategy?</h3><p>Yes. Pick one of three difficulties (Cadet / General / Commander). Shields blunt arrows, so bring melee or catapults to break them. Spend merit to upgrade bows, blades and armor, and trigger the cooldown ability Arrow Rain in a crisis.</p></div>
+    <div class="qa"><h3>How do leaderboards work?</h3><p>Each difficulty has its own ranking. Scores sync to Game Center global leaderboards when signed in, and there is also a fully offline on-device board.</p></div>
+    <div class="qa"><h3>Is it free?</h3><p>Completely free — no ads and no in-app purchases.</p></div>
+    <div class="qa"><h3>Does it work on Apple Watch?</h3><p>Yes. Apple Watch runs a self-contained three-lane version — no nearby iPhone required.</p></div>
+    <div class="qa"><h3>How do I change the language?</h3><p>The app follows your device language, with full support for English, Simplified Chinese and Traditional Chinese.</p></div>
+    <div class="contact-box">
+      <p style="color:var(--text);font-weight:600;margin-bottom:6px;">Still need help?</p>
+      <p>Email <a href="mailto:amwpessy@gmail.com">amwpessy@gmail.com</a> — we usually reply within a couple of days.</p>
+    </div>
+  </div>
+
+  <!-- 繁體中文 -->
+  <div class="lang-section" id="lang-zht">
+    <div class="qa"><h3>鐵壁雄關是什麼？</h3><p>一款水墨風格的策略塔防。你要在多條車道上部署守軍,抵禦一波波漸強的大軍,守住城牆。</p></div>
+    <div class="qa"><h3>怎麼遊玩？</h3><p>用累積的資源在各車道招募守軍,擋下每一波攻勢,盡可能存活更久。每五波會迎戰一位強力首領。</p></div>
+    <div class="qa"><h3>有哪些策略玩法？</h3><p>開局可選三檔難度(校尉 / 將軍 / 統帥)。盾兵會擋箭,需用近戰或投石破之;用戰功升級強弓、利刃、固防,並在危急時釋放冷卻技能「箭雨」。</p></div>
+    <div class="qa"><h3>排行榜如何運作？</h3><p>每個難度各有排名。登入 Game Center 時分數會同步至全球排行榜,另有完全離線的本機榜。</p></div>
+    <div class="qa"><h3>是免費的嗎？</h3><p>完全免費——無廣告、無內購。</p></div>
+    <div class="qa"><h3>支援 Apple Watch 嗎？</h3><p>支援。Apple Watch 上有獨立的三車道版本,毋須 iPhone 在旁。</p></div>
+    <div class="qa"><h3>如何切換語言？</h3><p>App 會跟隨你的裝置語言,完整支援英文、簡體中文與繁體中文。</p></div>
+    <div class="contact-box">
+      <p style="color:var(--text);font-weight:600;margin-bottom:6px;">還需要協助？</p>
+      <p>請來信 <a href="mailto:amwpessy@gmail.com">amwpessy@gmail.com</a>,我們通常會在數日內回覆。</p>
+    </div>
+  </div>
+
+  <footer>
+    <p>© 2026 Lynncat · lynncat.com</p>
+  </footer>
+</div>
+
+<script>
+function setLang(lang) {
+  document.querySelectorAll('.lang-section').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.lang-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('lang-' + lang).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>

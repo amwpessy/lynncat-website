@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Ironhold — an ink-painted strategy tower defense for iPhone, iPad, and Apple Watch. Six defenders, hard counters, three difficulties, Arrow Rain, and global leaderboards.">
+<title>Ironhold — Strategy Tower Defense</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --bg:#0f0f0f; --surface:#1a1a1a; --border:#2a2a2a; --text:#f0f0f0; --muted:#888; --accent:#f5a623; --accent2:#e07020; --radius:16px; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height: 1.6; }
+  a { color: var(--accent); }
+
+  body[data-lang='en'] [data-zh]{ display:none; }
+  body[data-lang='zh'] [data-en]{ display:none; }
+  .lang-toggle{ background:none; border:1px solid var(--border); color:var(--muted); font-size:13px; padding:6px 14px; border-radius:100px; cursor:pointer; transition:all .2s; font-family:inherit; }
+  .lang-toggle:hover{ color:var(--text); border-color:var(--accent); }
+
+  nav { display:flex; align-items:center; justify-content:space-between; padding:20px 40px; border-bottom:1px solid var(--border); position:sticky; top:0; background:rgba(15,15,15,0.92); backdrop-filter:blur(12px); z-index:100; }
+  .nav-logo { font-size:18px; font-weight:700; color:var(--accent); text-decoration:none; }
+  .nav-right { display:flex; align-items:center; gap:18px; }
+  .nav-back { color:var(--muted); text-decoration:none; font-size:14px; }
+  .nav-back:hover { color:var(--text); }
+
+  .hero { max-width:800px; margin:0 auto; padding:80px 24px 60px; text-align:center; }
+  .app-icon-large { width:120px; height:120px; border-radius:28px; background:linear-gradient(135deg,#5a1f14,#1a0a06); display:flex; align-items:center; justify-content:center; font-size:60px; margin:0 auto 28px; box-shadow:0 20px 60px rgba(245,166,35,0.15); }
+  .hero h1 { font-size:clamp(32px,5vw,48px); font-weight:800; letter-spacing:-1px; margin-bottom:16px; }
+  .hero p { font-size:18px; color:var(--muted); max-width:520px; margin:0 auto 32px; }
+  .cta-group { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+  .btn { display:inline-block; padding:14px 28px; border-radius:100px; font-size:16px; font-weight:600; text-decoration:none; transition:transform .15s, opacity .15s; }
+  .btn:hover { transform:translateY(-1px); opacity:.9; }
+  .btn-primary { background:var(--accent); color:#000; }
+  .btn-secondary { border:1px solid var(--border); color:var(--text); }
+  .release-note { font-size:13px; color:var(--muted); margin-top:14px; }
+
+  .section { max-width:900px; margin:0 auto; padding:60px 24px; }
+  .section h2 { font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:1.5px; color:var(--muted); margin-bottom:32px; }
+  .features { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px,1fr)); gap:16px; }
+  .feat { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:24px; }
+  .feat-icon { font-size:28px; margin-bottom:12px; }
+  .feat h3 { font-size:16px; font-weight:600; margin-bottom:6px; }
+  .feat p { font-size:14px; color:var(--muted); }
+
+  .forces-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  .force { border-radius:10px; padding:16px 10px; text-align:center; }
+  .force .nm { font-size:14px; font-weight:800; margin-bottom:3px; }
+  .force .rl { font-size:11.5px; opacity:.85; }
+  .f1{background:rgba(80,200,80,0.12);color:#6cd66c;} .f2{background:rgba(100,180,255,0.12);color:#78b8ff;}
+  .f3{background:rgba(255,200,60,0.12);color:#ffc83c;} .f4{background:rgba(255,140,60,0.12);color:#ff8c3c;}
+  .f5{background:rgba(255,80,80,0.12);color:#ff6060;} .f6{background:rgba(180,60,255,0.12);color:#c060ff;}
+
+  .platforms { display:flex; gap:16px; flex-wrap:wrap; justify-content:center; }
+  .plat { display:flex; align-items:center; gap:10px; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px 22px; }
+  .plat-icon { font-size:24px; }
+  .plat-name { font-size:14px; font-weight:600; }
+  .plat-note { font-size:12px; color:var(--muted); }
+
+  footer { border-top:1px solid var(--border); padding:40px 24px; text-align:center; }
+  footer p { font-size:13px; color:var(--muted); margin-bottom:8px; }
+  .footer-links { display:flex; gap:20px; justify-content:center; margin-top:12px; flex-wrap:wrap; }
+  .footer-links a { color:var(--muted); text-decoration:none; font-size:13px; }
+  .footer-links a:hover { color:var(--text); }
+
+  @media (max-width:600px){ nav{padding:16px 20px;} .forces-grid{grid-template-columns:repeat(2,1fr);} }
+</style>
+</head>
+<body data-lang="en">
+
+<nav>
+  <a class="nav-logo" href="/">🐱 Lynncat</a>
+  <div class="nav-right">
+    <a class="nav-back" href="/"><span data-en>← All Apps</span><span data-zh>← 全部作品</span></a>
+    <button class="lang-toggle" onclick="toggleLang()"><span data-en>繁體中文</span><span data-zh>English</span></button>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="app-icon-large">🏯</div>
+  <h1><span data-en>Ironhold</span><span data-zh>鐵壁雄關</span></h1>
+  <p><span data-en>An ink-painted strategy tower defense. Hold the wall, read the assault, and command your defenders across endless escalating waves.</span><span data-zh>水墨風格的策略塔防。守住城關,洞察來犯,在一波波漸強的攻勢中調度你的守軍。</span></p>
+  <div class="cta-group">
+    <!-- 上架通過後，把 id000000000 換成真實 App ID -->
+    <a class="btn btn-primary" href="https://apps.apple.com/app/ironhold/id000000000">
+      <span data-en>↓ Download on App Store</span><span data-zh>↓ App Store 下載</span>
+    </a>
+    <a class="btn btn-secondary" href="#features"><span data-en>See Features</span><span data-zh>查看特色</span></a>
+  </div>
+  <p class="release-note"><span data-en>Free · No ads · No in-app purchases</span><span data-zh>免費 · 無廣告 · 無內購</span></p>
+</section>
+
+<section class="section" id="features">
+  <h2><span data-en>Features</span><span data-zh>特色</span></h2>
+  <div class="features">
+    <div class="feat">
+      <div class="feat-icon">🏯</div>
+      <h3><span data-en>Layered Defense</span><span data-zh>層層禦敵</span></h3>
+      <p><span data-en>Hold several lanes with moat, abatis and ramparts. Turn back infantry, cavalry and siege rams wave after wave.</span><span data-zh>多條車道、護城河、拒馬與城牆層層遲滯,擋下步兵、騎兵與攻城車。</span></p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">🎯</div>
+      <h3><span data-en>Hard Counters</span><span data-zh>兵種克制</span></h3>
+      <p><span data-en>Shields and heavy armor blunt arrows — bring melee to break ranks and catapults to clear the crowd.</span><span data-zh>盾兵與重甲會擋箭,需用近戰破陣、用投石清群。</span></p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">⚔️</div>
+      <h3><span data-en>Three Difficulties</span><span data-zh>三檔難度</span></h3>
+      <p><span data-en>Cadet, General and Commander scale enemy health, speed, numbers and your starting resources.</span><span data-zh>校尉 / 將軍 / 統帥,調節敵軍血量、速度、數量與你的起手資源。</span></p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">⬆️</div>
+      <h3><span data-en>Upgrades</span><span data-zh>強化系統</span></h3>
+      <p><span data-en>Spend hard-earned merit on sharper bows, keener blades and stronger fortifications.</span><span data-zh>用累積的戰功升級強弓、利刃與固防。</span></p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">🌧️</div>
+      <h3><span data-en>Arrow Rain</span><span data-zh>戰術·箭雨</span></h3>
+      <p><span data-en>A tactical cooldown ability — call a storm of arrows onto any spot to break a charge or a boss.</span><span data-zh>冷卻制主動技,向任意落點降下箭雨,破解衝鋒與首領危局。</span></p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">👑</div>
+      <h3><span data-en>Boss Every 5 Waves</span><span data-zh>每五波首領</span></h3>
+      <p><span data-en>Warlord, Sorcerer and Iron General arrive with summons, heals, stuns and a charging rush.</span><span data-zh>蠻王、國師、鐵將軍登場,各有召喚、治療、定身與衝鋒。</span></p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">🏆</div>
+      <h3><span data-en>Leaderboards</span><span data-zh>排行榜</span></h3>
+      <p><span data-en>Climb per-difficulty rankings via Game Center, plus an on-device board that works offline.</span><span data-zh>透過 Game Center 角逐各難度全球排名,另有完全離線的本機榜。</span></p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">⌚</div>
+      <h3><span data-en>Apple Watch</span><span data-zh>Apple Watch</span></h3>
+      <p><span data-en>A self-contained three-lane defense on your wrist — tap to shoot, recruit and hold the line.</span><span data-zh>腕上獨立的三車道守城——點擊射擊、招募、守住防線。</span></p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">🔒</div>
+      <h3><span data-en>Private by Design</span><span data-zh>注重隱私</span></h3>
+      <p><span data-en>No account, no ads, no tracking. Plays offline; Game Center ranking is optional.</span><span data-zh>無帳號、無廣告、不追蹤。可離線暢玩,Game Center 排名為可選項。</span></p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <h2><span data-en>Your Forces</span><span data-zh>你的守軍</span></h2>
+  <div class="forces-grid">
+    <div class="force f1"><div class="nm"><span data-en>Archer</span><span data-zh>弓箭手</span></div><div class="rl"><span data-en>Cheap volleys</span><span data-zh>廉價齊射</span></div></div>
+    <div class="force f2"><div class="nm"><span data-en>Crossbow</span><span data-zh>弩手</span></div><div class="rl"><span data-en>Armor-piercing</span><span data-zh>破甲遠射</span></div></div>
+    <div class="force f3"><div class="nm"><span data-en>Catapult</span><span data-zh>投石機</span></div><div class="rl"><span data-en>Splash damage</span><span data-zh>範圍溅射</span></div></div>
+    <div class="force f4"><div class="nm"><span data-en>Soldier</span><span data-zh>士兵</span></div><div class="rl"><span data-en>Frontline wall</span><span data-zh>前排肉盾</span></div></div>
+    <div class="force f5"><div class="nm"><span data-en>Spearman</span><span data-zh>長槍兵</span></div><div class="rl"><span data-en>Pierces two</span><span data-zh>貫刺兩名</span></div></div>
+    <div class="force f6"><div class="nm"><span data-en>Wall &amp; Abatis</span><span data-zh>城牆拒馬</span></div><div class="rl"><span data-en>Your last line</span><span data-zh>最後防線</span></div></div>
+  </div>
+</section>
+
+<section class="section">
+  <h2><span data-en>Available On</span><span data-zh>支援平台</span></h2>
+  <div class="platforms">
+    <div class="plat">
+      <div class="plat-icon">📱</div>
+      <div><div class="plat-name">iPhone &amp; iPad</div><div class="plat-note">iOS 16+</div></div>
+    </div>
+    <div class="plat">
+      <div class="plat-icon">⌚</div>
+      <div><div class="plat-name">Apple Watch</div><div class="plat-note"><span data-en>watchOS 9+ · Independent</span><span data-zh>watchOS 9+ · 獨立運行</span></div></div>
+    </div>
+    <div class="plat">
+      <div class="plat-icon">🌏</div>
+      <div><div class="plat-name"><span data-en>3 Languages</span><span data-zh>三種語言</span></div><div class="plat-note"><span data-en>EN · 简体 · 繁體</span><span data-zh>英 · 简体 · 繁體</span></div></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p>© 2026 Lynncat · <a href="mailto:amwpessy@gmail.com" style="color:var(--muted)">amwpessy@gmail.com</a></p>
+  <div class="footer-links">
+    <a href="/ironhold/privacy.html"><span data-en>Privacy Policy</span><span data-zh>隱私政策</span></a>
+    <a href="/ironhold/support.html"><span data-en>Support</span><span data-zh>支援</span></a>
+    <a href="/"><span data-en>All Apps</span><span data-zh>全部作品</span></a>
+  </div>
+</footer>
+
+<script>
+(function(){
+  function apply(l){
+    document.body.setAttribute('data-lang', l);
+    document.documentElement.lang = (l === 'zh' ? 'zh-Hant' : 'en');
+    try { localStorage.setItem('lynncat-lang', l); } catch(e){}
+  }
+  window.toggleLang = function(){ apply(document.body.getAttribute('data-lang') === 'en' ? 'zh' : 'en'); };
+  var saved = 'en';
+  try { saved = localStorage.getItem('lynncat-lang') || 'en'; } catch(e){}
+  apply(saved);
+})();
+</script>
+
+</body>
+</html>
