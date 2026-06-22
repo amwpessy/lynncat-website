@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Lynncat 喂猫预约 — 选择喂猫员可接单的日期在线预约。">
+<title>Lynncat 喂猫预约 · Cat Feeding Booking</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f0f0f; --surface: #1a1a1a; --surface2: #222; --border: #2a2a2a;
+    --text: #f0f0f0; --muted: #888; --accent: #f5a623; --accent2: #e07020;
+    --green: #3ecf8e; --red: #e0604f; --radius: 16px;
+  }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height: 1.6; }
+  body[data-lang='en'] [data-zh]{ display:none; }
+  body[data-lang='zh'] [data-en]{ display:none; }
+  .lang-toggle{ background:none; border:1px solid var(--border); color:var(--muted); font-size:13px; padding:6px 14px; border-radius:100px; cursor:pointer; margin-left:20px; transition:all .2s; font-family:inherit; }
+  .lang-toggle:hover{ color:var(--text); border-color:var(--accent); }
+
+  nav { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: rgba(15,15,15,0.92); backdrop-filter: blur(12px); z-index: 100; }
+  .nav-logo { font-size: 19px; font-weight: 700; color: var(--accent); letter-spacing: -0.5px; text-decoration: none; }
+  .nav-right { display:flex; align-items:center; }
+
+  .wrap { max-width: 760px; margin: 0 auto; padding: 28px 18px 80px; }
+  .hero { text-align:center; padding: 20px 0 6px; }
+  .hero-cat { font-size: 46px; margin-bottom: 8px; }
+  .hero h1 { font-size: clamp(25px, 5vw, 34px); font-weight: 800; letter-spacing:-1px; line-height:1.15; }
+  .hero p { color: var(--muted); margin-top: 8px; font-size: 15px; }
+
+  .tabs { display:flex; gap:8px; background: var(--surface); border:1px solid var(--border); border-radius: 100px; padding:5px; margin: 24px auto; max-width: 380px; }
+  .tab { flex:1; text-align:center; padding:10px 14px; border-radius:100px; font-size:14px; font-weight:600; color: var(--muted); cursor:pointer; border:none; background:none; font-family:inherit; transition: all .2s; }
+  .tab.active { background: linear-gradient(135deg, var(--accent), var(--accent2)); color:#1a0e06; }
+
+  .card { background: var(--surface); border:1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; }
+  .card h2 { font-size: 16px; margin-bottom: 4px; }
+  .card .sub { color: var(--muted); font-size: 13px; margin-bottom: 14px; }
+
+  label { display:block; font-size: 13px; color: var(--muted); margin: 12px 0 6px; }
+  input, textarea { width:100%; background: var(--surface2); border:1px solid var(--border); color: var(--text); border-radius: 10px; padding: 11px 13px; font-size: 15px; font-family:inherit; transition: border-color .15s; }
+  input:focus, textarea:focus { outline:none; border-color: var(--accent); }
+  textarea { resize: vertical; min-height: 60px; }
+  .row { display:flex; gap:12px; flex-wrap:wrap; }
+  .row > div { flex:1; min-width: 130px; }
+  .check { display:flex; align-items:center; gap:9px; margin-top:14px; color:var(--muted); font-size:14px; cursor:pointer; }
+  .check input { width:auto; }
+
+  .btn { display:inline-flex; align-items:center; justify-content:center; gap:6px; background: linear-gradient(135deg, var(--accent), var(--accent2)); color:#1a0e06; border:none; border-radius: 10px; padding: 12px 20px; font-size: 15px; font-weight: 700; cursor:pointer; font-family:inherit; transition: opacity .2s, transform .1s; }
+  .btn:hover { opacity:.92; } .btn:active { transform: translateY(1px); } .btn[disabled]{ opacity:.5; cursor:not-allowed; }
+  .btn.full { width:100%; margin-top: 16px; }
+  .btn.ghost { background:none; border:1px solid var(--border); color: var(--muted); font-weight:600; }
+  .btn.ghost:hover { color: var(--text); border-color: var(--accent); }
+  .btn.sm { padding: 7px 14px; font-size: 13px; border-radius: 8px; }
+  .btn.green { background: var(--green); color:#06281b; }
+  .btn.red { background:none; border:1px solid var(--red); color: var(--red); }
+
+  /* 日历 */
+  .legend { display:flex; gap:16px; flex-wrap:wrap; font-size:12px; color:var(--muted); margin-bottom:14px; }
+  .legend i { display:inline-block; width:12px; height:12px; border-radius:4px; vertical-align:-1px; margin-right:5px; }
+  .cal { margin-bottom: 20px; }
+  .cal-title { font-weight:700; font-size:14px; margin-bottom:10px; color:var(--accent); }
+  .cal-dow, .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:6px; }
+  .cal-dow div { text-align:center; font-size:11px; color:var(--muted); padding-bottom:2px; }
+  .cal-cell { aspect-ratio:1; border-radius:10px; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:14px; border:1px solid var(--border); background:var(--surface2); position:relative; }
+  .cal-cell.empty { border:none; background:none; }
+  .cal-cell.muted { color:#4a4a4a; background:none; border-color:transparent; }
+  .cal-cell.clickable { cursor:pointer; transition: all .12s; }
+  .cal-cell.clickable:active { transform: scale(.94); }
+  .cal-cell.sel { background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#1a0e06; border-color:transparent; font-weight:700; }
+  .cal-cell.avail { border-color:rgba(62,207,142,.6); color:var(--green); }
+  .cal-cell.full { border-color:rgba(224,96,79,.55); color:var(--red); }
+  .cal-badge { font-size:10px; line-height:1; margin-top:3px; opacity:.95; }
+  .cal-dot { position:absolute; top:4px; right:5px; width:8px; height:8px; border-radius:50%; background:var(--accent); box-shadow:0 0 0 2px var(--surface2); }
+
+  .slot { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; background: var(--surface2); border:1px solid var(--border); border-radius: 12px; padding: 13px 15px; margin-bottom: 10px; }
+  .slot .t { font-weight: 700; font-size: 14px; }
+  .slot .m { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .tag { font-size:11px; padding:2px 8px; border-radius:100px; font-weight:600; margin-left:6px; }
+  .tag.extra { background: rgba(245,166,35,.16); color: var(--accent); }
+  .tag.pending { background: rgba(245,166,35,.16); color: var(--accent); }
+
+  .empty { text-align:center; color: var(--muted); font-size: 14px; padding: 30px 0; }
+  .msg { border-radius: 10px; padding: 12px 14px; font-size: 14px; margin-top: 14px; }
+  .msg.ok { background: rgba(62,207,142,.12); color: var(--green); border:1px solid rgba(62,207,142,.3); }
+  .msg.err { background: rgba(224,96,79,.12); color: var(--red); border:1px solid rgba(224,96,79,.3); }
+  .notice { background: rgba(245,166,35,.1); border:1px solid rgba(245,166,35,.35); color: var(--accent); border-radius:10px; padding:11px 13px; font-size:13px; margin-top:14px; line-height:1.5; }
+  .banner { background: rgba(245,166,35,.1); border:1px solid rgba(245,166,35,.35); color: var(--accent); border-radius: 12px; padding: 14px 16px; font-size: 13px; margin-bottom: 20px; line-height:1.5; }
+  .hidden { display:none !important; }
+
+  .overlay { position: fixed; inset:0; background: rgba(0,0,0,.65); display:flex; align-items:flex-end; justify-content:center; z-index:200; }
+  .modal { background: var(--surface); border:1px solid var(--border); border-radius: 18px 18px 0 0; padding: 22px 18px 26px; width:100%; max-width: 520px; max-height: 92vh; overflow:auto; }
+  @media (min-width:560px){ .overlay{ align-items:center; padding:20px;} .modal{ border-radius:18px; } }
+  .modal h3 { font-size:18px; margin-bottom: 6px; }
+  .modal .sub { color: var(--muted); font-size: 13px; }
+
+  footer { border-top: 1px solid var(--border); padding: 26px 18px; text-align: center; }
+  footer p { font-size: 12px; color: var(--muted); }
+  footer a { color: var(--muted); text-decoration:none; } footer a:hover { color: var(--text); }
+
+  .spinner { display:inline-block; width:15px; height:15px; border:2px solid rgba(0,0,0,.25); border-top-color:#1a0e06; border-radius:50%; animation:spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg);} }
+</style>
+</head>
+<body data-lang="zh">
+
+<nav>
+  <a class="nav-logo" href="/">🐱 Lynncat</a>
+  <div class="nav-right">
+    <a href="/" style="color:var(--muted);text-decoration:none;font-size:14px;"><span data-en>← Home</span><span data-zh>← 主站</span></a>
+    <button class="lang-toggle" onclick="toggleLang()"><span data-en>中文</span><span data-zh>English</span></button>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="hero">
+    <div class="hero-cat">🐾</div>
+    <h1><span data-en>Cat Feeding Booking</span><span data-zh>喂猫预约</span></h1>
+    <p><span data-en>Pick an available date to book · up to 3 per day.</span><span data-zh>选择可预约的日期下单 · 每天最多 3 单。</span></p>
+  </div>
+
+  <div id="setupBanner" class="banner hidden">
+    <strong><span data-en>Setup needed:</span><span data-zh>尚未配置：</span></strong>
+    <span data-en>fill in Supabase keys in <code>feeding/index.html</code> and run <code>feeding/schema.sql</code>.</span>
+    <span data-zh>请在 <code>feeding/index.html</code> 填入 Supabase 配置，并在 Supabase 运行 <code>feeding/schema.sql</code>。</span>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" id="tabCustomer" onclick="switchRole('customer')"><span data-en>Book</span><span data-zh>我要预约</span></button>
+    <button class="tab" id="tabFeeder" onclick="switchRole('feeder')"><span data-en>Feeder</span><span data-zh>喂猫员</span></button>
+  </div>
+
+  <!-- ===================== 客户 ===================== -->
+  <section id="viewCustomer">
+    <div class="card">
+      <h2><span data-en>Choose a date</span><span data-zh>选择预约日期</span></h2>
+      <p class="sub"><span data-en>Green = open · Red = full (you can request an extra slot).</span><span data-zh>绿色＝可预约 · 红色＝已约满（可申请加号）。</span></p>
+      <div class="legend">
+        <span><i style="border:1px solid var(--green);background:transparent"></i><span data-en>Open</span><span data-zh>可预约</span></span>
+        <span><i style="border:1px solid var(--red);background:transparent"></i><span data-en>Full</span><span data-zh>已约满</span></span>
+      </div>
+      <div id="custCal"><div class="empty"><span data-en>Loading…</span><span data-zh>加载中…</span></div></div>
+    </div>
+  </section>
+
+  <!-- ===================== 喂猫员 ===================== -->
+  <section id="viewFeeder" class="hidden">
+    <!-- 登录 -->
+    <div class="card" id="feederLogin">
+      <h2><span data-en>Feeder sign in</span><span data-zh>喂猫员登录</span></h2>
+      <p class="sub"><span data-en>Manage your available dates and bookings.</span><span data-zh>管理你的可接单日期与预约。</span></p>
+      <label><span data-en>Username</span><span data-zh>用户名</span></label>
+      <input id="fUser" autocomplete="username">
+      <label><span data-en>Password</span><span data-zh>密码</span></label>
+      <input id="fPass" type="password" autocomplete="current-password">
+      <label class="check"><input type="checkbox" id="fRemember"><span data-en>Remember me</span><span data-zh>记住用户名和密码</span></label>
+      <button class="btn full" id="fLoginBtn" onclick="feederLogin()"><span data-en>Sign in</span><span data-zh>登录</span></button>
+      <div id="fLoginMsg"></div>
+    </div>
+
+    <!-- 控制台 -->
+    <div id="feederDash" class="hidden">
+      <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+        <div>
+          <h2 style="margin:0;"><span data-en>Welcome back 🐱</span><span data-zh>欢迎回来 🐱</span></h2>
+          <p class="sub" style="margin:2px 0 0;">lynncathouse88</p>
+        </div>
+        <button class="btn ghost sm" onclick="feederLogout()"><span data-en>Sign out</span><span data-zh>退出</span></button>
+      </div>
+
+      <!-- 加号申请 -->
+      <div class="card">
+        <h2><span data-en>Extra-slot requests</span><span data-zh>加号申请</span></h2>
+        <p class="sub"><span data-en>Approve to confirm the booking, or reject it.</span><span data-zh>同意后预约才生效，或可拒绝。</span></p>
+        <div id="pendingList"></div>
+      </div>
+
+      <!-- 勾选可接单日期 -->
+      <div class="card">
+        <h2><span data-en>My available dates</span><span data-zh>勾选可接单日期</span></h2>
+        <p class="sub"><span data-en>Tap dates to toggle. Numbers show confirmed bookings; dot = pending request.</span><span data-zh>点日期切换是否可接单。数字＝已确认单数；圆点＝有加号申请待处理。</span></p>
+        <div class="legend">
+          <span><i style="background:var(--accent)"></i><span data-en>Available</span><span data-zh>可接单</span></span>
+          <span><i style="background:var(--surface2);border:1px solid var(--border)"></i><span data-en>Off</span><span data-zh>不接单</span></span>
+        </div>
+        <div id="feederCal"><div class="empty"><span data-en>Loading…</span><span data-zh>加载中…</span></div></div>
+        <button class="btn full" id="saveDaysBtn" onclick="saveDays()"><span data-en>Save dates</span><span data-zh>保存日期</span></button>
+        <div id="saveDaysMsg"></div>
+      </div>
+
+      <!-- 预约明细 -->
+      <div class="card">
+        <h2><span data-en>Bookings</span><span data-zh>预约明细</span></h2>
+        <div id="bookingList"></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- 预约 / 加号 弹窗 -->
+<div id="bookOverlay" class="overlay hidden">
+  <div class="modal">
+    <h3 id="bookTitle"></h3>
+    <p class="sub" id="bookDateLabel"></p>
+    <div id="bookNotice" class="notice hidden"></div>
+    <div class="row" style="margin-top:6px;">
+      <div>
+        <label><span data-en>Your name</span><span data-zh>你的称呼</span></label>
+        <input id="cName" autocomplete="name">
+      </div>
+      <div>
+        <label><span data-en>Phone</span><span data-zh>手机号</span></label>
+        <input id="cPhone" inputmode="tel" autocomplete="tel">
+      </div>
+    </div>
+    <label><span data-en>Address</span><span data-zh>喂猫地址</span></label>
+    <input id="cAddr" autocomplete="street-address">
+    <label><span data-en>Cat / feeding info</span><span data-zh>猫咪与喂食说明</span></label>
+    <textarea id="cPet"></textarea>
+    <label><span data-en>Notes (optional)</span><span data-zh>备注（可选）</span></label>
+    <textarea id="cNotes"></textarea>
+    <div id="bookMsg"></div>
+    <div class="row" style="margin-top:18px;">
+      <button class="btn ghost" style="flex:0 0 auto;" onclick="closeBook()"><span data-en>Cancel</span><span data-zh>取消</span></button>
+      <button class="btn" style="flex:1;" id="bookBtn" onclick="confirmBook()"></button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <p>© 2026 Lynncat · <a href="mailto:amwpessy@gmail.com">amwpessy@gmail.com</a></p>
+</footer>
+
+<script src="./supabase.min.js"></script>
+<script>
+/* ============================================================
+   配置：Supabase 项目地址 + publishable key
+   ============================================================ */
+const SUPABASE_URL = "https://ndwafsoitodanawxfdob.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_7mxUvl503DLkuRw006Atug_mkspk6Eb";
+const CAP = 3; // 每天接单上限
+
+/* ---------------- 多语言 ---------------- */
+function lang(){ return document.body.getAttribute('data-lang'); }
+const T = {
+  zh: {
+    needUser:'请填写用户名和密码', wrong:'用户名或密码错误', welcome:'欢迎回来',
+    saveOk:'已保存 ✓', noPending:'暂无加号申请', approve:'同意', reject:'拒绝',
+    noBookings:'暂无预约', book:'预约', confirmBook:'确认预约', submitExtra:'提交加号申请',
+    bookTitle:'预约', extraTitle:'申请加号',
+    extraNotice:'该日期已约满 3 单。加号申请需喂猫员确认后才生效。',
+    needBook:'请至少填写称呼和手机号',
+    bookOk:'预约成功！喂猫员会与你联系 🐱', extraOk:'加号申请已提交，等喂猫员确认 🐱',
+    justFull:'抱歉，这天刚刚约满了，可改为申请加号', unavail:'该日期暂不可预约',
+    full:'已约满', left:n=>'可约（剩 '+n+'）', err:'出错了，请稍后再试',
+    extra:'加号', pending:'待确认', confirmed:'已确认',
+    confirmDecline:'确定拒绝这个加号申请？'
+  },
+  en: {
+    needUser:'Enter username and password', wrong:'Wrong username or password', welcome:'Welcome back',
+    saveOk:'Saved ✓', noPending:'No extra-slot requests', approve:'Approve', reject:'Reject',
+    noBookings:'No bookings yet', book:'Book', confirmBook:'Confirm booking', submitExtra:'Submit request',
+    bookTitle:'Book this day', extraTitle:'Request an extra slot',
+    extraNotice:'This day is full (3 booked). An extra slot needs the feeder’s approval.',
+    needBook:'Please enter at least your name and phone',
+    bookOk:'Booked! The feeder will reach out 🐱', extraOk:'Request submitted — awaiting approval 🐱',
+    justFull:'Sorry, it just filled up — you can request an extra slot', unavail:'This date is not available',
+    full:'Full', left:n=>n+' left', err:'Something went wrong, please try again',
+    extra:'Extra', pending:'Pending', confirmed:'Confirmed',
+    confirmDecline:'Reject this extra-slot request?'
+  }
+};
+function t(k){ return T[lang()][k]; }
+
+/* ---------------- 语言切换 ---------------- */
+(function(){
+  function apply(l){
+    document.body.setAttribute('data-lang', l);
+    document.documentElement.lang = (l === 'zh' ? 'zh-Hant' : 'en');
+    try { localStorage.setItem('lynncat-lang', l); } catch(e){}
+    if (window.__inited) rerender();
+  }
+  window.toggleLang = function(){ apply(lang() === 'en' ? 'zh' : 'en'); };
+  let saved = 'zh';
+  try { saved = localStorage.getItem('lynncat-lang') || 'zh'; } catch(e){}
+  apply(saved);
+})();
+
+/* ---------------- Supabase ---------------- */
+const configured = SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 20;
+let sb = null;
+if (configured) sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+else document.getElementById('setupBanner').classList.remove('hidden');
+
+/* ---------------- 工具 ---------------- */
+function esc(s){ return (s==null?'':String(s)).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function pad(n){ return String(n).padStart(2,'0'); }
+function ymd(dt){ return dt.getFullYear()+'-'+pad(dt.getMonth()+1)+'-'+pad(dt.getDate()); }
+function parseYmd(s){ const p=s.split('-'); return new Date(+p[0],+p[1]-1,+p[2]); }
+function todayStr(){ return ymd(new Date()); }
+function windowEnd(){ const d=new Date(); d.setMonth(d.getMonth()+2); return d; }
+function fmtDate(s){
+  return parseYmd(s).toLocaleDateString(lang()==='zh'?'zh-CN':'en-US', { month:'long', day:'numeric', weekday:'short' });
+}
+function showMsg(el, type, text){ el.innerHTML = '<div class="msg '+type+'">'+esc(text)+'</div>'; }
+function clearMsg(el){ el.innerHTML=''; }
+function cacheGet(k){ try { return JSON.parse(localStorage.getItem('lynncat-cache-'+k)||'null'); } catch(e){ return null; } }
+function cacheSet(k,v){ try { localStorage.setItem('lynncat-cache-'+k, JSON.stringify(v)); } catch(e){} }
+
+/* ---------------- 月历渲染 ---------------- */
+function monthGrids(cellFn){
+  const from = parseYmd(todayStr()), to = windowEnd();
+  let html = '', cur = new Date(from.getFullYear(), from.getMonth(), 1);
+  const last = new Date(to.getFullYear(), to.getMonth(), 1);
+  const dows = lang()==='zh' ? ['日','一','二','三','四','五','六'] : ['Su','Mo','Tu','We','Th','Fr','Sa'];
+  while (cur <= last){
+    const y=cur.getFullYear(), m=cur.getMonth();
+    const title = cur.toLocaleDateString(lang()==='zh'?'zh-CN':'en-US', {year:'numeric', month:'long'});
+    const firstDow = new Date(y,m,1).getDay();
+    const daysIn = new Date(y,m+1,0).getDate();
+    let cells='';
+    for (let i=0;i<firstDow;i++) cells += '<div class="cal-cell empty"></div>';
+    for (let day=1; day<=daysIn; day++){
+      const dt = new Date(y,m,day);
+      const inWin = dt >= from && dt <= to;
+      cells += cellFn(ymd(dt), day, inWin);
+    }
+    html += '<div class="cal"><div class="cal-title">'+esc(title)+'</div>'
+      + '<div class="cal-dow">'+dows.map(d=>'<div>'+d+'</div>').join('')+'</div>'
+      + '<div class="cal-grid">'+cells+'</div></div>';
+    cur.setMonth(cur.getMonth()+1);
+  }
+  return html;
+}
+
+/* ---------------- 角色切换 ---------------- */
+let role = 'customer';
+function switchRole(r){
+  role = r;
+  document.getElementById('tabCustomer').classList.toggle('active', r==='customer');
+  document.getElementById('tabFeeder').classList.toggle('active', r==='feeder');
+  document.getElementById('viewCustomer').classList.toggle('hidden', r!=='customer');
+  document.getElementById('viewFeeder').classList.toggle('hidden', r!=='feeder');
+  if (r==='customer') loadCustomer();
+  else if (feeder) loadFeederOverview();
+}
+
+/* ===================== 客户 ===================== */
+let custMap = {}; // ymd -> {cnt}
+async function loadCustomer(){
+  if (!sb) return;
+  const box = document.getElementById('custCal');
+  const cached = cacheGet('custCal');
+  if (cached) { custMap = cached; renderCustomerCal(); }
+  const { data, error } = await sb.rpc('public_calendar');
+  if (error){ if (!Object.keys(custMap).length) box.innerHTML='<div class="empty">'+esc(t('err'))+'</div>'; return; }
+  custMap = {};
+  (data||[]).forEach(r => { custMap[r.d] = { cnt: r.cnt }; });
+  cacheSet('custCal', custMap);
+  renderCustomerCal();
+}
+function renderCustomerCal(){
+  const box = document.getElementById('custCal');
+  let any = false;
+  box.innerHTML = monthGrids((ds, day, inWin) => {
+    const e = custMap[ds];
+    if (!inWin || !e) return '<div class="cal-cell muted">'+day+'</div>';
+    any = true;
+    const full = e.cnt >= CAP;
+    return '<div class="cal-cell clickable '+(full?'full':'avail')+'" onclick="openBook(\''+ds+'\','+e.cnt+')">'
+      + day + '<div class="cal-badge">'+e.cnt+'/'+CAP+'</div></div>';
+  });
+  if (!any){
+    box.innerHTML = '<div class="empty"><span data-en>No open dates yet — check back soon.</span><span data-zh>暂时还没有可预约的日期，稍后再来看看。</span></div>';
+  }
+}
+
+/* ----- 预约 / 加号 弹窗 ----- */
+let bookDate = null, bookMode = 'book';
+function openBook(ds, cnt){
+  bookDate = ds;
+  bookMode = (cnt >= CAP) ? 'extra' : 'book';
+  document.getElementById('bookTitle').textContent = bookMode==='extra' ? t('extraTitle') : t('bookTitle');
+  document.getElementById('bookDateLabel').textContent = fmtDate(ds) + ' · ' + (bookMode==='extra'? t('full') : t('left')(CAP-cnt));
+  const notice = document.getElementById('bookNotice');
+  if (bookMode==='extra'){ notice.textContent = t('extraNotice'); notice.classList.remove('hidden'); }
+  else notice.classList.add('hidden');
+  document.getElementById('bookBtn').textContent = bookMode==='extra' ? t('submitExtra') : t('confirmBook');
+  clearMsg(document.getElementById('bookMsg'));
+  document.getElementById('bookOverlay').classList.remove('hidden');
+}
+function closeBook(){ document.getElementById('bookOverlay').classList.add('hidden'); bookDate=null; }
+
+async function confirmBook(){
+  const name = document.getElementById('cName').value.trim();
+  const phone = document.getElementById('cPhone').value.trim();
+  const msg = document.getElementById('bookMsg');
+  if (!name || !phone){ showMsg(msg,'err',t('needBook')); return; }
+  const args = {
+    p_d: bookDate, p_name: name, p_phone: phone,
+    p_address: document.getElementById('cAddr').value.trim(),
+    p_pet: document.getElementById('cPet').value.trim(),
+    p_notes: document.getElementById('cNotes').value.trim()
+  };
+  const btn = document.getElementById('bookBtn');
+  const btnText = btn.textContent;
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  const fn = bookMode==='extra' ? 'request_extra' : 'book_day';
+  const { data, error } = await sb.rpc(fn, args);
+  btn.disabled = false; btn.textContent = btnText;
+  if (error){ showMsg(msg,'err',t('err')); return; }
+  if (!data || !data.ok){
+    if (data && data.error === 'full'){
+      // 刚好被约满 → 转加号模式
+      bookMode = 'extra';
+      document.getElementById('bookTitle').textContent = t('extraTitle');
+      const notice = document.getElementById('bookNotice');
+      notice.textContent = t('extraNotice'); notice.classList.remove('hidden');
+      btn.textContent = t('submitExtra');
+      showMsg(msg,'err',t('justFull'));
+      if (custMap[bookDate]) { custMap[bookDate].cnt = CAP; cacheSet('custCal', custMap); renderCustomerCal(); }
+      return;
+    }
+    showMsg(msg,'err',t('unavail')); return;
+  }
+  if (bookMode==='extra'){
+    showMsg(msg,'ok',t('extraOk'));
+  } else {
+    showMsg(msg,'ok',t('bookOk'));
+    if (custMap[bookDate]){ custMap[bookDate].cnt++; cacheSet('custCal', custMap); renderCustomerCal(); }
+  }
+  ['cName','cPhone','cAddr','cPet','cNotes'].forEach(id=>document.getElementById(id).value='');
+  setTimeout(closeBook, 1600);
+}
+
+/* ===================== 喂猫员 ===================== */
+let feeder = null; // {user, pass}
+try { feeder = JSON.parse(localStorage.getItem('lynncat-feeder-auth')||'null'); } catch(e){}
+let editDays = new Set();   // 编辑中的可接单日期
+let feederBookings = [];
+
+async function feederLogin(){
+  const user = document.getElementById('fUser').value.trim();
+  const pass = document.getElementById('fPass').value.trim();
+  const remember = document.getElementById('fRemember').checked;
+  const msg = document.getElementById('fLoginMsg');
+  if (!user || !pass){ showMsg(msg,'err',t('needUser')); return; }
+  const btn = document.getElementById('fLoginBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  const { data, error } = await sb.rpc('feeder_login', { p_user:user, p_pass:pass });
+  btn.disabled = false; btn.innerHTML = '<span data-en>Sign in</span><span data-zh>登录</span>';
+  if (error){ showMsg(msg,'err',t('err')); return; }
+  if (!data || !data.ok){ showMsg(msg,'err',t('wrong')); return; }
+  feeder = { user, pass };
+  if (remember){ try { localStorage.setItem('lynncat-feeder-auth', JSON.stringify(feeder)); } catch(e){} }
+  showFeederDash();
+}
+function feederLogout(){
+  feeder = null;
+  try { localStorage.removeItem('lynncat-feeder-auth'); } catch(e){}
+  document.getElementById('feederDash').classList.add('hidden');
+  document.getElementById('feederLogin').classList.remove('hidden');
+}
+function showFeederDash(){
+  document.getElementById('feederLogin').classList.add('hidden');
+  document.getElementById('feederDash').classList.remove('hidden');
+  loadFeederOverview();
+}
+
+async function loadFeederOverview(){
+  if (!sb || !feeder) return;
+  const { data, error } = await sb.rpc('feeder_overview', { p_user:feeder.user, p_pass:feeder.pass });
+  if (error){ return; }
+  if (!data || !data.ok){ feederLogout(); return; }
+  editDays = new Set(data.days || []);
+  feederBookings = data.bookings || [];
+  renderFeederCal(); renderPending(); renderBookingList();
+}
+
+function dayCounts(ds){
+  let confirmed=0, pending=0;
+  feederBookings.forEach(b=>{ if (b.d===ds){ if (b.status==='confirmed') confirmed++; else if (b.status==='pending') pending++; } });
+  return { confirmed, pending };
+}
+function renderFeederCal(){
+  const box = document.getElementById('feederCal');
+  box.innerHTML = monthGrids((ds, day, inWin) => {
+    if (!inWin) return '<div class="cal-cell muted">'+day+'</div>';
+    const c = dayCounts(ds);
+    const sel = editDays.has(ds);
+    const dot = c.pending>0 ? '<div class="cal-dot"></div>' : '';
+    const badge = c.confirmed>0 ? '<div class="cal-badge">'+c.confirmed+'/'+CAP+'</div>' : '';
+    return '<div class="cal-cell clickable'+(sel?' sel':'')+'" onclick="toggleDay(\''+ds+'\')">'+dot+day+badge+'</div>';
+  });
+}
+function toggleDay(ds){
+  if (editDays.has(ds)) editDays.delete(ds); else editDays.add(ds);
+  renderFeederCal();
+}
+async function saveDays(){
+  const msg = document.getElementById('saveDaysMsg');
+  const btn = document.getElementById('saveDaysBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  const { data, error } = await sb.rpc('set_available_days', {
+    p_user:feeder.user, p_pass:feeder.pass, p_days: Array.from(editDays)
+  });
+  btn.disabled = false; btn.innerHTML = '<span data-en>Save dates</span><span data-zh>保存日期</span>';
+  if (error || !data || !data.ok){ showMsg(msg,'err',t('err')); return; }
+  showMsg(msg,'ok',t('saveOk'));
+  setTimeout(()=>clearMsg(msg), 2000);
+}
+
+function renderPending(){
+  const box = document.getElementById('pendingList');
+  const pend = feederBookings.filter(b => b.status==='pending');
+  if (!pend.length){ box.innerHTML = '<div class="empty">'+esc(t('noPending'))+'</div>'; return; }
+  box.innerHTML = pend.map(b => {
+    let info = '<div class="m">👤 '+esc(b.customer_name)+' · 📞 '+esc(b.customer_phone)+'</div>';
+    if (b.address) info += '<div class="m">📍 '+esc(b.address)+'</div>';
+    if (b.pet_info) info += '<div class="m">🐈 '+esc(b.pet_info)+'</div>';
+    if (b.notes) info += '<div class="m">📝 '+esc(b.notes)+'</div>';
+    return '<div class="slot"><div><div class="t">'+esc(fmtDate(b.d))+'<span class="tag extra">'+esc(t('extra'))+'</span></div>'+info+'</div>'
+      + '<div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">'
+      + '<button class="btn green sm" onclick="decide(\''+b.id+'\',true)">'+esc(t('approve'))+'</button>'
+      + '<button class="btn red sm" onclick="decide(\''+b.id+'\',false)">'+esc(t('reject'))+'</button></div></div>';
+  }).join('');
+}
+async function decide(id, approve){
+  if (!approve && !confirm(t('confirmDecline'))) return;
+  const { data, error } = await sb.rpc('decide_request', {
+    p_user:feeder.user, p_pass:feeder.pass, p_id:id, p_approve:approve
+  });
+  if (error || !data || !data.ok) return;
+  loadFeederOverview();
+}
+
+function renderBookingList(){
+  const box = document.getElementById('bookingList');
+  const confirmed = feederBookings.filter(b => b.status==='confirmed');
+  if (!confirmed.length){ box.innerHTML = '<div class="empty">'+esc(t('noBookings'))+'</div>'; return; }
+  const groups = {};
+  confirmed.forEach(b => { (groups[b.d] ||= []).push(b); });
+  let html = '';
+  Object.keys(groups).sort().forEach(d => {
+    html += '<div class="cal-title" style="margin-top:12px;">'+esc(fmtDate(d))+' · '+groups[d].length+'/'+CAP+'</div>';
+    groups[d].forEach(b => {
+      let info = '<div class="m">👤 '+esc(b.customer_name)+' · 📞 '+esc(b.customer_phone)+'</div>';
+      if (b.address) info += '<div class="m">📍 '+esc(b.address)+'</div>';
+      if (b.pet_info) info += '<div class="m">🐈 '+esc(b.pet_info)+'</div>';
+      if (b.notes) info += '<div class="m">📝 '+esc(b.notes)+'</div>';
+      const tag = b.kind==='extra' ? '<span class="tag extra">'+esc(t('extra'))+'</span>' : '';
+      html += '<div class="slot"><div><div class="t">'+esc(t('confirmed'))+tag+'</div>'+info+'</div></div>';
+    });
+  });
+  box.innerHTML = html;
+}
+
+/* ---------------- 语言切换时重绘 ---------------- */
+function rerender(){
+  if (role==='customer') renderCustomerCal();
+  else if (feeder){ renderFeederCal(); renderPending(); renderBookingList(); }
+}
+
+/* ---------------- 初始化 ---------------- */
+window.__inited = true;
+(function init(){
+  if (configured){
+    if (feeder) showFeederDash();
+    loadCustomer();
+  } else {
+    document.getElementById('custCal').innerHTML = '<div class="empty"><span data-en>Backend not configured.</span><span data-zh>后端尚未配置。</span></div>';
+  }
+})();
+</script>
+</body>
+</html>
