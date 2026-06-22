@@ -189,7 +189,7 @@ alter table bookings       enable row level security;
 grant execute on function public_calendar()                                         to anon;
 grant execute on function book_day(date, text, text, text, text, text)              to anon;
 grant execute on function request_extra(date, text, text, text, text, text)         to anon;
-grant execute on function book_days(date[], text, text, text, text, text, text)     to anon;
+grant execute on function book_days(date[], text, text, text, text, text)           to anon;
 grant execute on function feeder_login(text, text)                                  to anon;
 grant execute on function feeder_overview(text, text)                               to anon;
 grant execute on function set_available_days(text, text, date[])                    to anon;
