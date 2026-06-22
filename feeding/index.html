@@ -72,6 +72,13 @@
   .cal-cell.full { border-color:rgba(224,96,79,.55); color:var(--red); }
   .cal-badge { font-size:10px; line-height:1; margin-top:3px; opacity:.95; }
   .cal-dot { position:absolute; top:4px; right:5px; width:8px; height:8px; border-radius:50%; background:var(--accent); box-shadow:0 0 0 2px var(--surface2); }
+  .cal-cell.selc { box-shadow: inset 0 0 0 2px var(--accent); background:rgba(245,166,35,.12); }
+  .cal-cell.selc::after { content:'✓'; position:absolute; top:1px; right:4px; font-size:10px; line-height:1; color:var(--accent); font-weight:700; }
+
+  .selbar { position:fixed; left:0; right:0; bottom:0; z-index:150; display:flex; align-items:center; gap:12px; justify-content:space-between; padding:12px 18px calc(12px + env(safe-area-inset-bottom)); background:rgba(26,26,26,.97); backdrop-filter:blur(12px); border-top:1px solid var(--border); }
+  .selbar .cnt { font-size:14px; font-weight:600; }
+  .selbar .btn { flex:0 0 auto; }
+  body.has-sel .wrap { padding-bottom: 96px; }
 
   .slot { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; background: var(--surface2); border:1px solid var(--border); border-radius: 12px; padding: 13px 15px; margin-bottom: 10px; }
   .slot .t { font-weight: 700; font-size: 14px; }
@@ -134,7 +141,7 @@
   <section id="viewCustomer">
     <div class="card">
       <h2><span data-en>Choose a date</span><span data-zh>选择预约日期</span></h2>
-      <p class="sub"><span data-en>Green = open · Red = full (you can request an extra slot).</span><span data-zh>绿色＝可预约 · 红色＝已约满（可申请加号）。</span></p>
+      <p class="sub"><span data-en>Tap one or more dates, then book them all at once. Green = open · Red = full (becomes an extra-slot request).</span><span data-zh>点选一个或多个日期，可一次性批量预约。绿色＝可预约 · 红色＝已约满（将作为加号申请）。</span></p>
       <div class="legend">
         <span><i style="border:1px solid var(--green);background:transparent"></i><span data-en>Open</span><span data-zh>可预约</span></span>
         <span><i style="border:1px solid var(--red);background:transparent"></i><span data-en>Full</span><span data-zh>已约满</span></span>
@@ -222,8 +229,16 @@
     <div id="bookMsg"></div>
     <div class="row" style="margin-top:18px;">
       <button class="btn ghost" style="flex:0 0 auto;" onclick="closeBook()"><span data-en>Cancel</span><span data-zh>取消</span></button>
-      <button class="btn" style="flex:1;" id="bookBtn" onclick="confirmBook()"></button>
+      <button class="btn" style="flex:1;" id="bookBtn" onclick="confirmBatch()"></button>
     </div>
+  </div>
+</div>
+
+<div id="selBar" class="selbar hidden">
+  <span class="cnt" id="selCount"></span>
+  <div style="display:flex;gap:8px;">
+    <button class="btn ghost sm" onclick="clearSel()"><span data-en>Clear</span><span data-zh>清空</span></button>
+    <button class="btn" onclick="openBatch()"><span data-en>Book</span><span data-zh>预约</span></button>
   </div>
 </div>
 
@@ -254,7 +269,10 @@ const T = {
     justFull:'抱歉，这天刚刚约满了，可改为申请加号', unavail:'该日期暂不可预约',
     full:'已约满', left:n=>'可约（剩 '+n+'）', err:'出错了，请稍后再试',
     extra:'加号', pending:'待确认', confirmed:'已确认',
-    confirmDecline:'确定拒绝这个加号申请？'
+    confirmDecline:'确定拒绝这个加号申请？',
+    selN:n=>'已选 '+n+' 天', batchTitle:n=>'预约 '+n+' 天', batchBtn:n=>'确认预约 '+n+' 天',
+    selDatesLabel:'已选日期', batchFull:n=>'其中 '+n+' 天已约满，将作为加号申请，需喂猫员确认。',
+    sumBooked:n=>'✅ '+n+' 天预约成功', sumPending:n=>n+' 天已满，加号申请待确认', sumUnavail:n=>n+' 天不可约'
   },
   en: {
     needUser:'Enter username and password', wrong:'Wrong username or password', welcome:'Welcome back',
@@ -267,7 +285,10 @@ const T = {
     justFull:'Sorry, it just filled up — you can request an extra slot', unavail:'This date is not available',
     full:'Full', left:n=>n+' left', err:'Something went wrong, please try again',
     extra:'Extra', pending:'Pending', confirmed:'Confirmed',
-    confirmDecline:'Reject this extra-slot request?'
+    confirmDecline:'Reject this extra-slot request?',
+    selN:n=>n+' day'+(n>1?'s':'')+' selected', batchTitle:n=>'Book '+n+' day'+(n>1?'s':''), batchBtn:n=>'Confirm '+n+' day'+(n>1?'s':''),
+    selDatesLabel:'Selected dates', batchFull:n=>n+' of them '+(n>1?'are':'is')+' full — will be sent as extra-slot request(s) for approval.',
+    sumBooked:n=>'✅ '+n+' day'+(n>1?'s':'')+' booked', sumPending:n=>n+' full — extra request(s) pending', sumUnavail:n=>n+' unavailable'
   }
 };
 function t(k){ return T[lang()][k]; }
@@ -349,6 +370,7 @@ function switchRole(r){
 
 /* ===================== 客户 ===================== */
 let custMap = {}; // ymd -> {cnt}
+let selDays = new Set(); // 客户多选的日期
 async function loadCustomer(){
   if (!sb) return;
   const box = document.getElementById('custCal');
@@ -359,7 +381,9 @@ async function loadCustomer(){
   custMap = {};
   (data||[]).forEach(r => { custMap[r.d] = { cnt: r.cnt }; });
   cacheSet('custCal', custMap);
-  renderCustomerCal();
+  // 去掉已不再可约的选中项
+  selDays.forEach(ds => { if (!custMap[ds]) selDays.delete(ds); });
+  renderCustomerCal(); updateSelBar();
 }
 function renderCustomerCal(){
   const box = document.getElementById('custCal');
@@ -369,7 +393,8 @@ function renderCustomerCal(){
     if (!inWin || !e) return '<div class="cal-cell muted">'+day+'</div>';
     any = true;
     const full = e.cnt >= CAP;
-    return '<div class="cal-cell clickable '+(full?'full':'avail')+'" onclick="openBook(\''+ds+'\','+e.cnt+')">'
+    const sel = selDays.has(ds) ? ' selc' : '';
+    return '<div class="cal-cell clickable '+(full?'full':'avail')+sel+'" onclick="toggleSel(\''+ds+'\')">'
       + day + '<div class="cal-badge">'+e.cnt+'/'+CAP+'</div></div>';
   });
   if (!any){
@@ -377,62 +402,68 @@ function renderCustomerCal(){
   }
 }
 
-/* ----- 预约 / 加号 弹窗 ----- */
-let bookDate = null, bookMode = 'book';
-function openBook(ds, cnt){
-  bookDate = ds;
-  bookMode = (cnt >= CAP) ? 'extra' : 'book';
-  document.getElementById('bookTitle').textContent = bookMode==='extra' ? t('extraTitle') : t('bookTitle');
-  document.getElementById('bookDateLabel').textContent = fmtDate(ds) + ' · ' + (bookMode==='extra'? t('full') : t('left')(CAP-cnt));
+/* ----- 多选 + 批量预约 ----- */
+function toggleSel(ds){
+  if (selDays.has(ds)) selDays.delete(ds); else selDays.add(ds);
+  renderCustomerCal(); updateSelBar();
+}
+function clearSel(){ selDays.clear(); renderCustomerCal(); updateSelBar(); }
+function updateSelBar(){
+  const bar = document.getElementById('selBar');
+  const n = selDays.size;
+  document.body.classList.toggle('has-sel', n>0);
+  bar.classList.toggle('hidden', n===0);
+  if (n>0) document.getElementById('selCount').textContent = t('selN')(n);
+}
+function selectedSorted(){ return Array.from(selDays).sort(); }
+
+function openBatch(){
+  const days = selectedSorted();
+  if (!days.length) return;
+  const fullN = days.filter(ds => custMap[ds] && custMap[ds].cnt >= CAP).length;
+  document.getElementById('bookTitle').textContent = t('batchTitle')(days.length);
+  document.getElementById('bookDateLabel').textContent =
+    t('selDatesLabel') + '：' + days.map(fmtDate).join('、');
   const notice = document.getElementById('bookNotice');
-  if (bookMode==='extra'){ notice.textContent = t('extraNotice'); notice.classList.remove('hidden'); }
+  if (fullN > 0){ notice.textContent = t('batchFull')(fullN); notice.classList.remove('hidden'); }
   else notice.classList.add('hidden');
-  document.getElementById('bookBtn').textContent = bookMode==='extra' ? t('submitExtra') : t('confirmBook');
+  document.getElementById('bookBtn').textContent = t('batchBtn')(days.length);
   clearMsg(document.getElementById('bookMsg'));
   document.getElementById('bookOverlay').classList.remove('hidden');
 }
-function closeBook(){ document.getElementById('bookOverlay').classList.add('hidden'); bookDate=null; }
+function closeBook(){ document.getElementById('bookOverlay').classList.add('hidden'); }
 
-async function confirmBook(){
+async function confirmBatch(){
   const name = document.getElementById('cName').value.trim();
   const phone = document.getElementById('cPhone').value.trim();
   const msg = document.getElementById('bookMsg');
   if (!name || !phone){ showMsg(msg,'err',t('needBook')); return; }
-  const args = {
-    p_d: bookDate, p_name: name, p_phone: phone,
-    p_address: document.getElementById('cAddr').value.trim(),
-    p_pet: document.getElementById('cPet').value.trim(),
-    p_notes: document.getElementById('cNotes').value.trim()
-  };
+  const days = selectedSorted();
+  if (!days.length){ closeBook(); return; }
   const btn = document.getElementById('bookBtn');
   const btnText = btn.textContent;
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
-  const fn = bookMode==='extra' ? 'request_extra' : 'book_day';
-  const { data, error } = await sb.rpc(fn, args);
+  const { data, error } = await sb.rpc('book_days', {
+    p_dates: days, p_name: name, p_phone: phone,
+    p_address: document.getElementById('cAddr').value.trim(),
+    p_pet: document.getElementById('cPet').value.trim(),
+    p_notes: document.getElementById('cNotes').value.trim()
+  });
   btn.disabled = false; btn.textContent = btnText;
-  if (error){ showMsg(msg,'err',t('err')); return; }
-  if (!data || !data.ok){
-    if (data && data.error === 'full'){
-      // 刚好被约满 → 转加号模式
-      bookMode = 'extra';
-      document.getElementById('bookTitle').textContent = t('extraTitle');
-      const notice = document.getElementById('bookNotice');
-      notice.textContent = t('extraNotice'); notice.classList.remove('hidden');
-      btn.textContent = t('submitExtra');
-      showMsg(msg,'err',t('justFull'));
-      if (custMap[bookDate]) { custMap[bookDate].cnt = CAP; cacheSet('custCal', custMap); renderCustomerCal(); }
-      return;
-    }
-    showMsg(msg,'err',t('unavail')); return;
-  }
-  if (bookMode==='extra'){
-    showMsg(msg,'ok',t('extraOk'));
-  } else {
-    showMsg(msg,'ok',t('bookOk'));
-    if (custMap[bookDate]){ custMap[bookDate].cnt++; cacheSet('custCal', custMap); renderCustomerCal(); }
-  }
+  if (error || !data || !data.ok){ showMsg(msg,'err',t('err')); return; }
+  const res = data.results || [];
+  const booked = res.filter(r=>r.status==='booked').length;
+  const pending = res.filter(r=>r.status==='pending').length;
+  const unavail = res.filter(r=>r.status==='unavailable').length;
+  const parts = [];
+  if (booked) parts.push(t('sumBooked')(booked));
+  if (pending) parts.push(t('sumPending')(pending));
+  if (unavail) parts.push(t('sumUnavail')(unavail));
+  showMsg(msg, (booked||pending)?'ok':'err', parts.join(' · '));
   ['cName','cPhone','cAddr','cPet','cNotes'].forEach(id=>document.getElementById(id).value='');
-  setTimeout(closeBook, 1600);
+  selDays.clear(); updateSelBar();
+  loadCustomer(); // 刷新名额
+  setTimeout(closeBook, 2200);
 }
 
 /* ===================== 喂猫员 ===================== */
@@ -559,7 +590,7 @@ function renderBookingList(){
 
 /* ---------------- 语言切换时重绘 ---------------- */
 function rerender(){
-  if (role==='customer') renderCustomerCal();
+  if (role==='customer'){ renderCustomerCal(); updateSelBar(); }
   else if (feeder){ renderFeederCal(); renderPending(); renderBookingList(); }
 }
 

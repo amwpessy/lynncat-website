@@ -99,6 +99,38 @@ begin
   return json_build_object('ok', true, 'booking_id', v_id);
 end; $$;
 
+-- 客户批量预约：一次提交多个日期。未满的直接确认，已满的自动转为加号申请。
+-- 返回每天的处理结果：booked 已预约 | pending 加号待确认 | unavailable 不可约
+create or replace function book_days(
+  p_dates date[], p_name text, p_phone text, p_address text, p_pet text, p_notes text
+) returns json language plpgsql security definer as $$
+declare
+  v_d date; v_cnt int; v_avail bool; v_status text; v_results json[] := '{}';
+begin
+  foreach v_d in array (select array_agg(distinct x order by x) from unnest(p_dates) x) loop
+    select exists(select 1 from available_days where d = v_d) into v_avail;
+    if not v_avail
+       or v_d < current_date
+       or v_d > (current_date + interval '2 months')::date then
+      v_status := 'unavailable';
+    else
+      perform pg_advisory_xact_lock(hashtext(v_d::text));
+      select count(*) into v_cnt from bookings where d = v_d and status = 'confirmed';
+      if v_cnt >= 3 then
+        insert into bookings(d, customer_name, customer_phone, address, pet_info, notes, kind, status)
+        values (v_d, p_name, p_phone, p_address, p_pet, p_notes, 'extra', 'pending');
+        v_status := 'pending';
+      else
+        insert into bookings(d, customer_name, customer_phone, address, pet_info, notes, kind, status)
+        values (v_d, p_name, p_phone, p_address, p_pet, p_notes, 'normal', 'confirmed');
+        v_status := 'booked';
+      end if;
+    end if;
+    v_results := array_append(v_results, json_build_object('d', v_d, 'status', v_status));
+  end loop;
+  return json_build_object('ok', true, 'results', array_to_json(v_results));
+end; $$;
+
 -- ---------- 4. 喂猫员接口（都要带账号密码） ----------
 
 create or replace function feeder_login(p_user text, p_pass text)
@@ -157,6 +189,7 @@ alter table bookings       enable row level security;
 grant execute on function public_calendar()                                         to anon;
 grant execute on function book_day(date, text, text, text, text, text)              to anon;
 grant execute on function request_extra(date, text, text, text, text, text)         to anon;
+grant execute on function book_days(date[], text, text, text, text, text, text)     to anon;
 grant execute on function feeder_login(text, text)                                  to anon;
 grant execute on function feeder_overview(text, text)                               to anon;
 grant execute on function set_available_days(text, text, date[])                    to anon;
