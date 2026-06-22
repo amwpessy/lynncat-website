@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Lynncat 喂猫预约 — 喂猫员登记空闲时间，客户在线选择时段预约。">
+<title>Lynncat 喂猫预约 · Cat Feeding Booking</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f0f0f;
+    --surface: #1a1a1a;
+    --surface2: #222;
+    --border: #2a2a2a;
+    --text: #f0f0f0;
+    --muted: #888;
+    --accent: #f5a623;
+    --accent2: #e07020;
+    --green: #3ecf8e;
+    --red: #e0604f;
+    --radius: 16px;
+  }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height: 1.6; }
+
+  body[data-lang='en'] [data-zh]{ display:none; }
+  body[data-lang='zh'] [data-en]{ display:none; }
+  .lang-toggle{ background:none; border:1px solid var(--border); color:var(--muted); font-size:13px; padding:6px 14px; border-radius:100px; cursor:pointer; margin-left:20px; transition:all .2s; font-family:inherit; }
+  .lang-toggle:hover{ color:var(--text); border-color:var(--accent); }
+
+  nav { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: rgba(15,15,15,0.92); backdrop-filter: blur(12px); z-index: 100; }
+  .nav-logo { font-size: 19px; font-weight: 700; color: var(--accent); letter-spacing: -0.5px; text-decoration: none; }
+  .nav-right { display:flex; align-items:center; }
+
+  .wrap { max-width: 820px; margin: 0 auto; padding: 32px 20px 80px; }
+  .hero { text-align:center; padding: 24px 0 8px; }
+  .hero-cat { font-size: 48px; margin-bottom: 10px; }
+  .hero h1 { font-size: clamp(26px, 5vw, 36px); font-weight: 800; letter-spacing:-1px; line-height:1.15; }
+  .hero p { color: var(--muted); margin-top: 10px; font-size: 15px; }
+
+  /* role tabs */
+  .tabs { display:flex; gap:8px; background: var(--surface); border:1px solid var(--border); border-radius: 100px; padding:5px; margin: 28px auto; max-width: 380px; }
+  .tab { flex:1; text-align:center; padding:10px 14px; border-radius:100px; font-size:14px; font-weight:600; color: var(--muted); cursor:pointer; border:none; background:none; font-family:inherit; transition: all .2s; }
+  .tab.active { background: linear-gradient(135deg, var(--accent), var(--accent2)); color:#1a0e06; }
+
+  .card { background: var(--surface); border:1px solid var(--border); border-radius: var(--radius); padding: 22px; margin-bottom: 16px; }
+  .card h2 { font-size: 16px; margin-bottom: 4px; }
+  .card .sub { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
+
+  label { display:block; font-size: 13px; color: var(--muted); margin: 12px 0 6px; }
+  input, textarea, select {
+    width:100%; background: var(--surface2); border:1px solid var(--border); color: var(--text);
+    border-radius: 10px; padding: 11px 13px; font-size: 15px; font-family:inherit; transition: border-color .15s;
+  }
+  input:focus, textarea:focus, select:focus { outline:none; border-color: var(--accent); }
+  textarea { resize: vertical; min-height: 64px; }
+  .row { display:flex; gap:12px; flex-wrap:wrap; }
+  .row > div { flex:1; min-width: 130px; }
+
+  .btn { display:inline-flex; align-items:center; justify-content:center; gap:6px; background: linear-gradient(135deg, var(--accent), var(--accent2)); color:#1a0e06; border:none; border-radius: 10px; padding: 12px 20px; font-size: 15px; font-weight: 700; cursor:pointer; font-family:inherit; transition: opacity .2s, transform .1s; }
+  .btn:hover { opacity:.92; }
+  .btn:active { transform: translateY(1px); }
+  .btn[disabled]{ opacity:.5; cursor:not-allowed; }
+  .btn.full { width:100%; margin-top: 18px; }
+  .btn.ghost { background: none; border:1px solid var(--border); color: var(--muted); font-weight:600; }
+  .btn.ghost:hover { color: var(--text); border-color: var(--accent); }
+  .btn.sm { padding: 7px 14px; font-size: 13px; border-radius: 8px; }
+
+  .slot { display:flex; align-items:center; justify-content:space-between; gap:12px; background: var(--surface2); border:1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; }
+  .slot-info .t { font-weight: 700; font-size: 15px; }
+  .slot-info .m { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .date-group { margin-bottom: 22px; }
+  .date-head { font-size: 13px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: .5px; margin: 0 0 10px 2px; }
+
+  .pill { font-size: 12px; padding: 3px 10px; border-radius: 100px; font-weight: 600; }
+  .pill.open { background: rgba(62,207,142,.15); color: var(--green); }
+  .pill.booked { background: rgba(224,96,79,.15); color: var(--red); }
+
+  .empty { text-align:center; color: var(--muted); font-size: 14px; padding: 40px 0; }
+  .msg { border-radius: 10px; padding: 12px 14px; font-size: 14px; margin-top: 14px; }
+  .msg.ok { background: rgba(62,207,142,.12); color: var(--green); border:1px solid rgba(62,207,142,.3); }
+  .msg.err { background: rgba(224,96,79,.12); color: var(--red); border:1px solid rgba(224,96,79,.3); }
+
+  .banner { background: rgba(245,166,35,.1); border:1px solid rgba(245,166,35,.35); color: var(--accent); border-radius: 12px; padding: 14px 16px; font-size: 13px; margin-bottom: 20px; line-height:1.5; }
+  .hidden { display:none !important; }
+
+  /* modal */
+  .overlay { position: fixed; inset:0; background: rgba(0,0,0,.65); display:flex; align-items:flex-end; justify-content:center; z-index:200; padding: 0; }
+  .modal { background: var(--surface); border:1px solid var(--border); border-radius: 18px 18px 0 0; padding: 24px 20px 28px; width:100%; max-width: 520px; max-height: 92vh; overflow:auto; }
+  @media (min-width:560px){ .overlay{ align-items:center; padding:20px;} .modal{ border-radius:18px; } }
+  .modal h3 { font-size:18px; margin-bottom: 6px; }
+  .modal .sub { color: var(--muted); font-size: 13px; }
+
+  footer { border-top: 1px solid var(--border); padding: 28px 20px; text-align: center; }
+  footer p { font-size: 12px; color: var(--muted); }
+  footer a { color: var(--muted); text-decoration:none; }
+  footer a:hover { color: var(--text); }
+
+  .spinner { display:inline-block; width:15px; height:15px; border:2px solid rgba(0,0,0,.25); border-top-color:#1a0e06; border-radius:50%; animation:spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg);} }
+</style>
+</head>
+<body data-lang="zh">
+
+<nav>
+  <a class="nav-logo" href="/">🐱 Lynncat</a>
+  <div class="nav-right">
+    <a href="/" style="color:var(--muted);text-decoration:none;font-size:14px;"><span data-en>← Home</span><span data-zh>← 主站</span></a>
+    <button class="lang-toggle" onclick="toggleLang()"><span data-en>中文</span><span data-zh>English</span></button>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="hero">
+    <div class="hero-cat">🐾</div>
+    <h1><span data-en>Cat Feeding Booking</span><span data-zh>喂猫预约</span></h1>
+    <p><span data-en>Feeders post their free time · Customers pick a slot to book.</span><span data-zh>喂猫员登记空闲时间，客户在线选择时段预约。</span></p>
+  </div>
+
+  <div id="setupBanner" class="banner hidden">
+    <strong><span data-en>Setup needed:</span><span data-zh>尚未配置：</span></strong>
+    <span data-en>open <code>feeding/index.html</code>, fill in <code>SUPABASE_URL</code> and <code>SUPABASE_ANON_KEY</code> at the top of the script, and run <code>feeding/schema.sql</code> in your Supabase project.</span>
+    <span data-zh>请打开 <code>feeding/index.html</code>，把脚本顶部的 <code>SUPABASE_URL</code> 和 <code>SUPABASE_ANON_KEY</code> 填上，并在 Supabase 项目里运行 <code>feeding/schema.sql</code>。</span>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" id="tabCustomer" onclick="switchRole('customer')"><span data-en>I'm a Customer</span><span data-zh>我要预约</span></button>
+    <button class="tab" id="tabFeeder" onclick="switchRole('feeder')"><span data-en>I'm a Feeder</span><span data-zh>我是喂猫员</span></button>
+  </div>
+
+  <!-- ===================== CUSTOMER ===================== -->
+  <section id="viewCustomer">
+    <div class="card">
+      <h2><span data-en>Available time slots</span><span data-zh>可预约的时段</span></h2>
+      <p class="sub"><span data-en>Pick a slot that works for you and leave your details.</span><span data-zh>选择合适的时段，填写联系方式即可预约。</span></p>
+      <div id="slotList"><div class="empty"><span data-en>Loading…</span><span data-zh>加载中…</span></div></div>
+    </div>
+  </section>
+
+  <!-- ===================== FEEDER ===================== -->
+  <section id="viewFeeder" class="hidden">
+    <!-- login -->
+    <div class="card" id="feederLogin">
+      <h2><span data-en>Feeder sign in</span><span data-zh>喂猫员登记</span></h2>
+      <p class="sub"><span data-en>Enter your name and phone to manage your schedule.</span><span data-zh>输入名字和手机号即可管理你的排期。</span></p>
+      <div class="row">
+        <div>
+          <label><span data-en>Name</span><span data-zh>名字</span></label>
+          <input id="fName" autocomplete="name">
+        </div>
+        <div>
+          <label><span data-en>Phone</span><span data-zh>手机号</span></label>
+          <input id="fPhone" inputmode="tel" autocomplete="tel">
+        </div>
+      </div>
+      <button class="btn full" id="fLoginBtn" onclick="feederLogin()"><span data-en>Enter</span><span data-zh>进入</span></button>
+      <div id="fLoginMsg"></div>
+    </div>
+
+    <!-- dashboard -->
+    <div id="feederDash" class="hidden">
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+          <div>
+            <h2 style="margin:0;" id="fHi"></h2>
+            <p class="sub" style="margin:2px 0 0;" id="fPhoneLabel"></p>
+          </div>
+          <button class="btn ghost sm" onclick="feederLogout()"><span data-en>Sign out</span><span data-zh>退出</span></button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2><span data-en>Add free time</span><span data-zh>添加空闲时段</span></h2>
+        <p class="sub"><span data-en>Customers will be able to book these slots.</span><span data-zh>客户将能预约你添加的时段。</span></p>
+        <label><span data-en>Date</span><span data-zh>日期</span></label>
+        <input type="date" id="sDate">
+        <div class="row">
+          <div>
+            <label><span data-en>Start</span><span data-zh>开始时间</span></label>
+            <input type="time" id="sStart">
+          </div>
+          <div>
+            <label><span data-en>End</span><span data-zh>结束时间</span></label>
+            <input type="time" id="sEnd">
+          </div>
+        </div>
+        <button class="btn full" id="addSlotBtn" onclick="addSlot()"><span data-en>Add slot</span><span data-zh>添加时段</span></button>
+        <div id="addSlotMsg"></div>
+      </div>
+
+      <div class="card">
+        <h2><span data-en>My schedule</span><span data-zh>我的排期</span></h2>
+        <p class="sub"><span data-en>Booked slots show the customer's details.</span><span data-zh>已被预约的时段会显示客户信息。</span></p>
+        <div id="mySlots"><div class="empty"><span data-en>Loading…</span><span data-zh>加载中…</span></div></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- booking modal -->
+<div id="bookOverlay" class="overlay hidden">
+  <div class="modal">
+    <h3><span data-en>Book this slot</span><span data-zh>预约这个时段</span></h3>
+    <p class="sub" id="bookSlotLabel"></p>
+    <div class="row">
+      <div>
+        <label><span data-en>Your name</span><span data-zh>你的称呼</span></label>
+        <input id="cName" autocomplete="name">
+      </div>
+      <div>
+        <label><span data-en>Phone</span><span data-zh>手机号</span></label>
+        <input id="cPhone" inputmode="tel" autocomplete="tel">
+      </div>
+    </div>
+    <label><span data-en>Address</span><span data-zh>喂猫地址</span></label>
+    <input id="cAddr" autocomplete="street-address">
+    <label><span data-en>Cat / feeding info</span><span data-zh>猫咪与喂食说明</span></label>
+    <textarea id="cPet" placeholder=""></textarea>
+    <label><span data-en>Notes (optional)</span><span data-zh>备注（可选）</span></label>
+    <textarea id="cNotes"></textarea>
+    <div id="bookMsg"></div>
+    <div class="row" style="margin-top:18px;">
+      <button class="btn ghost" style="flex:0 0 auto;" onclick="closeBook()"><span data-en>Cancel</span><span data-zh>取消</span></button>
+      <button class="btn" style="flex:1;" id="bookBtn" onclick="confirmBook()"><span data-en>Confirm booking</span><span data-zh>确认预约</span></button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <p>© 2026 Lynncat · <a href="mailto:amwpessy@gmail.com">amwpessy@gmail.com</a></p>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* ============================================================
+   配置：填入你 Supabase 项目的地址和 anon key
+   （Supabase 控制台 → Project Settings → API）
+   ============================================================ */
+const SUPABASE_URL = "https://ndwafsoitodanawxfdob.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_7mxUvl503DLkuRw006Atug_mkspk6Eb";
+
+/* ---------------- 多语言 ---------------- */
+function lang(){ return document.body.getAttribute('data-lang'); }
+const T = {
+  zh: {
+    booked:'已被预约', open:'可预约', book:'预约', del:'删除',
+    needLogin:'请填写名字和手机号', welcome:n=>'你好，'+n,
+    noSlots:'目前还没有可预约的时段，稍后再来看看吧。',
+    noMine:'你还没有添加任何时段。',
+    addOk:'时段已添加 ✓', timeBad:'结束时间要晚于开始时间', fillTime:'请填写完整的日期和时间',
+    bookOk:'预约成功！喂猫员会与你联系 🐱', taken:'抱歉，这个时段刚刚被别人预约了',
+    needBook:'请至少填写称呼和手机号', confirmDel:'确定删除这个时段？',
+    cust:'客户', phone:'电话', addr:'地址', pet:'猫咪说明', note:'备注',
+    err:'出错了，请稍后再试'
+  },
+  en: {
+    booked:'Booked', open:'Open', book:'Book', del:'Delete',
+    needLogin:'Please enter name and phone', welcome:n=>'Hi, '+n,
+    noSlots:'No open slots yet — check back soon.',
+    noMine:'You haven’t added any slots yet.',
+    addOk:'Slot added ✓', timeBad:'End time must be after start time', fillTime:'Please fill date and both times',
+    bookOk:'Booked! The feeder will reach out 🐱', taken:'Sorry, that slot was just taken',
+    needBook:'Please enter at least your name and phone', confirmDel:'Delete this slot?',
+    cust:'Customer', phone:'Phone', addr:'Address', pet:'Cat info', note:'Notes',
+    err:'Something went wrong, please try again'
+  }
+};
+function t(k){ return T[lang()][k]; }
+
+/* ---------------- 语言切换 ---------------- */
+(function(){
+  function apply(l){
+    document.body.setAttribute('data-lang', l);
+    document.documentElement.lang = (l === 'zh' ? 'zh-Hant' : 'en');
+    try { localStorage.setItem('lynncat-lang', l); } catch(e){}
+    if (window.__inited) rerender();
+  }
+  window.toggleLang = function(){ apply(lang() === 'en' ? 'zh' : 'en'); };
+  let saved = 'zh';
+  try { saved = localStorage.getItem('lynncat-lang') || 'zh'; } catch(e){}
+  apply(saved);
+})();
+
+/* ---------------- Supabase ---------------- */
+const configured = SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 20;
+let sb = null;
+if (configured) sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+else document.getElementById('setupBanner').classList.remove('hidden');
+
+/* ---------------- 工具 ---------------- */
+function esc(s){ return (s==null?'':String(s)).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function hhmm(t){ return (t||'').slice(0,5); }
+function fmtDate(d){
+  const dt = new Date(d + 'T00:00:00');
+  const opt = { month:'short', day:'numeric', weekday:'short' };
+  return dt.toLocaleDateString(lang()==='zh'?'zh-CN':'en-US', opt);
+}
+function showMsg(el, type, text){ el.innerHTML = '<div class="msg '+type+'">'+esc(text)+'</div>'; }
+function clearMsg(el){ el.innerHTML=''; }
+
+/* ---------------- 角色切换 ---------------- */
+let role = 'customer';
+function switchRole(r){
+  role = r;
+  document.getElementById('tabCustomer').classList.toggle('active', r==='customer');
+  document.getElementById('tabFeeder').classList.toggle('active', r==='feeder');
+  document.getElementById('viewCustomer').classList.toggle('hidden', r!=='customer');
+  document.getElementById('viewFeeder').classList.toggle('hidden', r!=='feeder');
+  if (r==='customer') loadOpenSlots();
+  else if (feeder) loadMySlots();
+}
+
+/* ===================== 客户：浏览 + 预约 ===================== */
+async function loadOpenSlots(){
+  if (!sb) return;
+  const list = document.getElementById('slotList');
+  const today = new Date().toISOString().slice(0,10);
+  const { data, error } = await sb.from('slots')
+    .select('id,feeder_name,slot_date,start_time,end_time')
+    .eq('status','open').gte('slot_date', today)
+    .order('slot_date').order('start_time');
+  if (error){ list.innerHTML = '<div class="empty">'+esc(t('err'))+'</div>'; return; }
+  renderOpenSlots(data || []);
+}
+let _openSlots = [];
+function renderOpenSlots(data){
+  _openSlots = data;
+  const list = document.getElementById('slotList');
+  if (!data.length){ list.innerHTML = '<div class="empty">'+esc(t('noSlots'))+'</div>'; return; }
+  const groups = {};
+  data.forEach(s => { (groups[s.slot_date] ||= []).push(s); });
+  let html = '';
+  Object.keys(groups).sort().forEach(date => {
+    html += '<div class="date-group"><div class="date-head">'+esc(fmtDate(date))+'</div>';
+    groups[date].forEach(s => {
+      html += '<div class="slot"><div class="slot-info">'
+        + '<div class="t">'+hhmm(s.start_time)+' – '+hhmm(s.end_time)+'</div>'
+        + '<div class="m">🐱 '+esc(s.feeder_name)+'</div></div>'
+        + '<button class="btn sm" onclick="openBook(\''+s.id+'\')">'+esc(t('book'))+'</button></div>';
+    });
+    html += '</div>';
+  });
+  list.innerHTML = html;
+}
+
+let bookingSlotId = null;
+function openBook(id){
+  const s = _openSlots.find(x => x.id === id);
+  if (!s) return;
+  bookingSlotId = id;
+  document.getElementById('bookSlotLabel').textContent =
+    fmtDate(s.slot_date) + ' · ' + hhmm(s.start_time) + ' – ' + hhmm(s.end_time) + ' · ' + s.feeder_name;
+  clearMsg(document.getElementById('bookMsg'));
+  document.getElementById('bookOverlay').classList.remove('hidden');
+}
+function closeBook(){ document.getElementById('bookOverlay').classList.add('hidden'); bookingSlotId=null; }
+
+async function confirmBook(){
+  const name = document.getElementById('cName').value.trim();
+  const phone = document.getElementById('cPhone').value.trim();
+  const msg = document.getElementById('bookMsg');
+  if (!name || !phone){ showMsg(msg,'err',t('needBook')); return; }
+  const btn = document.getElementById('bookBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  const { data, error } = await sb.rpc('book_slot', {
+    p_slot_id: bookingSlotId, p_name: name, p_phone: phone,
+    p_address: document.getElementById('cAddr').value.trim(),
+    p_pet_info: document.getElementById('cPet').value.trim(),
+    p_notes: document.getElementById('cNotes').value.trim()
+  });
+  btn.disabled = false; btn.innerHTML = '<span data-en>Confirm booking</span><span data-zh>确认预约</span>';
+  if (error){ showMsg(msg,'err',t('err')); return; }
+  if (!data || !data.ok){ showMsg(msg,'err',t('taken')); loadOpenSlots(); return; }
+  showMsg(msg,'ok',t('bookOk'));
+  ['cName','cPhone','cAddr','cPet','cNotes'].forEach(id=>document.getElementById(id).value='');
+  setTimeout(()=>{ closeBook(); loadOpenSlots(); }, 1400);
+}
+
+/* ===================== 喂猫员 ===================== */
+let feeder = null;
+try { feeder = JSON.parse(localStorage.getItem('lynncat-feeder') || 'null'); } catch(e){}
+
+async function feederLogin(){
+  const name = document.getElementById('fName').value.trim();
+  const phone = document.getElementById('fPhone').value.trim();
+  const msg = document.getElementById('fLoginMsg');
+  if (!name || !phone){ showMsg(msg,'err',t('needLogin')); return; }
+  const btn = document.getElementById('fLoginBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  const { data, error } = await sb.rpc('find_or_create_feeder', { p_name:name, p_phone:phone });
+  btn.disabled = false; btn.innerHTML = '<span data-en>Enter</span><span data-zh>进入</span>';
+  if (error || !data){ showMsg(msg,'err',t('err')); return; }
+  feeder = data;
+  try { localStorage.setItem('lynncat-feeder', JSON.stringify(feeder)); } catch(e){}
+  showFeederDash();
+}
+function feederLogout(){
+  feeder = null;
+  try { localStorage.removeItem('lynncat-feeder'); } catch(e){}
+  document.getElementById('feederDash').classList.add('hidden');
+  document.getElementById('feederLogin').classList.remove('hidden');
+}
+function showFeederDash(){
+  document.getElementById('feederLogin').classList.add('hidden');
+  document.getElementById('feederDash').classList.remove('hidden');
+  document.getElementById('fHi').textContent = t('welcome')(feeder.name);
+  document.getElementById('fPhoneLabel').textContent = feeder.phone;
+  loadMySlots();
+}
+
+async function addSlot(){
+  const date = document.getElementById('sDate').value;
+  const start = document.getElementById('sStart').value;
+  const end = document.getElementById('sEnd').value;
+  const msg = document.getElementById('addSlotMsg');
+  if (!date || !start || !end){ showMsg(msg,'err',t('fillTime')); return; }
+  if (end <= start){ showMsg(msg,'err',t('timeBad')); return; }
+  const btn = document.getElementById('addSlotBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  const { error } = await sb.from('slots').insert({
+    feeder_id: feeder.id, feeder_name: feeder.name, feeder_phone: feeder.phone,
+    slot_date: date, start_time: start, end_time: end, status: 'open'
+  });
+  btn.disabled = false; btn.innerHTML = '<span data-en>Add slot</span><span data-zh>添加时段</span>';
+  if (error){ showMsg(msg,'err',t('err')); return; }
+  showMsg(msg,'ok',t('addOk'));
+  document.getElementById('sStart').value=''; document.getElementById('sEnd').value='';
+  loadMySlots();
+  setTimeout(()=>clearMsg(msg), 2000);
+}
+
+let _mySlots = [], _myBookings = {};
+async function loadMySlots(){
+  if (!sb || !feeder) return;
+  const box = document.getElementById('mySlots');
+  const today = new Date().toISOString().slice(0,10);
+  const { data: slots, error } = await sb.from('slots')
+    .select('id,slot_date,start_time,end_time,status')
+    .eq('feeder_id', feeder.id).gte('slot_date', today)
+    .order('slot_date').order('start_time');
+  if (error){ box.innerHTML = '<div class="empty">'+esc(t('err'))+'</div>'; return; }
+  const bookedIds = (slots||[]).filter(s=>s.status==='booked').map(s=>s.id);
+  _myBookings = {};
+  if (bookedIds.length){
+    const { data: bk } = await sb.from('bookings')
+      .select('slot_id,customer_name,customer_phone,address,pet_info,notes')
+      .in('slot_id', bookedIds);
+    (bk||[]).forEach(b => { _myBookings[b.slot_id] = b; });
+  }
+  renderMySlots(slots || []);
+}
+function renderMySlots(slots){
+  _mySlots = slots;
+  const box = document.getElementById('mySlots');
+  if (!slots.length){ box.innerHTML = '<div class="empty">'+esc(t('noMine'))+'</div>'; return; }
+  const groups = {};
+  slots.forEach(s => { (groups[s.slot_date] ||= []).push(s); });
+  let html = '';
+  Object.keys(groups).sort().forEach(date => {
+    html += '<div class="date-group"><div class="date-head">'+esc(fmtDate(date))+'</div>';
+    groups[date].forEach(s => {
+      const booked = s.status === 'booked';
+      html += '<div class="slot"><div class="slot-info">'
+        + '<div class="t">'+hhmm(s.start_time)+' – '+hhmm(s.end_time)
+        + ' <span class="pill '+(booked?'booked':'open')+'">'+(booked?esc(t('booked')):esc(t('open')))+'</span></div>';
+      if (booked && _myBookings[s.id]){
+        const b = _myBookings[s.id];
+        html += '<div class="m">👤 '+esc(b.customer_name)+' · 📞 '+esc(b.customer_phone)+'</div>';
+        if (b.address) html += '<div class="m">📍 '+esc(b.address)+'</div>';
+        if (b.pet_info) html += '<div class="m">🐈 '+esc(b.pet_info)+'</div>';
+        if (b.notes) html += '<div class="m">📝 '+esc(b.notes)+'</div>';
+      }
+      html += '</div>';
+      if (!booked) html += '<button class="btn ghost sm" onclick="delSlot(\''+s.id+'\')">'+esc(t('del'))+'</button>';
+      html += '</div>';
+    });
+    html += '</div>';
+  });
+  box.innerHTML = html;
+}
+async function delSlot(id){
+  if (!confirm(t('confirmDel'))) return;
+  const { error } = await sb.from('slots').delete().eq('id', id).eq('status','open');
+  if (!error) loadMySlots();
+}
+
+/* ---------------- 重新渲染（语言切换时） ---------------- */
+function rerender(){
+  if (role==='customer') renderOpenSlots(_openSlots);
+  else if (feeder){
+    document.getElementById('fHi').textContent = t('welcome')(feeder.name);
+    renderMySlots(_mySlots);
+  }
+}
+
+/* ---------------- 初始化 ---------------- */
+window.__inited = true;
+(function init(){
+  const d = document.getElementById('sDate');
+  if (d) d.value = new Date().toISOString().slice(0,10);
+  if (feeder) showFeederDash();
+  if (configured) loadOpenSlots();
+  else {
+    document.getElementById('slotList').innerHTML = '<div class="empty"><span data-en>Backend not configured yet.</span><span data-zh>后端尚未配置。</span></div>';
+  }
+})();
+</script>
+</body>
+</html>
