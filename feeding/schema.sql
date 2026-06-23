@@ -195,6 +195,29 @@ begin
   return json_build_object('ok', true);
 end; $$;
 
+-- 喂猫员修改某个订单的内容
+create or replace function update_booking(
+  p_user text, p_pass text, p_id uuid,
+  p_name text, p_phone text, p_address text, p_pet text, p_notes text
+) returns json language plpgsql security definer as $$
+begin
+  if not _check_feeder(p_user, p_pass) then return json_build_object('ok', false); end if;
+  update bookings set
+    customer_name = p_name, customer_phone = p_phone,
+    address = p_address, pet_info = p_pet, notes = p_notes
+  where id = p_id;
+  return json_build_object('ok', true);
+end; $$;
+
+-- 喂猫员删除某个订单
+create or replace function delete_booking(p_user text, p_pass text, p_id uuid)
+returns json language plpgsql security definer as $$
+begin
+  if not _check_feeder(p_user, p_pass) then return json_build_object('ok', false); end if;
+  delete from bookings where id = p_id;
+  return json_build_object('ok', true);
+end; $$;
+
 -- ---------- 5. 安全：开启 RLS 且不加任何策略，所有访问只能走上面的函数 ----------
 alter table available_days enable row level security;
 alter table bookings       enable row level security;
@@ -208,3 +231,5 @@ grant execute on function feeder_login(text, text)                              
 grant execute on function feeder_overview(text, text)                               to anon;
 grant execute on function set_available_days(text, text, date[])                    to anon;
 grant execute on function decide_request(text, text, uuid, boolean)                 to anon;
+grant execute on function update_booking(text, text, uuid, text, text, text, text, text) to anon;
+grant execute on function delete_booking(text, text, uuid)                          to anon;

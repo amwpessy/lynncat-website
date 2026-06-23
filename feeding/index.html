@@ -261,7 +261,7 @@
     <div class="chips" id="serviceChips"></div>
     <label><span data-en>Feeding</span><span data-zh>猫咪喂食习惯</span></label>
     <div class="chips" id="feedChips"></div>
-    <label><span data-en>Notes (portion &amp; ratio, optional)</span><span data-zh>备注 / 份量比例（可选）</span></label>
+    <label><span data-en>Notes (optional)</span><span data-zh>备注（可选）</span></label>
     <textarea id="cNotes"></textarea>
     <div id="bookMsg"></div>
     <div class="row" style="margin-top:18px;">
@@ -283,6 +283,36 @@
     </div>
     <div id="myList" style="margin-top:16px;"></div>
     <button class="btn ghost full" onclick="closeMy()"><span data-en>Close</span><span data-zh>关闭</span></button>
+  </div>
+</div>
+
+<!-- 喂猫员修改订单 -->
+<div id="editOverlay" class="overlay hidden">
+  <div class="modal">
+    <h3><span data-en>Edit order</span><span data-zh>修改订单</span></h3>
+    <p class="sub" id="editDateLabel"></p>
+    <div class="row">
+      <div>
+        <label><span data-en>Name</span><span data-zh>称呼</span></label>
+        <input id="eName" autocomplete="off">
+      </div>
+      <div>
+        <label><span data-en>Phone</span><span data-zh>手机号</span></label>
+        <input id="ePhone" inputmode="tel" autocomplete="off">
+      </div>
+    </div>
+    <label><span data-en>Address</span><span data-zh>喂猫地址</span></label>
+    <input id="eAddr" autocomplete="off">
+    <label><span data-en>Cat info / services</span><span data-zh>猫咪与服务信息</span></label>
+    <textarea id="ePet"></textarea>
+    <label><span data-en>Notes</span><span data-zh>备注</span></label>
+    <textarea id="eNotes"></textarea>
+    <div id="editMsg"></div>
+    <div class="row" style="margin-top:18px;">
+      <button class="btn ghost" style="flex:0 0 auto;" onclick="closeEdit()"><span data-en>Cancel</span><span data-zh>取消</span></button>
+      <button class="btn" style="flex:1;" onclick="saveEdit()"><span data-en>Save</span><span data-zh>保存</span></button>
+    </div>
+    <button class="btn red full" style="margin-top:10px;" onclick="deleteEdit()"><span data-en>Delete this order</span><span data-zh>删除该单</span></button>
   </div>
 </div>
 
@@ -325,7 +355,8 @@ const T = {
     selN:n=>'已选 '+n+' 天', batchTitle:n=>'预约 '+n+' 天', batchBtn:n=>'确认预约 '+n+' 天',
     selDatesLabel:'已选日期', batchFull:n=>'其中 '+n+' 天已约满，将作为加号申请，需喂猫员确认。',
     sumBooked:n=>'✅ '+n+' 天预约成功', sumPending:n=>n+' 天已满，加号申请待确认', sumUnavail:n=>n+' 天不可约',
-    rejected:'已拒绝', enterPhone:'请输入手机号', noMyBk:'没有找到预约记录'
+    rejected:'已拒绝', enterPhone:'请输入手机号', noMyBk:'没有找到预约记录',
+    confirmDelOrder:'确定删除这个订单？', editSaved:'已保存 ✓'
   },
   en: {
     needUser:'Enter username and password', wrong:'Wrong username or password', welcome:'Welcome back',
@@ -342,7 +373,8 @@ const T = {
     selN:n=>n+' day'+(n>1?'s':'')+' selected', batchTitle:n=>'Book '+n+' day'+(n>1?'s':''), batchBtn:n=>'Confirm '+n+' day'+(n>1?'s':''),
     selDatesLabel:'Selected dates', batchFull:n=>n+' of them '+(n>1?'are':'is')+' full — will be sent as extra-slot request(s) for approval.',
     sumBooked:n=>'✅ '+n+' day'+(n>1?'s':'')+' booked', sumPending:n=>n+' full — extra request(s) pending', sumUnavail:n=>n+' unavailable',
-    rejected:'Rejected', enterPhone:'Please enter your phone', noMyBk:'No bookings found'
+    rejected:'Rejected', enterPhone:'Please enter your phone', noMyBk:'No bookings found',
+    confirmDelOrder:'Delete this order?', editSaved:'Saved ✓'
   }
 };
 function t(k){ return T[lang()][k]; }
@@ -503,8 +535,8 @@ function renderChips(){
     + esc(lang()==='zh'?s.zh:s.en) + '</button>').join('');
   const notes = document.getElementById('cNotes');
   if (notes) notes.placeholder = lang()==='zh'
-    ? '建议填写单次份量及比例，如：主食粮 20g/餐、冻干 5 颗、湿包半包'
-    : 'e.g. portion & ratio per meal: 20g kibble, 5 freeze-dried, half wet pouch';
+    ? '可填喂食比例、其他服务需求（如梳毛、陪玩、上药等）'
+    : 'e.g. feeding ratio, other needs (grooming, play, meds…)';
 }
 function setCount(c){ selectedCount = c; renderChips(); }
 function toggleService(id){ selectedServices.has(id) ? selectedServices.delete(id) : selectedServices.add(id); renderChips(); }
@@ -741,10 +773,54 @@ function renderBookingList(){
       if (b.pet_info) info += '<div class="m">🐈 '+esc(b.pet_info)+'</div>';
       if (b.notes) info += '<div class="m">📝 '+esc(b.notes)+'</div>';
       const tag = b.kind==='extra' ? '<span class="tag extra">'+esc(t('extra'))+'</span>' : '';
-      html += '<div class="slot"><div><div class="t">'+esc(t('confirmed'))+tag+'</div>'+info+'</div></div>';
+      html += '<div class="slot" style="cursor:pointer;" onclick="openEdit(\''+b.id+'\')"><div><div class="t">'+esc(t('confirmed'))+tag+'</div>'+info+'</div><span style="color:var(--muted);font-size:14px;flex-shrink:0;">✏️</span></div>';
     });
   });
   box.innerHTML = html;
+}
+
+/* ----- 喂猫员修改/删除订单 ----- */
+let editId = null;
+function openEdit(id){
+  const b = feederBookings.find(x => x.id === id);
+  if (!b) return;
+  editId = id;
+  const st = b.status==='confirmed' ? t('confirmed') : (b.status==='pending' ? t('pending') : t('rejected'));
+  document.getElementById('editDateLabel').textContent =
+    fmtDate(b.d) + ' · ' + st + (b.kind==='extra' ? ' · '+t('extra') : '');
+  document.getElementById('eName').value  = b.customer_name || '';
+  document.getElementById('ePhone').value = b.customer_phone || '';
+  document.getElementById('eAddr').value  = b.address || '';
+  document.getElementById('ePet').value   = b.pet_info || '';
+  document.getElementById('eNotes').value = b.notes || '';
+  clearMsg(document.getElementById('editMsg'));
+  document.getElementById('editOverlay').classList.remove('hidden');
+}
+function closeEdit(){ document.getElementById('editOverlay').classList.add('hidden'); editId = null; }
+async function saveEdit(){
+  if (!editId || !feeder) return;
+  const msg = document.getElementById('editMsg');
+  const name = document.getElementById('eName').value.trim();
+  const phone = document.getElementById('ePhone').value.trim();
+  if (!name || !phone){ showMsg(msg,'err',t('needBook')); return; }
+  const { data, error } = await sb.rpc('update_booking', {
+    p_user:feeder.user, p_pass:feeder.pass, p_id:editId,
+    p_name:name, p_phone:phone,
+    p_address:document.getElementById('eAddr').value.trim(),
+    p_pet:document.getElementById('ePet').value.trim(),
+    p_notes:document.getElementById('eNotes').value.trim()
+  });
+  if (error || !data || !data.ok){ showMsg(msg,'err',t('err')); return; }
+  closeEdit(); loadFeederOverview();
+}
+async function deleteEdit(){
+  if (!editId || !feeder) return;
+  if (!confirm(t('confirmDelOrder'))) return;
+  const { data, error } = await sb.rpc('delete_booking', {
+    p_user:feeder.user, p_pass:feeder.pass, p_id:editId
+  });
+  if (error || !data || !data.ok){ showMsg(document.getElementById('editMsg'),'err',t('err')); return; }
+  closeEdit(); loadFeederOverview();
 }
 
 /* ---------------- 语言切换时重绘 ---------------- */
