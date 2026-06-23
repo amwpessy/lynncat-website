@@ -1,0 +1,97 @@
+.page { background: #f0f4f8; padding-bottom: 24px; }
+
+/* 加载 */
+.loading-bar { display: flex; align-items: center; gap: 5px; padding: 10px 16px; }
+.loading-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: #2563eb;
+  animation: blink 1.2s ease-in-out infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
+.loading-txt { font-size: 12px; color: #64748b; }
+
+/* 分区标题 */
+.section-label {
+  font-size: 13px; font-weight: 600; color: #475569;
+  padding: 13px 16px 5px; letter-spacing: 0.5px;
+}
+
+/* 卡片 */
+.card {
+  background: #fff; border-radius: 10px;
+  padding: 11px 10px;
+  box-shadow: 0 1px 6px rgba(0,0,0,.06);
+  margin: 0 12px 8px;
+}
+.card-blue  { border-left: 2.5px solid #2563eb; }
+.card-plain { border-left: 2.5px solid #e2e8f0; }
+
+.divider { height: 0.5px; background: #f1f5f9; margin: 7px 0; }
+
+/* 摘要 */
+.summary-grid { display: flex; align-items: center; gap: 0; padding: 3px 0; }
+.sg-item  { flex: 1; display: flex; flex-direction: column; gap: 2.5px; align-items: center; }
+.sg-divider { width: 0.5px; height: 35px; background: #f1f5f9; }
+.sg-label { font-size: 11px; color: #94a3b8; }
+.sg-val   { font-size: 14px; font-weight: 700; }
+.sg-val.blue { color: #2563eb; }
+.sg-val.red  { color: #dc2626; }
+.sg-date  { font-size: 9.5px; color: #94a3b8; }
+
+.max-row  { display: flex; justify-content: space-between; align-items: center; }
+.max-label { font-size: 11px; color: #64748b; }
+.max-right { text-align: right; }
+.max-val  { font-size: 13px; font-weight: 700; color: #dc2626; }
+.max-date { font-size: 9.5px; color: #94a3b8; margin-top: 1.5px; }
+
+/* 表格通用 */
+.tbl-header {
+  display: flex; align-items: center;
+  background: #f8fafc; border-radius: 5px;
+  padding: 5px 3px; margin-bottom: 2px;
+  font-size: 9.5px; font-weight: 600; color: #94a3b8;
+}
+.tbl-row { display: flex; align-items: center; padding: 6px 3px; gap: 3px; }
+.tbl-divider { height: 0.5px; background: #f8fafc; }
+
+/* 万亿里程碑列 */
+.mil-tril-col  { width: 74px; flex-shrink: 0; }
+.mil-date-col  { width: 77.5px; flex-shrink: 0; }
+.mil-days-col  { width: 52.5px; flex-shrink: 0; }
+.mil-note-col  { flex: 1; min-width: 0; }
+
+.mil-badge { font-size: 11px; font-weight: 700; color: #1e293b; }
+.mil-fast  { color: #dc2626; }
+.mil-date  { font-size: 10px; color: #475569; }
+.mil-days  { font-size: 11px; font-weight: 600; }
+.days-fast { color: #dc2626; }
+.days-slow { color: #059669; }
+
+.speed-badge { display: inline-block; font-size: 9.5px; font-weight: 600; padding: 1.5px 6px; border-radius: 10px; }
+.speed-fast  { background: #fef2f2; color: #dc2626; }
+.speed-slow  { background: #ecfdf5; color: #059669; }
+
+.mil-note { font-size: 9px; color: #94a3b8; margin-top: 5px; padding: 0 3px; line-height: 1.5; }
+
+/* 每日数据列 */
+.day-date-col  { width: 77.5px; flex-shrink: 0; }
+.day-total-col { width: 80px; flex-shrink: 0; }
+.day-chg-col   { width: 75px; flex-shrink: 0; }
+.day-pct-col   { flex: 1; }
+
+.day-date  { font-size: 10.5px; color: #475569; }
+.day-total { font-size: 10.5px; font-weight: 600; color: #1e293b; }
+.day-chg   { font-size: 10.5px; font-weight: 600; }
+.day-pct   { font-size: 10.5px; font-weight: 600; }
+
+.up   { color: #dc2626; }
+.dn   { color: #059669; }
+.flat { color: #94a3b8; }
+
+/* 底部 */
+.footer { margin-top: 18px; padding: 0 16px; text-align: center; }
+.footer-brand { font-size: 12.5px; font-weight: 700; color: #1e40af; letter-spacing: 1.5px; margin-bottom: 4px; }
+.footer-src   { font-size: 9.5px; color: #94a3b8; line-height: 1.9; }
+.footer-disc  { font-size: 9.5px; color: #b0bec5; margin-top: 2px; }
+
+.mil-note-txt { font-size: 9.5px; color: #64748b; line-height: 1.5; }
+.mil-footer-note { font-size: 9px; color: #94a3b8; margin-top: 5px; padding: 0 3px; }

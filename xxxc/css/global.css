@@ -1,0 +1,40 @@
+/* 全局 · 稀赢新材网页版（由小程序转换） */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  background: #dfe5ee;
+  font-family: -apple-system, 'PingFang SC', 'Helvetica Neue', sans-serif;
+  color: #0f172a;
+  -webkit-font-smoothing: antialiased;
+}
+.app {
+  max-width: 480px;
+  margin: 0 auto;
+  background: #f0f4f8;
+  min-height: 100vh;
+  position: relative;
+  box-shadow: 0 0 40px rgba(0,0,0,.08);
+}
+
+/* 顶部导航条（替代小程序原生导航栏） */
+.navbar {
+  position: sticky; top: 0; z-index: 50;
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 14px;
+  color: #fff;
+}
+.navbar .nav-back {
+  font-size: 15px; color: #fff; text-decoration: none;
+  display: inline-flex; align-items: center; gap: 3px;
+  opacity: .92;
+}
+.navbar .nav-back:active { opacity: .6; }
+.navbar .nav-title {
+  font-size: 16px; font-weight: 600; letter-spacing: .5px;
+  flex: 1; text-align: center;
+}
+.navbar .nav-spacer { width: 46px; flex-shrink: 0; }
+
+/* 让被 <a> 包裹的卡片不显示下划线/默认颜色 */
+a.card-link { text-decoration: none; color: inherit; display: block; }
+a.card-link:active { opacity: .85; }
