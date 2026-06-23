@@ -38,7 +38,7 @@ create index bookings_day_idx on bookings (d);
 -- 如需改账号/密码，改这里的两个字符串即可。
 create or replace function _check_feeder(p_user text, p_pass text)
 returns boolean language sql immutable as $$
-  select p_user = 'lynncathouse88' and p_pass = '15820535337';
+  select p_user = 'lynncathouse88' and p_pass = '13178673413';
 $$;
 
 -- ---------- 3. 公开接口（客户用，不需要密码，只返回名额数量、不含隐私） ----------
