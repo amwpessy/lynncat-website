@@ -255,6 +255,9 @@
     </div>
     <label><span data-en>Address</span><span data-zh>喂猫地址</span></label>
     <input id="cAddr" autocomplete="street-address">
+    <label><span data-en>Access method</span><span data-zh>开门方式</span></label>
+    <div class="chips" id="doorChips"></div>
+    <input id="cDoor" autocomplete="off" style="margin-top:8px;">
     <label><span data-en>Number of cats</span><span data-zh>猫咪只数</span></label>
     <div class="chips" id="catCountChips"></div>
     <label><span data-en>Services needed</span><span data-zh>需要的服务</span></label>
@@ -516,9 +519,14 @@ const FEEDS = [
   {id:'stick',  zh:'猫条',   en:'Treat sticks'},
   {id:'wet',    zh:'湿包',   en:'Wet food'}
 ];
+const DOORS = [
+  {id:'key',  zh:'钥匙',   en:'Key'},
+  {id:'code', zh:'密码锁', en:'Keypad lock'}
+];
 let selectedCount = '1';
 let selectedServices = new Set();
 let selectedFeeds = new Set();
+let selectedDoor = '';
 function renderChips(){
   const cc = document.getElementById('catCountChips');
   const sc = document.getElementById('serviceChips');
@@ -533,6 +541,16 @@ function renderChips(){
   fc.innerHTML = FEEDS.map(s =>
     '<button type="button" class="chip'+(selectedFeeds.has(s.id)?' on':'')+'" onclick="toggleFeed(\''+s.id+'\')">'
     + esc(lang()==='zh'?s.zh:s.en) + '</button>').join('');
+  const dc = document.getElementById('doorChips');
+  if (dc) dc.innerHTML = DOORS.map(s =>
+    '<button type="button" class="chip'+(selectedDoor===s.id?' on':'')+'" onclick="setDoor(\''+s.id+'\')">'
+    + esc(lang()==='zh'?s.zh:s.en) + '</button>').join('');
+  const door = document.getElementById('cDoor');
+  if (door) door.placeholder = selectedDoor==='code'
+    ? (lang()==='zh'?'请设置临时密码':'Set a temporary code')
+    : selectedDoor==='key'
+    ? (lang()==='zh'?'钥匙放置点（如门口地垫下、信箱）':'Where the key is (e.g. under the doormat)')
+    : (lang()==='zh'?'先选择开门方式':'Select an access method first');
   const notes = document.getElementById('cNotes');
   if (notes) notes.placeholder = lang()==='zh'
     ? '可填喂食比例、其他服务需求（如梳毛、陪玩、上药等）'
@@ -541,11 +559,17 @@ function renderChips(){
 function setCount(c){ selectedCount = c; renderChips(); }
 function toggleService(id){ selectedServices.has(id) ? selectedServices.delete(id) : selectedServices.add(id); renderChips(); }
 function toggleFeed(id){ selectedFeeds.has(id) ? selectedFeeds.delete(id) : selectedFeeds.add(id); renderChips(); }
+function setDoor(id){ selectedDoor = (selectedDoor===id ? '' : id); renderChips(); }
 function composePet(){
   // 统一用中文存储，方便喂猫员阅读
   const parts = [ selectedCount + '只猫' ];
   if (selectedServices.size) parts.push(SERVICES.filter(s=>selectedServices.has(s.id)).map(s=>s.zh).join('、'));
   if (selectedFeeds.size) parts.push('喂食：' + FEEDS.filter(s=>selectedFeeds.has(s.id)).map(s=>s.zh).join('、'));
+  if (selectedDoor){
+    const dn = selectedDoor==='code' ? '密码锁' : '钥匙';
+    const det = (document.getElementById('cDoor').value || '').trim();
+    parts.push('开门：' + dn + (det ? '（'+det+'）' : ''));
+  }
   return parts.join(' · ');
 }
 
@@ -558,9 +582,11 @@ function applyProfile(){
   document.getElementById('cPhone').value = p.phone || '';
   document.getElementById('cAddr').value  = p.addr  || '';
   document.getElementById('cNotes').value = p.notes || '';
+  document.getElementById('cDoor').value = p.door_detail || '';
   selectedCount = p.count || '1';
   selectedServices = new Set(p.services || []);
   selectedFeeds = new Set(p.feeds || []);
+  selectedDoor = p.door || '';
   renderChips();
 }
 function saveProfile(){
@@ -569,7 +595,8 @@ function saveProfile(){
     phone: document.getElementById('cPhone').value.trim(),
     addr:  document.getElementById('cAddr').value.trim(),
     notes: document.getElementById('cNotes').value.trim(),
-    count: selectedCount, services: Array.from(selectedServices), feeds: Array.from(selectedFeeds)
+    count: selectedCount, services: Array.from(selectedServices), feeds: Array.from(selectedFeeds),
+    door: selectedDoor, door_detail: document.getElementById('cDoor').value.trim()
   };
   try { localStorage.setItem('lynncat-cust-profile', JSON.stringify(custProfile)); } catch(e){}
 }
