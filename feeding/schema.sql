@@ -131,6 +131,19 @@ begin
   return json_build_object('ok', true, 'results', array_to_json(v_results));
 end; $$;
 
+-- 客户查询自己的预约记录（按手机号，仅返回该号码的近两个月记录）
+create or replace function my_bookings(p_phone text)
+returns json language sql stable security definer as $$
+  select coalesce(json_agg(row_to_json(b)), '[]'::json)
+  from (
+    select d, kind, status, pet_info, notes, created_at
+    from bookings
+    where customer_phone = p_phone
+      and d >= (current_date - interval '2 months')::date
+    order by d desc
+  ) b;
+$$;
+
 -- ---------- 4. 喂猫员接口（都要带账号密码） ----------
 
 create or replace function feeder_login(p_user text, p_pass text)
@@ -190,6 +203,7 @@ grant execute on function public_calendar()                                     
 grant execute on function book_day(date, text, text, text, text, text)              to anon;
 grant execute on function request_extra(date, text, text, text, text, text)         to anon;
 grant execute on function book_days(date[], text, text, text, text, text)           to anon;
+grant execute on function my_bookings(text)                                          to anon;
 grant execute on function feeder_login(text, text)                                  to anon;
 grant execute on function feeder_overview(text, text)                               to anon;
 grant execute on function set_available_days(text, text, date[])                    to anon;
