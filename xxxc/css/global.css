@@ -38,3 +38,5 @@ body {
 /* 让被 <a> 包裹的卡片不显示下划线/默认颜色 */
 a.card-link { text-decoration: none; color: inherit; display: block; }
 a.card-link:active { opacity: .85; }
+
+/* 电脑端布局见 theme.css（多列仪表盘 + 表格页加宽） */

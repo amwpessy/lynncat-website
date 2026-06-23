@@ -1,0 +1,153 @@
+/* ============================================================
+   稀赢新材 · 品牌主题（与 Lynncat 主页一致）
+   - 夜间深色 / 白天浅色，按北京时间自动切换
+   - 橙金色品牌点缀，极简卡片
+   本文件在各页自身 CSS 之后加载，用于统一覆盖配色。
+   ============================================================ */
+:root {
+  --bg:#0f0f0f; --surface:#1a1a1a; --surface2:#232323; --border:#2a2a2a;
+  --text:#f0f0f0; --muted:#9a9a9a; --faint:#6a6a6a;
+  --accent:#f5a623; --accent2:#e07020;
+  --chip-bg:rgba(255,255,255,.07);
+  --shadow:0 2px 14px rgba(0,0,0,.5);
+}
+:root[data-theme='light'] {
+  --bg:#f6f6f8; --surface:#ffffff; --surface2:#f0f0f3; --border:#e3e3e8;
+  --text:#1b1b1f; --muted:#6a6a72; --faint:#9a9aa2;
+  --accent:#b35e09; --accent2:#8f4408;
+  --chip-bg:rgba(0,0,0,.05);
+  --shadow:0 2px 12px rgba(0,0,0,.06);
+}
+
+/* ── 基础容器 ── */
+body { background: var(--bg); color: var(--text); }
+.app { background: var(--bg); box-shadow: none; }
+.page { background: var(--bg) !important; }
+
+/* ── 顶部导航条（子页面）── */
+.navbar { background: var(--surface); border-bottom: 1px solid var(--border); color: var(--text); }
+.navbar .nav-back { color: var(--accent); }
+.navbar .nav-title { color: var(--text); }
+
+/* ── 品牌头部（首页）── */
+.header { background: var(--surface) !important; border-bottom: 1px solid var(--border); }
+.logo { background: var(--chip-bg) !important; border-color: var(--border) !important; color: var(--accent) !important; }
+.brand { color: var(--text); }
+.brand-sub { color: var(--muted); }
+.live-txt { color: var(--text); }
+.statusbar { background: var(--surface2); border-bottom: 1px solid var(--border); color: var(--muted); }
+.status-time, .status-cnt { color: var(--muted); }
+
+/* ── 分区标题 ── */
+.section-label, .index-group-lbl { color: var(--muted); }
+
+/* ── 卡片表面 ── */
+.card, .card-plain, .tbl-wrap, .overview-card, .tab-bar {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+.card-rare { background: var(--surface); }
+.rare-item, .fx-box, .progress-wrap { background: var(--surface2); }
+
+/* 资产左侧色条保留作为标识（在两种主题都醒目）；只需让背景跟随主题。
+   overview-card 取消大色块渐变，改为表面色 + 左侧色条标识。 */
+.overview-card { background: var(--surface) !important; border-left: 4px solid #3b82f6; }
+.overview-card.cn-card { background: var(--surface) !important; border-left-color: #ef4444; }
+.ov-title { color: var(--text); }
+.ov-month, .ov-label, .ov-note { color: var(--muted); }
+.ov-val { color: var(--text); }
+
+/* ── 分隔线 / 进度条底 ── */
+.divider, .tbl-divider, .row-divider, .sg-divider, .ratio-sep, .bar-bg { background: var(--border); }
+
+/* ── 表头 ── */
+.tbl-header, .cn-header { background: var(--surface2); color: var(--muted); }
+.tbl-header .tbl-date-col, .tbl-header .tbl-event-col, .tbl-header .tbl-impact-col { color: var(--muted); }
+
+/* ── 中性主文字 → 主题文字色 ── */
+.debt-int, .metal-price, .index-price, .fx-rate, .br-val, .max-val,
+.ratio-val, .mil-badge, .day-total, .tbl-title, .risk-title, .risk-group-label,
+.name-main, .sales-num, .sg-val {
+  color: var(--text);
+}
+
+/* ── 次要 / 说明文字 → muted ── */
+.debt-sym, .debt-dec, .debt-sub, .br-label, .metal-unit, .sub-lbl,
+.ratio-lbl, .ratio-eq, .ratio-unit, .index-name, .fx-unit, .fx-box-lbl,
+.fx-k, .fx-arr, .rare-date, .rare-symbol, .rare-use, .rare-note,
+.auto-month, .auto-tip, .tbl-desc, .risk-desc, .mil-note, .mil-note-txt,
+.mil-footer-note, .ml-date, .ml-cny, .ml-note, .day-date, .name-sub,
+.name-note, .sg-label, .sg-date, .sg-sub, .loading-txt, .footer-src,
+.footer-disc, .max-label, .max-date, .progress-txt, .tbl-date, .tbl-imp {
+  color: var(--muted);
+}
+
+/* ── 品牌橙金点缀 ── */
+.footer-brand { color: var(--accent); }
+.rare-source, .rare-price { color: var(--accent); }
+.progress-fill { background: linear-gradient(90deg, var(--accent2), var(--accent)); }
+
+/* ── 标签 / 徽章 → 统一为半透明底片 ── */
+.card-tag { background: var(--chip-bg) !important; color: var(--muted) !important; }
+.badge, .event-tag, .affect-tag, .risk-level, .type-badge, .rank-badge, .speed-badge {
+  background: var(--chip-bg) !important;
+}
+.rank-badge { color: var(--text) !important; }
+.rank-top { background: rgba(245,166,35,.16) !important; color: var(--accent) !important; }
+
+/* ── Tab 选中态 → 橙金 ── */
+.tab-item { color: var(--muted); }
+.tab-active, .tab-active-cn { background: var(--accent) !important; color: #fff !important; }
+
+/* 兼容：被 <a class="card-link"> 包裹的卡片，链接色不影响内部主题文字 */
+a.card-link { color: inherit; }
+
+/* ── 首页头部「返回主页」按钮 ── */
+.header-right { flex-direction: column; align-items: flex-end; gap: 7px; }
+.home-btn {
+  font-size: 12px; font-weight: 600; text-decoration: none;
+  color: var(--accent); border: 1px solid var(--border);
+  background: var(--chip-bg); padding: 5px 12px; border-radius: 100px;
+  white-space: nowrap;
+}
+.home-btn:active { opacity: .7; }
+.live-wrap { display: flex; align-items: center; gap: 6px; }
+
+/* ── 子页面导航「主页」链接 ── */
+.navbar .nav-home { font-size: 14px; color: var(--accent); text-decoration: none; width: 46px; text-align: right; flex-shrink: 0; }
+.navbar .nav-home:active { opacity: .6; }
+
+/* ============================================================
+   电脑端布局：不再是「手机窄条」，而是真正的桌面仪表盘
+   - 子页面（表格）：加宽居中
+   - 首页：更宽 + 多列瀑布流，铺满横向空间
+   ============================================================ */
+@media (min-width: 900px) {
+  html { background: var(--bg); }
+  body { min-height: 100vh; background: var(--bg); padding: 30px 24px; }
+
+  .app {
+    max-width: 880px;                 /* 子页面默认宽度 */
+    min-height: 0;
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    box-shadow: 0 24px 70px rgba(0,0,0,.42);
+  }
+  :root[data-theme='light'] .app { box-shadow: 0 24px 70px rgba(28,48,86,.16), 0 6px 20px rgba(28,48,86,.08); }
+  .app > .navbar { border-radius: 18px 18px 0 0; }
+  .app > .page > .header { border-radius: 18px 18px 0 0; }
+
+  /* 首页仪表盘（含 .board）更宽并分多列 */
+  .app:has(.board) { max-width: 1180px; }
+  .board { column-count: 2; column-gap: 18px; padding: 6px 14px 0; }
+  .board > .block { break-inside: avoid; }
+  .board .section-label, .board .index-group-lbl { padding-left: 4px; padding-right: 4px; }
+  .board .row2 { padding: 0 0 12px; }
+  .board .card-blue, .board .card-fx, .board .card-plain { margin: 0 0 12px !important; }
+}
+
+@media (min-width: 1500px) {
+  .app:has(.board) { max-width: 1500px; }
+  .board { column-count: 3; }
+}
