@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>中国汽车销量 · 稀赢新材</title>
+<link rel="stylesheet" href="css/global.css">
+<link rel="stylesheet" href="css/autoCN.css">
+</head>
+<body>
+<div class="app">
+  <div class="navbar" style="background:#dc2626">
+    <a class="nav-back" href="index">‹ 返回</a>
+    <div class="nav-title">中国汽车销量</div>
+    <div class="nav-spacer"></div>
+  </div>
+  <div class="page">
+
+    <div class="overview-card cn-card">
+      <div class="ov-title">🇨🇳 中国乘用车销量</div>
+      <div class="ov-month">2026年5月 · 更新 2026-06-02</div>
+      <div class="ov-row">
+        <div class="ov-item"><div class="ov-label">当月总销量</div><div class="ov-val">约140万辆</div></div>
+        <div class="ov-item"><div class="ov-label">同比增长</div><div class="ov-val dn">同比下降（国内连续7月下滑）</div></div>
+        <div class="ov-item"><div class="ov-label">新能源渗透率</div><div class="ov-val nev">新能源渗透率持续提升</div></div>
+      </div>
+      <div class="ov-note">数据来源：乘联分会批发口径</div>
+    </div>
+
+    <div class="tab-bar">
+      <div class="tab-item tab-active-cn" data-tab="brand">🏭 厂商排名</div>
+      <div class="tab-item" data-tab="model">🚗 车型排名</div>
+    </div>
+
+    <div data-panel="brand">
+      <div class="tbl-wrap">
+        <div class="tbl-header cn-header">
+          <div class="col-rank">名次</div><div class="col-name">厂商</div>
+          <div class="col-sales">销量</div><div class="col-yoy">同比</div><div class="col-mom">环比</div>
+        </div>
+        <div id="brandList"></div>
+      </div>
+    </div>
+
+    <div data-panel="model" style="display:none">
+      <div class="tbl-wrap">
+        <div class="tbl-header cn-header">
+          <div class="col-rank">名次</div><div class="col-model">车型</div>
+          <div class="col-sales">销量</div><div class="col-yoy">同比</div><div class="col-mom">环比</div>
+        </div>
+        <div id="modelList"></div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div class="footer-brand">稀赢新材 · XIYINGXINCAI</div>
+      <div class="footer-src">数据来源：乘联分会 · IT之家 · 懂车帝 · 中国汽车流通协会</div>
+      <div class="footer-disc">仅供参考，不构成投资建议</div>
+    </div>
+
+  </div>
+</div>
+<script src="data.js"></script>
+<script>window.AUTO_CFG = { key: 'autoCN', headerClass: 'cn-header', tabActiveClass: 'tab-active-cn' };</script>
+<script src="js/auto.js"></script>
+</body>
+</html>

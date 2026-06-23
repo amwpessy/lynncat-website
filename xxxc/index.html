@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="description" content="稀赢新材 · 市场数据实时追踪 — 黄金/白银/铂金/钯金/大饼/美股A股指数/美元人民币汇率/美国国债/稀有金属报价/汽车销量">
+<title>稀赢新材 · 市场数据</title>
+<link rel="stylesheet" href="css/global.css">
+<link rel="stylesheet" href="css/index.css">
+</head>
+<body>
+<div class="app">
+  <div class="page">
+
+    <!-- ══ 品牌头部 ══ -->
+    <div class="header">
+      <div class="header-left">
+        <div class="logo">稀赢</div>
+        <div>
+          <div class="brand">稀赢新材</div>
+          <div class="brand-sub">市场数据实时追踪</div>
+        </div>
+      </div>
+      <div class="header-right">
+        <div class="live-dot" id="liveDot"></div>
+        <div class="live-txt" id="liveTxt">加载中</div>
+      </div>
+    </div>
+
+    <!-- ══ 状态栏 ══ -->
+    <div class="statusbar" id="statusbar" style="display:none">
+      <span class="status-time" id="statusTime"></span>
+      <span class="status-cnt" id="statusCnt"></span>
+    </div>
+
+    <!-- ══ 美国国债 ══ -->
+    <div class="section-label">🇺🇸 美国国债</div>
+    <a class="card-link" href="debt"><div class="card card-blue">
+      <div class="card-tag tag-blue">Total Public Debt Outstanding</div>
+      <div class="debt-num">
+        <span class="debt-sym">$</span><span class="debt-int" id="debtInt">—</span><span class="debt-dec" id="debtDec">.00</span>
+      </div>
+      <div class="debt-sub">≈ <span class="hl-blue" id="debtTril">—</span> 万亿美元　数据日期 <span id="debtDate">—</span></div>
+      <div class="divider"></div>
+      <div class="br-item">
+        <div class="br-row"><span class="br-label">公众持有</span><span class="br-pct blue" id="debtPubPct">—</span></div>
+        <div class="br-val">$<span id="debtPubFmt">—</span></div>
+        <div class="bar-bg"><div class="bar-fill bar-blue" id="debtPubBar" style="width:0%"></div></div>
+      </div>
+      <div class="br-item mt12">
+        <div class="br-row"><span class="br-label">政府内部持有</span><span class="br-pct amber" id="debtGovPct">—</span></div>
+        <div class="br-val">$<span id="debtGovFmt">—</span></div>
+        <div class="bar-bg"><div class="bar-fill bar-amber" id="debtGovBar" style="width:0%"></div></div>
+      </div>
+    </div></a>
+
+    <!-- ══ 贵金属 ══ -->
+    <div class="section-label">🥇 贵金属</div>
+    <div class="row2">
+      <a class="card-link" href="gold" style="flex:1;min-width:0"><div class="card card-gold" data-metal="gold">
+        <div class="card-tag tag-gold">黄金 · XAU/USD</div>
+        <div class="metal-price">$<span class="m-price">—</span></div>
+        <div class="metal-unit">美元 / 盎司</div>
+        <div class="chg-row"><span class="badge flat m-badge">◆ —%</span></div>
+        <div class="divider"></div>
+        <div class="sub2">
+          <div class="sub-item"><div class="sub-lbl">每克 ¥</div><div class="sub-val m-gram">—</div></div>
+          <div class="sub-item"><div class="sub-lbl">每公斤 ¥</div><div class="sub-val m-kg">—</div></div>
+        </div>
+      </div></a>
+      <a class="card-link" href="silver" style="flex:1;min-width:0"><div class="card card-silver" data-metal="silver">
+        <div class="card-tag tag-silver">白银 · XAG/USD</div>
+        <div class="metal-price">$<span class="m-price">—</span></div>
+        <div class="metal-unit">美元 / 盎司</div>
+        <div class="chg-row"><span class="badge flat m-badge">◆ —%</span></div>
+        <div class="divider"></div>
+        <div class="sub2">
+          <div class="sub-item"><div class="sub-lbl">每克 ¥</div><div class="sub-val m-gram">—</div></div>
+          <div class="sub-item"><div class="sub-lbl">每公斤 ¥</div><div class="sub-val m-kg">—</div></div>
+        </div>
+      </div></a>
+    </div>
+
+    <div class="row2">
+      <div class="card card-platinum" data-metal="platinum">
+        <div class="card-tag tag-platinum">铂金 · XPT/USD</div>
+        <div class="metal-price">$<span class="m-price">—</span></div>
+        <div class="metal-unit">美元 / 盎司</div>
+        <div class="chg-row"><span class="badge flat m-badge">◆ —%</span></div>
+        <div class="divider"></div>
+        <div class="sub2">
+          <div class="sub-item"><div class="sub-lbl">每克 ¥</div><div class="sub-val m-gram">—</div></div>
+          <div class="sub-item"><div class="sub-lbl">每公斤 ¥</div><div class="sub-val m-kg">—</div></div>
+        </div>
+      </div>
+      <div class="card card-palladium" data-metal="palladium">
+        <div class="card-tag tag-palladium">钯金 · XPD/USD</div>
+        <div class="metal-price">$<span class="m-price">—</span></div>
+        <div class="metal-unit">美元 / 盎司</div>
+        <div class="chg-row"><span class="badge flat m-badge">◆ —%</span></div>
+        <div class="divider"></div>
+        <div class="sub2">
+          <div class="sub-item"><div class="sub-lbl">每克 ¥</div><div class="sub-val m-gram">—</div></div>
+          <div class="sub-item"><div class="sub-lbl">每公斤 ¥</div><div class="sub-val m-kg">—</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ 稀有金属报价 ══ -->
+    <div class="section-label">🔬 稀有金属报价</div>
+    <div class="card card-rare">
+      <div class="rare-header">
+        <div class="rare-source">📋 稀赢新材市场报价</div>
+        <div class="rare-date">更新：<span id="rareDate">—</span></div>
+      </div>
+      <div class="rare-grid" id="rareGrid"></div>
+      <div class="rare-note">单位：元人民币/千克（CNY/KG）· 仅供参考</div>
+    </div>
+
+    <!-- ══ 大饼 + 比价 ══ -->
+    <div class="section-label">🪙 大饼</div>
+    <div class="row2">
+      <div class="card card-btc">
+        <div class="card-tag tag-btc">大饼 · BTC/USD</div>
+        <div class="metal-price">$<span id="btcPrice">—</span></div>
+        <div class="metal-unit">美元 / 枚</div>
+        <div class="chg-row"><span class="badge flat" id="btcBadge">◆ —%</span></div>
+        <div class="divider"></div>
+        <div class="sub2">
+          <div class="sub-item"><div class="sub-lbl">折合人民币</div><div class="sub-val">¥<span id="btcCny">—</span></div></div>
+          <div class="sub-item"><div class="sub-lbl">今日涨跌</div><div class="sub-val flat" id="btcChg">◆ —%</div></div>
+        </div>
+      </div>
+      <div class="card card-ratio">
+        <div class="card-tag tag-ratio">⚖️ 黄金 vs 大饼</div>
+        <div class="ratio-block">
+          <div class="ratio-item">
+            <div class="ratio-lbl">1千克黄金</div>
+            <div class="ratio-eq">≈</div>
+            <div class="ratio-val flat" id="ratioGoldBtc">—</div>
+            <div class="ratio-unit">BTC</div>
+          </div>
+          <div class="ratio-sep"></div>
+          <div class="ratio-item">
+            <div class="ratio-lbl">1枚大饼</div>
+            <div class="ratio-eq">≈</div>
+            <div class="ratio-val" id="ratioBtcGold">—</div>
+            <div class="ratio-unit">克黄金</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ 股票指数 ══ -->
+    <div class="section-label">📈 股票指数</div>
+    <div class="index-group-lbl">🇺🇸 美股</div>
+    <div class="row2">
+      <div class="card card-nasdaq">
+        <div class="card-tag tag-nasdaq">纳斯达克</div>
+        <div class="index-name">NASDAQ Composite</div>
+        <div class="index-price" id="nasdaqPrice">—</div>
+        <span class="badge flat" id="nasdaqBadge">◆ —%</span>
+      </div>
+      <div class="card card-sp">
+        <div class="card-tag tag-sp">标普 500</div>
+        <div class="index-name">S&amp;P 500</div>
+        <div class="index-price" id="spPrice">—</div>
+        <span class="badge flat" id="spBadge">◆ —%</span>
+      </div>
+    </div>
+    <div class="index-group-lbl">🇨🇳 A股</div>
+    <div class="row2">
+      <div class="card card-sh">
+        <div class="card-tag tag-sh">上证指数</div>
+        <div class="index-name">SSE Composite</div>
+        <div class="index-price" id="shPrice">—</div>
+        <span class="badge flat" id="shBadge">◆ —%</span>
+      </div>
+      <div class="card card-sz">
+        <div class="card-tag tag-sz">深证成指</div>
+        <div class="index-name">SZSE Component</div>
+        <div class="index-price" id="szPrice">—</div>
+        <span class="badge flat" id="szBadge">◆ —%</span>
+      </div>
+    </div>
+
+    <!-- ══ 汽车销量 ══ -->
+    <div class="section-label">🚗 汽车销量</div>
+    <div class="row2">
+      <a class="card-link" href="autoUS" style="flex:1;min-width:0"><div class="card card-autoUS">
+        <div class="card-tag tag-autoUS">🇺🇸 美国市场</div>
+        <div class="auto-total">144 万辆</div>
+        <div class="auto-month">2026年5月（预估）</div>
+        <div class="auto-yoy up">▲ 首次同比转正</div>
+        <div class="auto-tip">点击查看厂商/车型排名 →</div>
+      </div></a>
+      <a class="card-link" href="autoCN" style="flex:1;min-width:0"><div class="card card-autoCN">
+        <div class="card-tag tag-autoCN">🇨🇳 中国市场</div>
+        <div class="auto-total">140 万辆</div>
+        <div class="auto-month">2026年5月</div>
+        <div class="auto-yoy dn">▼ 国内连续7月下滑</div>
+        <div class="auto-tip">零跑+81%，奇瑞出口创纪录 →</div>
+      </div></a>
+    </div>
+
+    <!-- ══ 汇率 ══ -->
+    <div class="section-label">💱 美元 / 人民币</div>
+    <div class="card card-fx">
+      <div class="card-tag tag-fx">USD / CNY · 实时汇率</div>
+      <div class="fx-main">
+        <div>
+          <div class="fx-rate" id="fxRate">—</div>
+          <div class="fx-unit">人民币 / 美元</div>
+        </div>
+        <div class="fx-box">
+          <div class="fx-big">¥<span id="fxR1000">—</span></div>
+          <div class="fx-box-lbl">1000美元约合</div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="fx-grid">
+        <div class="fx-row"><span class="fx-k">1 USD</span><span class="fx-arr">→</span><span class="fx-v">¥ <span id="fxRate2">—</span></span></div>
+        <div class="fx-row"><span class="fx-k">1 CNY</span><span class="fx-arr">→</span><span class="fx-v">$ <span id="fxInverse">—</span></span></div>
+      </div>
+    </div>
+
+    <!-- ══ 市场重要事件 ══ -->
+    <div class="section-label">📅 近期重要事件</div>
+    <div class="card card-plain" style="margin:0 12px 8px">
+      <div class="tbl-header">
+        <div class="tbl-date-col">事件节点</div>
+        <div class="tbl-event-col">事件</div>
+        <div class="tbl-impact-col">核心利空影响</div>
+      </div>
+      <div id="eventsList"></div>
+    </div>
+
+    <!-- ══ 核心利空/利多因素 ══ -->
+    <div class="section-label">🎯 市场核心因素</div>
+    <div class="card card-plain" style="margin:0 12px 8px">
+      <div class="risk-group-label">⚠️ 主要利空</div>
+      <div id="risksRisk"></div>
+      <div class="divider" style="margin:7px 0"></div>
+      <div class="risk-group-label">✅ 主要支撑</div>
+      <div id="risksSupport"></div>
+    </div>
+
+    <!-- ══ 倒计时进度条 ══ -->
+    <div class="progress-wrap">
+      <div class="progress-fill" id="progressFill" style="width:100%"></div>
+      <span class="progress-txt" id="progressTxt">10 秒后刷新</span>
+    </div>
+
+    <!-- ══ 底部 ══ -->
+    <div class="footer">
+      <div class="footer-brand">稀赢新材 · XIYINGXINCAI</div>
+      <div class="footer-src">国债: fiscaldata.treasury.gov · 贵金属/大饼: gold-api.com</div>
+      <div class="footer-src">汇率: open.er-api.com · 指数: hq.sinajs.cn</div>
+      <div class="footer-disc">仅供参考，不构成投资建议</div>
+    </div>
+
+  </div>
+</div>
+<script src="data.js"></script>
+<script src="js/index.js"></script>
+</body>
+</html>

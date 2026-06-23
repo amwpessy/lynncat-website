@@ -1,0 +1,280 @@
+/* ── 基础 ── */
+.page { background: #f0f4f8; padding-bottom: 24px; }
+
+/* ── 头部 ── */
+.header {
+  background: linear-gradient(135deg, #1e40af, #1d4ed8);
+  padding: 22px 16px 14px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.header-left { display: flex; align-items: center; gap: 9px; }
+.logo {
+  width: 38px; height: 38px; line-height: 38px; text-align: center;
+  background: rgba(255,255,255,.2); border: 1px solid rgba(255,255,255,.3);
+  border-radius: 9px; font-size: 12px; font-weight: 700; color: #fff;
+}
+.brand     { font-size: 17px; font-weight: 700; color: #fff; letter-spacing: 1px; }
+.brand-sub { font-size: 11px; color: rgba(255,255,255,.75); margin-top: 1.5px; }
+.header-right { display: flex; align-items: center; gap: 4px; }
+.live-dot {
+  width: 5px; height: 5px; border-radius: 50%; background: #4ade80;
+  animation: blink 1.4s ease-in-out infinite;
+}
+.live-dot.loading { background: #fbbf24; animation: none; }
+.live-txt { font-size: 11px; font-weight: 600; color: #fff; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+/* ── 状态栏 ── */
+.statusbar {
+  display: flex; justify-content: space-between;
+  padding: 6px 16px; background: #e8edf5;
+  border-bottom: 0.5px solid #d0d9e8;
+  font-size: 11px; color: #64748b;
+}
+
+/* ── 分区标题 ── */
+.section-label {
+  font-size: 13px; font-weight: 600; color: #475569;
+  padding: 13px 16px 5px; letter-spacing: 0.5px;
+}
+.index-group-lbl {
+  font-size: 11.5px; color: #94a3b8;
+  padding: 3px 16px 4px;
+}
+
+/* ── 卡片通用 ── */
+.card {
+  background: #fff; border-radius: 10px;
+  padding: 13px 11px;
+  box-shadow: 0 1px 6px rgba(0,0,0,.06);
+}
+.row2 {
+  display: flex; gap: 7px;
+  padding: 0 12px 8px;
+}
+.row2 .card { flex: 1; min-width: 0; }
+
+/* 左边框颜色 */
+.card-blue   { border-left: 2.5px solid #2563eb; margin: 0 12px 8px; }
+.card-gold   { border-left: 2.5px solid #d97706; }
+.card-silver { border-left: 2.5px solid #6366f1; }
+.card-btc    { border-left: 2.5px solid #f59e0b; }
+.card-ratio  { border-left: 2.5px solid #8b5cf6; }
+.card-nasdaq { border-left: 2.5px solid #7c3aed; }
+.card-sp     { border-left: 2.5px solid #0ea5e9; }
+.card-sh     { border-left: 2.5px solid #dc2626; }
+.card-sz     { border-left: 2.5px solid #ea580c; }
+.card-fx     { border-left: 2.5px solid #059669; margin: 0 12px 8px; }
+
+/* ── 标签 ── */
+.card-tag {
+  font-size: 9.5px; font-weight: 600; letter-spacing: 0.5px;
+  text-transform: uppercase; border-radius: 3.5px;
+  padding: 2px 6px; display: inline-block; margin-bottom: 7px;
+}
+.tag-blue   { background: #eff6ff; color: #2563eb; }
+.tag-gold   { background: #fef3c7; color: #b45309; }
+.tag-silver { background: #eef2ff; color: #4f46e5; }
+.tag-btc    { background: #fffbeb; color: #b45309; }
+.tag-ratio  { background: #f5f3ff; color: #7c3aed; }
+.tag-nasdaq { background: #f5f3ff; color: #7c3aed; }
+.tag-sp     { background: #f0f9ff; color: #0369a1; }
+.tag-sh     { background: #fef2f2; color: #dc2626; }
+.tag-sz     { background: #fff7ed; color: #ea580c; }
+.tag-fx     { background: #ecfdf5; color: #059669; }
+
+/* ── 分隔线 ── */
+.divider { height: 0.5px; background: #f1f5f9; margin: 8px 0; }
+.mt12    { margin-top: 6px; }
+
+/* ── 国债 ── */
+.debt-num { display: flex; align-items: baseline; gap: 1.5px; flex-wrap: wrap; margin-bottom: 4px; }
+.debt-sym { font-size: 15px; color: #64748b; }
+.debt-int { font-size: 24px; font-weight: 700; color: #0f172a; letter-spacing: -0.5px; }
+.debt-dec { font-size: 14px; color: #94a3b8; }
+.debt-sub { font-size: 11.5px; color: #64748b; margin-bottom: 2px; }
+.hl-blue  { color: #2563eb; font-weight: 600; }
+
+.br-row   { display: flex; justify-content: space-between; margin-bottom: 3px; }
+.br-label { font-size: 11.5px; color: #64748b; }
+.br-pct   { font-size: 11.5px; font-weight: 600; }
+.br-pct.blue  { color: #2563eb; }
+.br-pct.amber { color: #d97706; }
+.br-val   { font-size: 13.5px; font-weight: 600; color: #1e293b; margin-bottom: 4px; }
+.bar-bg   { height: 3.5px; background: #f1f5f9; border-radius: 2px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 2px; transition: width 1s ease; }
+.bar-blue  { background: linear-gradient(90deg, #93c5fd, #2563eb); }
+.bar-amber { background: linear-gradient(90deg, #fcd34d, #d97706); }
+
+/* ── 贵金属 / 大饼 ── */
+.metal-price { font-size: 19px; font-weight: 700; color: #0f172a; letter-spacing: -0.25px; margin-bottom: 1.5px; }
+.metal-unit  { font-size: 10px; color: #94a3b8; margin-bottom: 5px; }
+.chg-row     { margin-bottom: 2px; }
+
+.badge { display: inline-block; font-size: 10.5px; font-weight: 600; padding: 2px 5px; border-radius: 3.5px; }
+.up   { background: #ecfdf5; color: #059669; }
+.dn   { background: #fef2f2; color: #dc2626; }
+.flat { background: #f8fafc; color: #94a3b8; }
+
+.sub2 { display: flex; gap: 5px; }
+.sub-item { flex: 1; }
+.sub-lbl  { font-size: 9.5px; color: #94a3b8; margin-bottom: 1.5px; }
+.sub-val  { font-size: 11.5px; font-weight: 600; color: #334155; }
+.sub-val.up   { color: #059669; }
+.sub-val.dn   { color: #dc2626; }
+.sub-val.flat { color: #94a3b8; }
+
+/* ── 比价 ── */
+.ratio-block { display: flex; align-items: center; justify-content: space-around; padding: 4px 0; }
+.ratio-item  { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.ratio-lbl   { font-size: 10px; color: #94a3b8; }
+.ratio-eq    { font-size: 12px; color: #cbd5e1; }
+.ratio-val   { font-size: 15px; font-weight: 700; color: #1e293b; }
+.ratio-val.up { color: #059669; }
+.ratio-val.dn { color: #dc2626; }
+.ratio-unit  { font-size: 9.5px; color: #94a3b8; margin-top: -2px; }
+.ratio-sep   { width: 0.5px; height: 40px; background: #f1f5f9; }
+
+/* ── 指数 ── */
+.index-name  { font-size: 10px; color: #94a3b8; margin-bottom: 4px; }
+.index-price { font-size: 17px; font-weight: 700; color: #0f172a; margin-bottom: 4px; letter-spacing: -0.25px; }
+
+/* ── 汇率 ── */
+.fx-main  { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2px; }
+.fx-rate  { font-size: 29px; font-weight: 700; color: #0f172a; letter-spacing: -0.5px; line-height: 1.1; }
+.fx-unit  { font-size: 10.5px; color: #94a3b8; margin-top: 2px; }
+.fx-box   { text-align: right; background: #ecfdf5; border-radius: 7px; padding: 7px 8px; }
+.fx-big   { font-size: 17px; font-weight: 700; color: #059669; }
+.fx-box-lbl { font-size: 9.5px; color: #6b7280; margin-top: 1.5px; }
+.fx-grid  { display: flex; flex-direction: column; gap: 7px; }
+.fx-row   { display: flex; align-items: center; gap: 7px; }
+.fx-k     { font-size: 11.5px; color: #64748b; width: 75px; }
+.fx-arr   { font-size: 11px; color: #cbd5e1; }
+.fx-v     { font-size: 12.5px; font-weight: 600; color: #1e293b; }
+
+/* ── 进度条 ── */
+.progress-wrap {
+  position: relative; margin: 3px 12px 0;
+  height: 23px; background: #e2e8f0; border-radius: 11.5px;
+  overflow: hidden; display: flex; align-items: center; justify-content: center;
+}
+.progress-fill {
+  position: absolute; left:0; top:0; bottom:0;
+  background: linear-gradient(90deg, #93c5fd, #2563eb);
+  border-radius: 11.5px; transition: width .9s linear;
+}
+.progress-txt { position: relative; z-index:1; font-size: 11px; color: #334155; font-weight: 500; }
+
+/* ── 底部 ── */
+.footer { margin-top: 18px; padding: 0 16px; text-align: center; }
+.footer-brand { font-size: 12.5px; font-weight: 700; color: #1e40af; letter-spacing: 1.5px; margin-bottom: 5px; }
+.footer-src   { font-size: 9.5px; color: #94a3b8; line-height: 1.9; }
+.footer-disc  { font-size: 9.5px; color: #b0bec5; margin-top: 3px; }
+
+/* 事件日历（表格样式）*/
+.card-plain { background: #fff; border-radius: 10px; padding: 8px 10px; box-shadow: 0 1px 6px rgba(0,0,0,.06); }
+
+.tbl-header {
+  display: flex; align-items: center;
+  background: #f8fafc; border-radius: 5px;
+  padding: 5px 4px; margin-bottom: 2px;
+}
+.tbl-header .tbl-date-col,
+.tbl-header .tbl-event-col,
+.tbl-header .tbl-impact-col {
+  font-size: 10px; font-weight: 600; color: #94a3b8;
+}
+.tbl-row {
+  display: flex; align-items: flex-start;
+  padding: 7px 4px; gap: 5px;
+}
+.tbl-date-col  { width: 75px; flex-shrink: 0; display: flex; flex-direction: column; gap: 3px; }
+.tbl-event-col { width: 90px; flex-shrink: 0; display: flex; flex-direction: column; gap: 2.5px; }
+.tbl-impact-col{ flex: 1; min-width: 0; }
+
+.tbl-date  { font-size: 10px; font-weight: 600; color: #334155; }
+.tbl-title { font-size: 11px; font-weight: 600; color: #1e293b; line-height: 1.4; }
+.tbl-imp   { font-size: 9px; font-weight: 600; }
+.tbl-desc  { font-size: 9.5px; color: #64748b; line-height: 1.5; }
+.tbl-divider { height: 0.5px; background: #f1f5f9; margin: 0 4px; }
+
+.event-tag { font-size: 8.5px; font-weight: 600; padding: 1.5px 5px; border-radius: 3px; display: inline-block; }
+.tag-impact-red    { background: #fef2f2; color: #dc2626; }
+.tag-impact-orange { background: #fff7ed; color: #ea580c; }
+.tag-impact-blue   { background: #eff6ff; color: #2563eb; }
+.tag-impact-purple { background: #f5f3ff; color: #7c3aed; }
+
+.impact-red    { color: #dc2626; }
+.impact-orange { color: #ea580c; }
+.impact-blue   { color: #2563eb; }
+.impact-purple { color: #7c3aed; }
+
+/* 利空/利多因素 */
+.risk-group-label { font-size: 11.5px; font-weight: 600; color: #475569; margin-bottom: 6px; }
+.risk-item   { margin-bottom: 9px; }
+.risk-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3.5px; }
+.risk-title  { font-size: 12.5px; font-weight: 600; color: #1e293b; flex: 1; }
+.risk-level  { font-size: 9.5px; font-weight: 600; padding: 1.5px 6px; border-radius: 10px; }
+.level-high  { background: #fef2f2; color: #dc2626; }
+.level-mid   { background: #fff7ed; color: #ea580c; }
+.level-low   { background: #f0f9ff; color: #0369a1; }
+
+.risk-affects { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 3.5px; }
+.affect-tag   { font-size: 9.5px; padding: 1.5px 6px; border-radius: 3px; background: #fef2f2; color: #dc2626; }
+.affect-tag.support { background: #ecfdf5; color: #059669; }
+
+.risk-desc { font-size: 10.5px; color: #64748b; line-height: 1.5; }
+
+/* ── 稀有金属报价 ── */
+.card-rare { border-left: 2.5px solid #7c3aed; margin: 0 12px 8px; }
+
+.rare-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 8px;
+}
+.rare-source { font-size: 11px; font-weight: 600; color: #7c3aed; }
+.rare-date   { font-size: 10px; color: #94a3b8; }
+
+.rare-grid {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.rare-item {
+  width: calc(33.333% - 4px);
+  background: #f8f7ff;
+  border-radius: 7px;
+  padding: 7px 6px;
+  box-sizing: border-box;
+}
+.rare-top {
+  display: flex; align-items: center; gap: 4px; margin-bottom: 4px;
+}
+.rare-icon   { font-size: 12px; }
+.rare-names  { min-width: 0; }
+.rare-name   { font-size: 12px; font-weight: 700; color: #1e293b; }
+.rare-symbol { font-size: 8.5px; color: #94a3b8; }
+.rare-price  {
+  font-size: 11px; font-weight: 700; color: #7c3aed;
+  margin-bottom: 2.5px;
+}
+.rare-use    { font-size: 8.5px; color: #94a3b8; line-height: 1.4; }
+.rare-note   {
+  font-size: 9px; color: #94a3b8;
+  margin-top: 7px; padding-top: 6px;
+  border-top: 0.5px solid #f1f5f9;
+}
+
+/* ── 汽车销量入口卡片 ── */
+.card-autoUS { border-left: 2.5px solid #1e3a8a; }
+.card-autoCN { border-left: 2.5px solid #dc2626; }
+.tag-autoUS  { background: #eff6ff; color: #1e3a8a; }
+.tag-autoCN  { background: #fef2f2; color: #dc2626; }
+.auto-total  { font-size: 18px; font-weight: 700; color: #0f172a; margin: 4px 0 2px; }
+.auto-month  { font-size: 10px; color: #94a3b8; margin-bottom: 3px; }
+.auto-yoy    { font-size: 11px; font-weight: 600; margin-bottom: 4px; }
+.auto-tip    { font-size: 9.5px; color: #94a3b8; }
+
+/* ── 铂金 / 钯金 ── */
+.card-platinum  { border-left: 2.5px solid #475569; }
+.card-palladium { border-left: 2.5px solid #0891b2; }
+.tag-platinum   { background: #f8fafc; color: #475569; }
+.tag-palladium  { background: #ecfeff; color: #0e7490; }
