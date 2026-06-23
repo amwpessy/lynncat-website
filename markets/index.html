@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Lynncat Markets — real-time precious metals and crypto prices for iPhone, iPad, Mac, and Apple Watch. Gold, silver, platinum, palladium, Bitcoin and Ethereum, with CNY/HKD/USD, price alerts and 10-year trends.">
+<title>Lynncat Markets — Precious Metals & Crypto Prices</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --bg:#0f0f0f; --surface:#1a1a1a; --border:#2a2a2a; --text:#f0f0f0; --muted:#888; --accent:#f5a623; --accent2:#e07020; --radius:16px; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height: 1.6; }
+  a { color: var(--accent-ink); }
+
+  body[data-lang='en'] [data-zh]{ display:none; }
+  body[data-lang='zh'] [data-en]{ display:none; }
+  .lang-toggle{ background:none; border:1px solid var(--border); color:var(--muted); font-size:13px; padding:6px 14px; border-radius:100px; cursor:pointer; transition:all .2s; font-family:inherit; }
+  .lang-toggle:hover{ color:var(--text); border-color: var(--accent-ink); }
+
+  nav { display:flex; align-items:center; justify-content:space-between; padding:20px 40px; border-bottom:1px solid var(--border); position:sticky; top:0; background:var(--nav-bg); backdrop-filter:blur(12px); z-index:100; }
+  .nav-logo { font-size:18px; font-weight:700; color: var(--accent-ink); text-decoration:none; }
+  .nav-right { display:flex; align-items:center; gap:18px; }
+  .nav-back { color:var(--muted); text-decoration:none; font-size:14px; }
+  .nav-back:hover { color:var(--text); }
+
+  .hero { max-width:800px; margin:0 auto; padding:80px 24px 60px; text-align:center; }
+  .app-icon-large { width:120px; height:120px; border-radius:28px; background:linear-gradient(135deg,#6a5210,#1a1406); display:flex; align-items:center; justify-content:center; font-size:60px; margin:0 auto 28px; box-shadow:0 20px 60px rgba(245,166,35,0.18); }
+  .hero h1 { font-size:clamp(32px,5vw,48px); font-weight:800; letter-spacing:-1px; margin-bottom:16px; }
+  .hero p { font-size:18px; color:var(--muted); max-width:540px; margin:0 auto 32px; }
+  .cta-group { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+  .btn { display:inline-block; padding:14px 28px; border-radius:100px; font-size:16px; font-weight:600; text-decoration:none; transition:transform .15s, opacity .15s; }
+  .btn:hover { transform:translateY(-1px); opacity:.9; }
+  .btn-primary { background:var(--accent); color:#000; }
+  .btn-secondary { border:1px solid var(--border); color:var(--text); }
+  .release-note { font-size:13px; color:var(--muted); margin-top:14px; }
+
+  .section { max-width:900px; margin:0 auto; padding:60px 24px; }
+  .section h2 { font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:1.5px; color:var(--muted); margin-bottom:32px; }
+  .features { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px,1fr)); gap:16px; }
+  .feat { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:24px; }
+  .feat-icon { font-size:28px; margin-bottom:12px; }
+  .feat h3 { font-size:16px; font-weight:600; margin-bottom:6px; }
+  .feat p { font-size:14px; color:var(--muted); }
+
+  .forces-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  .force { border-radius:10px; padding:16px 10px; text-align:center; }
+  .force .nm { font-size:14px; font-weight:800; margin-bottom:3px; }
+  .force .rl { font-size:11.5px; opacity:.85; }
+  .f1{background:rgba(245,200,60,0.12);color:#f5c83c;} .f2{background:rgba(190,200,210,0.14);color:#c3ccd6;}
+  .f3{background:rgba(120,184,255,0.12);color:#78b8ff;} .f4{background:rgba(80,200,170,0.12);color:#50c8aa;}
+  .f5{background:rgba(255,150,60,0.12);color:#ff963c;} .f6{background:rgba(150,120,255,0.14);color:#9678ff;}
+  /* 浅色主题下加深资产色，保证白底可读 */
+  :root[data-theme='light'] .f1{color:#9a7400;} :root[data-theme='light'] .f2{color:#5f6b78;}
+  :root[data-theme='light'] .f3{color:#1d6fd0;} :root[data-theme='light'] .f4{color:#11876e;}
+  :root[data-theme='light'] .f5{color:#c2570a;} :root[data-theme='light'] .f6{color:#6a4bd0;}
+
+  .platforms { display:flex; gap:16px; flex-wrap:wrap; justify-content:center; }
+  .plat { display:flex; align-items:center; gap:10px; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px 22px; }
+  .plat-icon { font-size:24px; }
+  .plat-name { font-size:14px; font-weight:600; }
+  .plat-note { font-size:12px; color:var(--muted); }
+
+  .disclaimer { max-width:760px; margin:0 auto; padding:0 24px 40px; text-align:center; }
+  .disclaimer p { font-size:12.5px; color:var(--muted); line-height:1.7; }
+
+  footer { border-top:1px solid var(--border); padding:40px 24px; text-align:center; }
+  footer p { font-size:13px; color:var(--muted); margin-bottom:8px; }
+  .footer-links { display:flex; gap:20px; justify-content:center; margin-top:12px; flex-wrap:wrap; }
+  .footer-links a { color:var(--muted); text-decoration:none; font-size:13px; }
+  .footer-links a:hover { color:var(--text); }
+
+  @media (max-width:600px){ nav{padding:16px 20px;} .forces-grid{grid-template-columns:repeat(2,1fr);} }
+:root{--accent-ink:#f5a623;--accent2-ink:#e07020;--nav-bg:rgba(15,15,15,0.92);--tag-bg:rgba(255,255,255,0.06);}
+:root[data-theme='light']{--bg:#f6f6f8;--surface:#ffffff;--surface2:#f0f0f3;--border:#e3e3e8;--text:#1b1b1f;--muted:#6a6a72;--accent-ink:#b35e09;--accent2-ink:#8f4408;--green:#1f9d63;--red:#cf3a28;--nav-bg:rgba(246,246,248,0.9);--tag-bg:rgba(0,0,0,0.05);}
+</style>
+<script>/* 按北京时间自动切换主题：白天(6-18)浅色，夜间深色 */
+(function(){function a(){var h;try{h=parseInt(new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Shanghai',hour:'numeric',hour12:false}).format(new Date()),10);}catch(e){h=new Date().getHours();}if(h===24)h=0;document.documentElement.setAttribute('data-theme',(h>=6&&h<18)?'light':'dark');}a();setInterval(a,300000);})();</script>
+</head>
+<body data-lang="en">
+
+<nav>
+  <a class="nav-logo" href="/">🐱 Lynncat</a>
+  <div class="nav-right">
+    <a class="nav-back" href="/"><span data-en>← All Apps</span><span data-zh>← 全部作品</span></a>
+    <button class="lang-toggle" onclick="toggleLang()"><span data-en>繁體中文</span><span data-zh>English</span></button>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="app-icon-large">📈</div>
+  <h1><span data-en>Lynncat Markets</span><span data-zh>靈貓行情</span></h1>
+  <p><span data-en>Real-time precious metals and crypto prices — clean, elegant, and always on your menu bar and wrist.</span><span data-zh>即時貴金屬與加密貨幣行情——簡潔優雅,常駐選單列、抬腕即看。</span></p>
+  <div class="cta-group">
+    <!-- 上架通過後，把 id000000000 換成真實 App ID -->
+    <a class="btn btn-primary" href="https://apps.apple.com/app/lynncat-markets/id000000000">
+      <span data-en>↓ Download on App Store</span><span data-zh>↓ App Store 下載</span>
+    </a>
+    <a class="btn btn-secondary" href="#features"><span data-en>See Features</span><span data-zh>查看特色</span></a>
+  </div>
+  <p class="release-note"><span data-en>Free · No ads · No tracking</span><span data-zh>免費 · 無廣告 · 不追蹤</span></p>
+</section>
+
+<section class="section" id="features">
+  <h2><span data-en>Features</span><span data-zh>特色</span></h2>
+  <div class="features">
+    <div class="feat">
+      <div class="feat-icon">📊</div>
+      <h3><span data-en>Real-Time Quotes</span><span data-zh>即時行情</span></h3>
+      <p><span data-en>Gold, silver, platinum and palladium plus Bitcoin and Ethereum — auto-refreshing, with per-second updates for the asset you're watching.</span><span data-zh>黃金、白銀、鉑金、鈀金,加上比特幣與以太幣——自動更新,所選資產秒級快刷。</span></p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">🌏</div>
+      <h3><span data-en>Multi-Region</span><span data-zh>多地區</span></h3>
+      <p><span data-en>Switch instantly between CNY, HKD and USD. Metals priced per gram, crypto per coin; USD mode switches to English.</span><span data-zh>人民幣 / 港幣 / 美元一鍵切換。貴金屬按克、加密按枚計價;美元模式自動切換英文。</span></p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">📈</div>
+      <h3><span data-en>Live & History</span><span data-zh>即時與歷史</span></h3>
+      <p><span data-en>An intraday live chart plus up to 10 years of yearly trends, with open, high, low and annual change.</span><span data-zh>當場即時走勢圖,外加近十年歷年走勢,含年初、最高、最低與年度漲跌。</span></p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">🔔</div>
+      <h3><span data-en>Price Alerts</span><span data-zh>價格提醒</span></h3>
+      <p><span data-en>Set a target price and get a local notification the moment it breaks above or below — in CNY or USD.</span><span data-zh>設定目標價,突破上 / 下限即時本機通知,支援人民幣或美元計價。</span></p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">⚖️</div>
+      <h3><span data-en>Ratio Analysis</span><span data-zh>比價分析</span></h3>
+      <p><span data-en>Gold/Silver, Gold/Platinum and Gold/Palladium ratios, plus a Gold ⇄ Bitcoin converter.</span><span data-zh>金銀比、金鉑比、金鈀比,以及黃金 ⇄ 比特幣換算。</span></p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">🖥️</div>
+      <h3><span data-en>Mac Menu Bar</span><span data-zh>Mac 選單列</span></h3>
+      <p><span data-en>Lives in your menu bar with live price and a trend arrow, and supports the Touch Bar for quotes and a sparkline.</span><span data-zh>常駐選單列即時顯示金價與漲跌箭頭,並支援 Touch Bar 報價與走勢。</span></p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">⌚</div>
+      <h3><span data-en>Apple Watch</span><span data-zh>Apple Watch</span></h3>
+      <p><span data-en>A standalone watch app — glance at live prices from your wrist, no iPhone required.</span><span data-zh>獨立的手錶 App,抬腕即看即時行情,毋須 iPhone 在旁。</span></p>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">🔒</div>
+      <h3><span data-en>Private by Design</span><span data-zh>注重隱私</span></h3>
+      <p><span data-en>No account, no ads, no tracking. Your settings stay on your device — we collect nothing.</span><span data-zh>無帳號、無廣告、不追蹤。設定僅存於裝置本機——我們不收集任何資料。</span></p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <h2><span data-en>What You Track</span><span data-zh>追蹤資產</span></h2>
+  <div class="forces-grid">
+    <div class="force f1"><div class="nm"><span data-en>Gold</span><span data-zh>黃金</span></div><div class="rl">XAU</div></div>
+    <div class="force f2"><div class="nm"><span data-en>Silver</span><span data-zh>白銀</span></div><div class="rl">XAG</div></div>
+    <div class="force f3"><div class="nm"><span data-en>Platinum</span><span data-zh>鉑金</span></div><div class="rl">XPT</div></div>
+    <div class="force f4"><div class="nm"><span data-en>Palladium</span><span data-zh>鈀金</span></div><div class="rl">XPD</div></div>
+    <div class="force f5"><div class="nm"><span data-en>Bitcoin</span><span data-zh>比特幣</span></div><div class="rl">BTC</div></div>
+    <div class="force f6"><div class="nm"><span data-en>Ethereum</span><span data-zh>以太幣</span></div><div class="rl">ETH</div></div>
+  </div>
+</section>
+
+<section class="section">
+  <h2><span data-en>Available On</span><span data-zh>支援平台</span></h2>
+  <div class="platforms">
+    <div class="plat">
+      <div class="plat-icon">📱</div>
+      <div><div class="plat-name">iPhone &amp; iPad</div><div class="plat-note">iOS 17+</div></div>
+    </div>
+    <div class="plat">
+      <div class="plat-icon">🖥️</div>
+      <div><div class="plat-name">Mac</div><div class="plat-note"><span data-en>macOS 14+ · Menu bar</span><span data-zh>macOS 14+ · 選單列</span></div></div>
+    </div>
+    <div class="plat">
+      <div class="plat-icon">⌚</div>
+      <div><div class="plat-name">Apple Watch</div><div class="plat-note"><span data-en>watchOS 10+ · Independent</span><span data-zh>watchOS 10+ · 獨立運行</span></div></div>
+    </div>
+    <div class="plat">
+      <div class="plat-icon">🌏</div>
+      <div><div class="plat-name"><span data-en>3 Languages</span><span data-zh>三種語言</span></div><div class="plat-note"><span data-en>EN · 简体 · 繁體</span><span data-zh>英 · 简体 · 繁體</span></div></div>
+    </div>
+  </div>
+</section>
+
+<div class="disclaimer">
+  <p><span data-en>Prices are provided by third-party public data sources for reference only and do not constitute investment advice.</span><span data-zh>行情數據來自第三方公開來源,僅供參考,不構成任何投資建議。</span></p>
+</div>
+
+<footer>
+  <p>© 2026 Lynncat · <a href="mailto:amwpessy@gmail.com" style="color:var(--muted)">amwpessy@gmail.com</a></p>
+  <div class="footer-links">
+    <a href="/markets/privacy.html"><span data-en>Privacy Policy</span><span data-zh>隱私政策</span></a>
+    <a href="/markets/support.html"><span data-en>Support</span><span data-zh>支援</span></a>
+    <a href="/"><span data-en>All Apps</span><span data-zh>全部作品</span></a>
+  </div>
+</footer>
+
+<script>
+(function(){
+  function apply(l){
+    document.body.setAttribute('data-lang', l);
+    document.documentElement.lang = (l === 'zh' ? 'zh-Hant' : 'en');
+    try { localStorage.setItem('lynncat-lang', l); } catch(e){}
+  }
+  window.toggleLang = function(){ apply(document.body.getAttribute('data-lang') === 'en' ? 'zh' : 'en'); };
+  var saved = 'en';
+  try { saved = localStorage.getItem('lynncat-lang') || 'en'; } catch(e){}
+  apply(saved);
+})();
+</script>
+
+</body>
+</html>

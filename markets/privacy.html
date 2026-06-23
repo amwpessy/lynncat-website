@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy Policy — Lynncat Markets</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --bg: #0f0f0f; --surface: #1a1a1a; --border: #2a2a2a; --text: #f0f0f0; --muted: #888; --accent: #f5a623; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height: 1.75; padding: 40px 24px 80px; }
+  nav { display: flex; align-items: center; justify-content: space-between; padding: 0 0 32px; border-bottom: 1px solid var(--border); margin-bottom: 48px; }
+  .nav-logo { font-size: 18px; font-weight: 700; color: var(--accent-ink); text-decoration: none; }
+  a { color: var(--accent-ink); }
+  .container { max-width: 700px; margin: 0 auto; }
+  .app-header { display: flex; align-items: center; gap: 16px; margin-bottom: 40px; }
+  .app-icon { width: 64px; height: 64px; border-radius: 16px; background: linear-gradient(135deg, #6a5210, #1a1406); display: flex; align-items: center; justify-content: center; font-size: 32px; }
+  .app-header h1 { font-size: 24px; font-weight: 700; }
+  .app-header p { font-size: 14px; color: var(--muted); margin-top: 3px; }
+  .lang-switcher { display: flex; gap: 8px; margin-bottom: 36px; }
+  .lang-btn { padding: 6px 16px; border-radius: 100px; border: 1px solid var(--border); color: var(--muted); font-size: 13px; background: none; cursor: pointer; transition: all .15s; font-family: inherit; }
+  .lang-btn.active { background: var(--accent); color: #000; border-color: var(--accent-ink); font-weight: 600; }
+  .badge-clean { display: inline-block; background: rgba(80,200,80,0.12); color: #6cd66c; border: 1px solid rgba(80,200,80,0.25); border-radius: 6px; font-size: 13px; font-weight: 600; padding: 4px 12px; margin-bottom: 24px; }
+  h2 { font-size: 16px; font-weight: 600; color: var(--accent-ink); margin: 28px 0 10px; }
+  p { font-size: 15px; color: #ccc; margin-bottom: 10px; }
+  ul { padding-left: 20px; margin-bottom: 12px; }
+  li { font-size: 15px; color: #ccc; margin-bottom: 6px; }
+  .updated { font-size: 13px; color: var(--muted); margin-top: 24px; }
+  .lang-section { display: none; }
+  .lang-section.active { display: block; }
+  footer { border-top: 1px solid var(--border); padding-top: 28px; margin-top: 60px; text-align: center; font-size: 13px; color: var(--muted); }
+:root{--accent-ink:#f5a623;--accent2-ink:#e07020;--nav-bg:rgba(15,15,15,0.92);--tag-bg:rgba(255,255,255,0.06);}
+:root[data-theme='light']{--bg:#f6f6f8;--surface:#ffffff;--surface2:#f0f0f3;--border:#e3e3e8;--text:#1b1b1f;--muted:#6a6a72;--accent-ink:#b35e09;--accent2-ink:#8f4408;--green:#1f9d63;--red:#cf3a28;--nav-bg:rgba(246,246,248,0.9);--tag-bg:rgba(0,0,0,0.05);}
+</style>
+<script>/* 按北京时间自动切换主题：白天(6-18)浅色，夜间深色 */
+(function(){function a(){var h;try{h=parseInt(new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Shanghai',hour:'numeric',hour12:false}).format(new Date()),10);}catch(e){h=new Date().getHours();}if(h===24)h=0;document.documentElement.setAttribute('data-theme',(h>=6&&h<18)?'light':'dark');}a();setInterval(a,300000);})();</script>
+</head>
+<body>
+<div class="container">
+  <nav>
+    <a class="nav-logo" href="/">🐱 Lynncat</a>
+    <a href="/markets/" style="color:var(--muted);text-decoration:none;font-size:14px;">← Lynncat Markets</a>
+  </nav>
+
+  <div class="app-header">
+    <div class="app-icon">📈</div>
+    <div>
+      <h1>Privacy Policy</h1>
+      <p>Lynncat Markets · 靈貓行情</p>
+    </div>
+  </div>
+
+  <div class="lang-switcher">
+    <button class="lang-btn active" onclick="setLang('en')">English</button>
+    <button class="lang-btn" onclick="setLang('zht')">繁體中文</button>
+  </div>
+
+  <!-- English -->
+  <div class="lang-section active" id="lang-en">
+    <div class="badge-clean">✓ No personal data collected</div>
+    <h2>Overview</h2>
+    <p>Lynncat Markets is developed by Lynncat (lynncat.com). We are committed to your privacy. This policy explains our data practices.</p>
+    <h2>What We Collect</h2>
+    <p><strong>Nothing.</strong> Specifically:</p>
+    <ul>
+      <li>No account or registration required</li>
+      <li>No name, email, or contact information collected</li>
+      <li>No location data</li>
+      <li>No device identifiers</li>
+      <li>No analytics or tracking SDKs</li>
+      <li>No advertising networks</li>
+    </ul>
+    <h2>Local Storage</h2>
+    <p>Your preferences — selected region, exchange rate and price alerts — are saved on your device using Apple's standard UserDefaults API. This data never leaves your device and we cannot access it.</p>
+    <h2>Network Requests</h2>
+    <p>To show live quotes, the app makes read-only requests to third-party public APIs: gold-api.com (metal &amp; crypto prices), open.er-api.com (exchange rates), Sina Finance (metal history) and Binance / CoinGecko (crypto history). These requests contain only the necessary asset symbols and no personal information. Data handling by these services is governed by their own privacy policies.</p>
+    <h2>Notifications</h2>
+    <p>If you enable price alerts, all calculations and notifications happen locally on your device. No server is involved.</p>
+    <h2>Children</h2>
+    <p>The app is suitable for general audiences and collects no data from anyone.</p>
+    <h2>Disclaimer</h2>
+    <p>Prices are provided for reference only and do not constitute investment advice.</p>
+    <h2>Contact</h2>
+    <p>Questions? Email <a href="mailto:amwpessy@gmail.com">amwpessy@gmail.com</a></p>
+    <p class="updated">Last updated: June 2026</p>
+  </div>
+
+  <!-- 繁體中文 -->
+  <div class="lang-section" id="lang-zht">
+    <div class="badge-clean">✓ 不收集任何個人資料</div>
+    <h2>概述</h2>
+    <p>靈貓行情由 Lynncat（lynncat.com）開發。我們承諾保護您的隱私。本政策說明我們的資料處理方式。</p>
+    <h2>資料收集</h2>
+    <p><strong>我們不收集任何資料。</strong>具體包括：</p>
+    <ul>
+      <li>無需註冊帳號</li>
+      <li>不收集姓名、電子郵件或任何聯絡方式</li>
+      <li>不收集位置資訊</li>
+      <li>不收集裝置識別碼</li>
+      <li>不使用任何分析或追蹤 SDK</li>
+      <li>不接入任何廣告網路</li>
+    </ul>
+    <h2>本機儲存</h2>
+    <p>您的偏好設定——所選地區、匯率與價格提醒——透過 Apple UserDefaults 儲存於裝置本機,不會離開您的裝置,我們亦無法存取。</p>
+    <h2>網絡請求</h2>
+    <p>為顯示即時行情,App 會向第三方公開介面發出唯讀請求:gold-api.com（貴金屬與加密價格）、open.er-api.com（匯率）、新浪財經（貴金屬歷史）及 Binance / CoinGecko（加密歷史）。這些請求僅包含必要的資產代碼,不含任何個人資料。各介面的資料處理受其各自隱私政策約束。</p>
+    <h2>通知</h2>
+    <p>若您啟用價格提醒,所有運算與通知均在您的裝置本機完成,不涉及伺服器。</p>
+    <h2>兒童</h2>
+    <p>本 App 適合一般大眾,且不會收集任何人的資料。</p>
+    <h2>免責聲明</h2>
+    <p>行情數據僅供參考,不構成任何投資建議。</p>
+    <h2>聯絡方式</h2>
+    <p>如有問題,請發送電子郵件至 <a href="mailto:amwpessy@gmail.com">amwpessy@gmail.com</a></p>
+    <p class="updated">最後更新：2026年6月</p>
+  </div>
+
+  <footer>
+    <p>© 2026 Lynncat · lynncat.com</p>
+  </footer>
+</div>
+
+<script>
+function setLang(lang) {
+  document.querySelectorAll('.lang-section').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.lang-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('lang-' + lang).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>
