@@ -6,10 +6,13 @@
 <title>黄金历史行情 · 稀赢新材</title>
 <link rel="stylesheet" href="css/global.css">
 <link rel="stylesheet" href="css/gold.css">
+<link rel="stylesheet" href="css/theme.css">
+<script>/* 按北京时间自动切换主题：白天(6-18)浅色，夜间深色 */
+(function(){function a(){var h;try{h=parseInt(new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Shanghai',hour:'numeric',hour12:false}).format(new Date()),10);}catch(e){h=new Date().getHours();}if(h===24)h=0;document.documentElement.setAttribute('data-theme',(h>=6&&h<18)?'light':'dark');}a();setInterval(a,300000);})();</script>
 </head>
 <body>
 <div class="app">
-  <div class="navbar" style="background:#b45309">
+  <div class="navbar">
     <a class="nav-back" href="index">‹ 返回</a>
     <div class="nav-title">黄金历史行情</div>
     <div class="nav-spacer"></div>

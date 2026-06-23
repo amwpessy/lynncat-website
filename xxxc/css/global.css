@@ -38,3 +38,26 @@ body {
 /* 让被 <a> 包裹的卡片不显示下划线/默认颜色 */
 a.card-link { text-decoration: none; color: inherit; display: block; }
 a.card-link:active { opacity: .85; }
+
+/* ───────── 电脑网页适配 ─────────
+   小程序是为手机竖屏设计的单列布局。在电脑等宽屏上，
+   把这一列居中、整体等比放大，并做成带圆角阴影的「卡片」，
+   配上柔和渐变背景，避免大片空白、内容过小。 */
+@media (min-width: 760px) {
+  html { background: #c4cdda; }
+  body {
+    min-height: 100vh;
+    background:
+      radial-gradient(1100px 760px at 50% -6%, #eef3fa 0%, #d8dfeb 55%, #c4cdda 100%);
+    padding: 36px 16px;
+  }
+  .app {
+    max-width: 540px;
+    min-height: 0;
+    border-radius: 22px;
+    box-shadow: 0 30px 80px rgba(28,48,86,.24), 0 8px 24px rgba(28,48,86,.12);
+  }
+  /* 顶部彩色栏跟随容器圆角，避免方角外露 */
+  .app > .navbar { border-radius: 22px 22px 0 0; }
+  .app > .page > .header { border-radius: 22px 22px 0 0; }
+}
