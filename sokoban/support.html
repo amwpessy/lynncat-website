@@ -10,17 +10,17 @@
   body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height: 1.7; padding: 40px 24px 80px; }
   .container { max-width: 700px; margin: 0 auto; }
   nav { display: flex; align-items: center; justify-content: space-between; padding: 0 0 32px; border-bottom: 1px solid var(--border); margin-bottom: 48px; }
-  .nav-logo { font-size: 18px; font-weight: 700; color: var(--accent); text-decoration: none; }
-  a { color: var(--accent); }
+  .nav-logo { font-size: 18px; font-weight: 700; color: var(--accent-ink); text-decoration: none; }
+  a { color: var(--accent-ink); }
   .app-header { display: flex; align-items: center; gap: 16px; margin-bottom: 40px; }
   .app-icon { width: 64px; height: 64px; border-radius: 16px; background: linear-gradient(135deg, #4a2814, #1a0e06); display: flex; align-items: center; justify-content: center; font-size: 32px; }
   .app-header h1 { font-size: 24px; font-weight: 700; }
   .app-header p { font-size: 14px; color: var(--muted); margin-top: 3px; }
-  h2 { font-size: 16px; font-weight: 600; color: var(--accent); margin: 36px 0 16px; }
+  h2 { font-size: 16px; font-weight: 600; color: var(--accent-ink); margin: 36px 0 16px; }
   .faq { display: flex; flex-direction: column; gap: 12px; }
   .faq-item { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
   .faq-q { padding: 18px 20px; font-size: 15px; font-weight: 600; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
-  .faq-q:hover { background: rgba(255,255,255,0.03); }
+  .faq-q:hover { background: var(--tag-bg); }
   .faq-q::after { content: "+"; font-size: 20px; color: var(--muted); flex-shrink: 0; }
   .faq-item.open .faq-q::after { content: "−"; }
   .faq-a { display: none; padding: 0 20px 18px; font-size: 14px; color: #bbb; line-height: 1.7; }
@@ -31,7 +31,11 @@
   .contact-card p { font-size: 14px; color: var(--muted); margin-bottom: 20px; }
   .contact-btn { display: inline-block; background: var(--accent); color: #000; font-weight: 600; font-size: 15px; padding: 12px 28px; border-radius: 100px; text-decoration: none; }
   footer { border-top: 1px solid var(--border); padding-top: 28px; margin-top: 60px; text-align: center; font-size: 13px; color: var(--muted); }
+:root{--accent-ink:#f5a623;--accent2-ink:#e07020;--nav-bg:rgba(15,15,15,0.92);--tag-bg:rgba(255,255,255,0.06);}
+:root[data-theme='light']{--bg:#f6f6f8;--surface:#ffffff;--surface2:#f0f0f3;--border:#e3e3e8;--text:#1b1b1f;--muted:#6a6a72;--accent-ink:#b35e09;--accent2-ink:#8f4408;--green:#1f9d63;--red:#cf3a28;--nav-bg:rgba(246,246,248,0.9);--tag-bg:rgba(0,0,0,0.05);}
 </style>
+<script>/* 按北京时间自动切换主题：白天(6-18)浅色，夜间深色 */
+(function(){function a(){var h;try{h=parseInt(new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Shanghai',hour:'numeric',hour12:false}).format(new Date()),10);}catch(e){h=new Date().getHours();}if(h===24)h=0;document.documentElement.setAttribute('data-theme',(h>=6&&h<18)?'light':'dark');}a();setInterval(a,300000);})();</script>
 </head>
 <body>
 <div class="container">

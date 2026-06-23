@@ -23,10 +23,10 @@
   body[data-lang='en'] [data-zh]{ display:none; }
   body[data-lang='zh'] [data-en]{ display:none; }
   .lang-toggle{ background:none; border:1px solid var(--border); color:var(--muted); font-size:13px; padding:6px 14px; border-radius:100px; cursor:pointer; margin-left:28px; transition:all .2s; font-family:inherit; }
-  .lang-toggle:hover{ color:var(--text); border-color:var(--accent); }
+  .lang-toggle:hover{ color:var(--text); border-color: var(--accent-ink); }
 
-  nav { display: flex; align-items: center; justify-content: space-between; padding: 20px 40px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: rgba(15,15,15,0.92); backdrop-filter: blur(12px); z-index: 100; }
-  .nav-logo { font-size: 20px; font-weight: 700; color: var(--accent); letter-spacing: -0.5px; text-decoration: none; }
+  nav { display: flex; align-items: center; justify-content: space-between; padding: 20px 40px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--nav-bg); backdrop-filter: blur(12px); z-index: 100; }
+  .nav-logo { font-size: 20px; font-weight: 700; color: var(--accent-ink); letter-spacing: -0.5px; text-decoration: none; }
   .nav-links { display: flex; align-items: center; }
   .nav-links a { color: var(--muted); text-decoration: none; margin-left: 28px; font-size: 15px; transition: color .2s; }
   .nav-links a:hover { color: var(--text); }
@@ -34,7 +34,7 @@
   .hero { text-align: center; padding: 100px 24px 80px; max-width: 700px; margin: 0 auto; }
   .hero-cat { font-size: 64px; margin-bottom: 20px; }
   .hero h1 { font-size: clamp(36px, 6vw, 56px); font-weight: 800; letter-spacing: -1.5px; line-height: 1.1; margin-bottom: 20px; }
-  .hero h1 span.grad { background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .hero h1 span.grad { background: linear-gradient(135deg, var(--accent-ink), var(--accent2-ink)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
   .hero p { font-size: 18px; color: var(--muted); max-width: 480px; margin: 0 auto 36px; }
   .hero-badges { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
   .badge { font-size: 13px; padding: 6px 14px; border: 1px solid var(--border); border-radius: 100px; color: var(--muted); }
@@ -43,17 +43,17 @@
   .section-title { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); margin-bottom: 32px; }
   .apps { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 20px; }
   .app-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; transition: border-color .2s, transform .2s; text-decoration: none; color: inherit; display: block; }
-  .app-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .app-card:hover { border-color: var(--accent-ink); transform: translateY(-2px); }
   .app-card-header { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
   .app-icon { width: 60px; height: 60px; border-radius: 14px; background: linear-gradient(135deg, #3a2010, #1a0e06); display: flex; align-items: center; justify-content: center; font-size: 30px; flex-shrink: 0; }
   .app-icon.iron { background: linear-gradient(135deg, #5a1f14, #1a0a06); }
   .app-meta { flex: 1; }
   .app-name { font-size: 18px; font-weight: 700; margin-bottom: 3px; }
-  .app-category { font-size: 12px; color: var(--accent); font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; }
+  .app-category { font-size: 12px; color: var(--accent-ink); font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; }
   .app-desc { font-size: 14px; color: var(--muted); line-height: 1.6; margin-bottom: 20px; }
   .app-platforms { display: flex; gap: 8px; flex-wrap: wrap; }
-  .platform-tag { font-size: 12px; padding: 4px 10px; background: rgba(255,255,255,0.06); border-radius: 6px; color: var(--muted); }
-  .app-cta { display: inline-flex; align-items: center; gap: 6px; margin-top: 20px; font-size: 14px; font-weight: 600; color: var(--accent); }
+  .platform-tag { font-size: 12px; padding: 4px 10px; background: var(--tag-bg); border-radius: 6px; color: var(--muted); }
+  .app-cta { display: inline-flex; align-items: center; gap: 6px; margin-top: 20px; font-size: 14px; font-weight: 600; color: var(--accent-ink); }
   .app-cta svg { transition: transform .2s; }
   .app-card:hover .app-cta svg { transform: translateX(3px); }
 
@@ -69,7 +69,11 @@
     .lang-toggle { margin-left: 0; }
     .apps { grid-template-columns: 1fr; }
   }
+:root{--accent-ink:#f5a623;--accent2-ink:#e07020;--nav-bg:rgba(15,15,15,0.92);--tag-bg:rgba(255,255,255,0.06);}
+:root[data-theme='light']{--bg:#f6f6f8;--surface:#ffffff;--surface2:#f0f0f3;--border:#e3e3e8;--text:#1b1b1f;--muted:#6a6a72;--accent-ink:#b35e09;--accent2-ink:#8f4408;--green:#1f9d63;--red:#cf3a28;--nav-bg:rgba(246,246,248,0.9);--tag-bg:rgba(0,0,0,0.05);}
 </style>
+<script>/* 按北京时间自动切换主题：白天(6-18)浅色，夜间深色 */
+(function(){function a(){var h;try{h=parseInt(new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Shanghai',hour:'numeric',hour12:false}).format(new Date()),10);}catch(e){h=new Date().getHours();}if(h===24)h=0;document.documentElement.setAttribute('data-theme',(h>=6&&h<18)?'light':'dark');}a();setInterval(a,300000);})();</script>
 </head>
 <body data-lang="en">
 
@@ -140,6 +144,7 @@
       </div>
     </a>
 
+    <!-- 暂时隐藏喂猫预约入口（需要时取消注释即可恢复）
     <a class="app-card" href="/feeding/">
       <div class="app-card-header">
         <div class="app-icon">🐾</div>
@@ -148,17 +153,15 @@
           <div class="app-category"><span data-en>Service · Scheduling</span><span data-zh>服务 · 排期</span></div>
         </div>
       </div>
-      <p class="app-desc"><span data-en>Browse the feeder's open dates and book online — up to 3 a day, with extra-slot requests when full. Bilingual and mobile-friendly.</span><span data-zh>查看喂猫员可接单的日期在线预约——每天最多 3 单，约满还能申请加号。中英双语、手机端友好。</span></p>
+      <p class="app-desc"><span data-en>Browse the feeder's open dates and book online.</span><span data-zh>查看喂猫员可接单的日期在线预约。</span></p>
       <div class="app-platforms">
         <span class="platform-tag"><span data-en>Web</span><span data-zh>网页</span></span>
-        <span class="platform-tag"><span data-en>Booking</span><span data-zh>在线预约</span></span>
-        <span class="platform-tag"><span data-en>Bilingual</span><span data-zh>双语</span></span>
       </div>
       <div class="app-cta">
         <span data-en>Open</span><span data-zh>进入</span>
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </div>
     </a>
+    -->
 
   </div>
 </section>
@@ -168,7 +171,7 @@
   <div class="footer-links">
     <a href="/ironhold/"><span data-en>Ironhold</span><span data-zh>鐵壁雄關</span></a>
     <a href="/sokoban/"><span data-en>Sokoban</span><span data-zh>推箱子</span></a>
-    <a href="/feeding/"><span data-en>Cat Feeding</span><span data-zh>喂猫预约</span></a>
+    <!-- <a href="/feeding/"><span data-en>Cat Feeding</span><span data-zh>喂猫预约</span></a> -->
     <a href="/"><span data-en>All Apps</span><span data-zh>全部作品</span></a>
   </div>
 </footer>
