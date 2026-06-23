@@ -44,6 +44,10 @@
   .row > div { flex:1; min-width: 130px; }
   .check { display:flex; align-items:center; gap:9px; margin-top:14px; color:var(--muted); font-size:14px; cursor:pointer; }
   .check input { width:auto; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; }
+  .chip { padding:8px 14px; border:1px solid var(--border); border-radius:100px; background:var(--surface2); color:var(--muted); font-size:14px; cursor:pointer; user-select:none; transition:all .15s; font-family:inherit; }
+  .chip:active { transform:scale(.96); }
+  .chip.on { background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#1a0e06; border-color:transparent; font-weight:600; }
 
   .btn { display:inline-flex; align-items:center; justify-content:center; gap:6px; background: linear-gradient(135deg, var(--accent), var(--accent2)); color:#1a0e06; border:none; border-radius: 10px; padding: 12px 20px; font-size: 15px; font-weight: 700; cursor:pointer; font-family:inherit; transition: opacity .2s, transform .1s; }
   .btn:hover { opacity:.92; } .btn:active { transform: translateY(1px); } .btn[disabled]{ opacity:.5; cursor:not-allowed; }
@@ -222,9 +226,11 @@
     </div>
     <label><span data-en>Address</span><span data-zh>喂猫地址</span></label>
     <input id="cAddr" autocomplete="street-address">
-    <label><span data-en>Cat / feeding info</span><span data-zh>猫咪与喂食说明</span></label>
-    <textarea id="cPet"></textarea>
-    <label><span data-en>Notes (optional)</span><span data-zh>备注（可选）</span></label>
+    <label><span data-en>Number of cats</span><span data-zh>猫咪只数</span></label>
+    <div class="chips" id="catCountChips"></div>
+    <label><span data-en>Services needed</span><span data-zh>需要的服务</span></label>
+    <div class="chips" id="serviceChips"></div>
+    <label><span data-en>Notes / special instructions (optional)</span><span data-zh>备注 / 特殊说明（可选）</span></label>
     <textarea id="cNotes"></textarea>
     <div id="bookMsg"></div>
     <div class="row" style="margin-top:18px;">
@@ -417,6 +423,60 @@ function updateSelBar(){
 }
 function selectedSorted(){ return Array.from(selDays).sort(); }
 
+/* 猫只数 + 服务项 快速选择 */
+const CAT_COUNTS = ['1','2','3','4','5+'];
+const SERVICES = [
+  {id:'water',  zh:'换水',               en:'Change water'},
+  {id:'food',   zh:'换粮',               en:'Change food'},
+  {id:'litter', zh:'清理猫砂',           en:'Clean litter'},
+  {id:'floor',  zh:'清理猫砂盆周围地面', en:'Clean floor around litter box'}
+];
+let selectedCount = '1';
+let selectedServices = new Set();
+function renderChips(){
+  const cc = document.getElementById('catCountChips');
+  const sc = document.getElementById('serviceChips');
+  if (!cc || !sc) return;
+  cc.innerHTML = CAT_COUNTS.map(c =>
+    '<button type="button" class="chip'+(selectedCount===c?' on':'')+'" onclick="setCount(\''+c+'\')">'
+    + c + (lang()==='zh'?' 只':'') + '</button>').join('');
+  sc.innerHTML = SERVICES.map(s =>
+    '<button type="button" class="chip'+(selectedServices.has(s.id)?' on':'')+'" onclick="toggleService(\''+s.id+'\')">'
+    + esc(lang()==='zh'?s.zh:s.en) + '</button>').join('');
+}
+function setCount(c){ selectedCount = c; renderChips(); }
+function toggleService(id){ selectedServices.has(id) ? selectedServices.delete(id) : selectedServices.add(id); renderChips(); }
+function composePet(){
+  // 统一用中文存储，方便喂猫员阅读
+  const parts = [ selectedCount + '只猫' ];
+  if (selectedServices.size) parts.push(SERVICES.filter(s=>selectedServices.has(s.id)).map(s=>s.zh).join('、'));
+  return parts.join(' · ');
+}
+
+/* 记住上次填写，下次自动带出 */
+let custProfile = null;
+try { custProfile = JSON.parse(localStorage.getItem('lynncat-cust-profile')||'null'); } catch(e){}
+function applyProfile(){
+  const p = custProfile || {};
+  document.getElementById('cName').value  = p.name  || '';
+  document.getElementById('cPhone').value = p.phone || '';
+  document.getElementById('cAddr').value  = p.addr  || '';
+  document.getElementById('cNotes').value = p.notes || '';
+  selectedCount = p.count || '1';
+  selectedServices = new Set(p.services || []);
+  renderChips();
+}
+function saveProfile(){
+  custProfile = {
+    name:  document.getElementById('cName').value.trim(),
+    phone: document.getElementById('cPhone').value.trim(),
+    addr:  document.getElementById('cAddr').value.trim(),
+    notes: document.getElementById('cNotes').value.trim(),
+    count: selectedCount, services: Array.from(selectedServices)
+  };
+  try { localStorage.setItem('lynncat-cust-profile', JSON.stringify(custProfile)); } catch(e){}
+}
+
 function openBatch(){
   const days = selectedSorted();
   if (!days.length) return;
@@ -429,6 +489,7 @@ function openBatch(){
   else notice.classList.add('hidden');
   document.getElementById('bookBtn').textContent = t('batchBtn')(days.length);
   clearMsg(document.getElementById('bookMsg'));
+  applyProfile(); // 自动带出上次填写
   document.getElementById('bookOverlay').classList.remove('hidden');
 }
 function closeBook(){ document.getElementById('bookOverlay').classList.add('hidden'); }
@@ -446,11 +507,12 @@ async function confirmBatch(){
   const { data, error } = await sb.rpc('book_days', {
     p_dates: days, p_name: name, p_phone: phone,
     p_address: document.getElementById('cAddr').value.trim(),
-    p_pet: document.getElementById('cPet').value.trim(),
+    p_pet: composePet(),
     p_notes: document.getElementById('cNotes').value.trim()
   });
   btn.disabled = false; btn.textContent = btnText;
   if (error || !data || !data.ok){ showMsg(msg,'err',t('err')); return; }
+  saveProfile(); // 记住这次填写，方便下次自动带出
   const res = data.results || [];
   const booked = res.filter(r=>r.status==='booked').length;
   const pending = res.filter(r=>r.status==='pending').length;
@@ -460,7 +522,6 @@ async function confirmBatch(){
   if (pending) parts.push(t('sumPending')(pending));
   if (unavail) parts.push(t('sumUnavail')(unavail));
   showMsg(msg, (booked||pending)?'ok':'err', parts.join(' · '));
-  ['cName','cPhone','cAddr','cPet','cNotes'].forEach(id=>document.getElementById(id).value='');
   selDays.clear(); updateSelBar();
   loadCustomer(); // 刷新名额
   setTimeout(closeBook, 2200);
@@ -590,7 +651,7 @@ function renderBookingList(){
 
 /* ---------------- 语言切换时重绘 ---------------- */
 function rerender(){
-  if (role==='customer'){ renderCustomerCal(); updateSelBar(); }
+  if (role==='customer'){ renderCustomerCal(); updateSelBar(); renderChips(); }
   else if (feeder){ renderFeederCal(); renderPending(); renderBookingList(); }
 }
 
