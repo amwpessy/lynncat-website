@@ -184,21 +184,6 @@
     setT('ratioBtcGold', fmt(gramPerBtc, 1));
   }
 
-  // ── 稀有金属报价（本地数据）─────────────────
-  function renderRare() {
-    var D = window.XYXC_DATA.index;
-    setT('rareDate', D.rareUpdateDate);
-    var html = D.rareMetals.map(function (m) {
-      return '<div class="rare-item">' +
-        '<div class="rare-top"><div class="rare-icon">' + m.icon + '</div>' +
-        '<div class="rare-names"><div class="rare-name">' + m.name + '</div>' +
-        '<div class="rare-symbol">' + m.symbol + ' · ' + m.nameEn + '</div></div></div>' +
-        '<div class="rare-price">' + m.priceWan + '</div>' +
-        '<div class="rare-use">' + m.use + '</div></div>';
-    }).join('');
-    $('rareGrid').innerHTML = html;
-  }
-
   // ── 事件 & 风险（本地数据）──────────────────
   function renderEvents() {
     var D = window.XYXC_DATA.index;
@@ -275,7 +260,6 @@
   }
 
   // ── 启动 ───────────────────────────────────
-  renderRare();
   renderEvents();
   refresh();
   document.addEventListener('visibilitychange', function () {

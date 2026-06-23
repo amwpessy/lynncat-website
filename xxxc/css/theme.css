@@ -103,23 +103,51 @@ body { background: var(--bg); color: var(--text); }
 /* 兼容：被 <a class="card-link"> 包裹的卡片，链接色不影响内部主题文字 */
 a.card-link { color: inherit; }
 
-/* ── 电脑网页适配（覆盖 global.css 的浅色版，改用主题色）── */
-@media (min-width: 760px) {
+/* ── 首页头部「返回主页」按钮 ── */
+.header-right { flex-direction: column; align-items: flex-end; gap: 7px; }
+.home-btn {
+  font-size: 12px; font-weight: 600; text-decoration: none;
+  color: var(--accent); border: 1px solid var(--border);
+  background: var(--chip-bg); padding: 5px 12px; border-radius: 100px;
+  white-space: nowrap;
+}
+.home-btn:active { opacity: .7; }
+.live-wrap { display: flex; align-items: center; gap: 6px; }
+
+/* ── 子页面导航「主页」链接 ── */
+.navbar .nav-home { font-size: 14px; color: var(--accent); text-decoration: none; width: 46px; text-align: right; flex-shrink: 0; }
+.navbar .nav-home:active { opacity: .6; }
+
+/* ============================================================
+   电脑端布局：不再是「手机窄条」，而是真正的桌面仪表盘
+   - 子页面（表格）：加宽居中
+   - 首页：更宽 + 多列瀑布流，铺满横向空间
+   ============================================================ */
+@media (min-width: 900px) {
   html { background: var(--bg); }
-  body {
-    min-height: 100vh;
-    background: var(--bg);
-    padding: 36px 16px;
-  }
+  body { min-height: 100vh; background: var(--bg); padding: 30px 24px; }
+
   .app {
-    max-width: 540px;
+    max-width: 880px;                 /* 子页面默认宽度 */
     min-height: 0;
     border: 1px solid var(--border);
-    border-radius: 22px;
-    box-shadow: 0 30px 80px rgba(0,0,0,.45);
+    border-radius: 18px;
+    box-shadow: 0 24px 70px rgba(0,0,0,.42);
   }
-  :root[data-theme='light'] .app { box-shadow: 0 30px 80px rgba(28,48,86,.18), 0 8px 24px rgba(28,48,86,.10); }
-  /* 顶部彩条跟随圆角（不裁剪容器，避免影响 sticky 吸顶） */
-  .app > .navbar { border-radius: 22px 22px 0 0; }
-  .app > .page > .header { border-radius: 22px 22px 0 0; }
+  :root[data-theme='light'] .app { box-shadow: 0 24px 70px rgba(28,48,86,.16), 0 6px 20px rgba(28,48,86,.08); }
+  .app > .navbar { border-radius: 18px 18px 0 0; }
+  .app > .page > .header { border-radius: 18px 18px 0 0; }
+
+  /* 首页仪表盘（含 .board）更宽并分多列 */
+  .app:has(.board) { max-width: 1180px; }
+  .board { column-count: 2; column-gap: 18px; padding: 6px 14px 0; }
+  .board > .block { break-inside: avoid; }
+  .board .section-label, .board .index-group-lbl { padding-left: 4px; padding-right: 4px; }
+  .board .row2 { padding: 0 0 12px; }
+  .board .card-blue, .board .card-fx, .board .card-plain { margin: 0 0 12px !important; }
+}
+
+@media (min-width: 1500px) {
+  .app:has(.board) { max-width: 1500px; }
+  .board { column-count: 3; }
 }

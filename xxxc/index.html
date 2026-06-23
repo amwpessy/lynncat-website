@@ -2,9 +2,9 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<meta name="description" content="稀赢新材 · 市场数据实时追踪 — 黄金/白银/铂金/钯金/大饼/美股A股指数/美元人民币汇率/美国国债/稀有金属报价/汽车销量">
-<title>稀赢新材 · 市场数据</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="灵猫数据 · 市场数据实时追踪 — 黄金/白银/铂金/钯金/大饼/美股A股指数/美元人民币汇率/美国国债/汽车销量">
+<title>灵猫数据 · 市场数据</title>
 <link rel="stylesheet" href="css/global.css">
 <link rel="stylesheet" href="css/index.css">
 <link rel="stylesheet" href="css/theme.css">
@@ -18,15 +18,18 @@
     <!-- ══ 品牌头部 ══ -->
     <div class="header">
       <div class="header-left">
-        <div class="logo">稀赢</div>
+        <div class="logo">🐱</div>
         <div>
-          <div class="brand">稀赢新材</div>
+          <div class="brand">灵猫数据</div>
           <div class="brand-sub">市场数据实时追踪</div>
         </div>
       </div>
       <div class="header-right">
-        <div class="live-dot" id="liveDot"></div>
-        <div class="live-txt" id="liveTxt">加载中</div>
+        <a class="home-btn" href="/">← 返回主页</a>
+        <div class="live-wrap">
+          <div class="live-dot" id="liveDot"></div>
+          <div class="live-txt" id="liveTxt">加载中</div>
+        </div>
       </div>
     </div>
 
@@ -36,7 +39,11 @@
       <span class="status-cnt" id="statusCnt"></span>
     </div>
 
-    <!-- ══ 美国国债 ══ -->
+    <!-- ══ 仪表盘（电脑端多列，手机端单列）══ -->
+    <div class="board">
+
+    <!-- 美国国债 -->
+    <div class="block">
     <div class="section-label">🇺🇸 美国国债</div>
     <a class="card-link" href="debt"><div class="card card-blue">
       <div class="card-tag tag-blue">Total Public Debt Outstanding</div>
@@ -56,8 +63,10 @@
         <div class="bar-bg"><div class="bar-fill bar-amber" id="debtGovBar" style="width:0%"></div></div>
       </div>
     </div></a>
+    </div>
 
-    <!-- ══ 贵金属 ══ -->
+    <!-- 贵金属 -->
+    <div class="block">
     <div class="section-label">🥇 贵金属</div>
     <div class="row2">
       <a class="card-link" href="gold" style="flex:1;min-width:0"><div class="card card-gold" data-metal="gold">
@@ -83,7 +92,6 @@
         </div>
       </div></a>
     </div>
-
     <div class="row2">
       <div class="card card-platinum" data-metal="platinum">
         <div class="card-tag tag-platinum">铂金 · XPT/USD</div>
@@ -108,19 +116,10 @@
         </div>
       </div>
     </div>
-
-    <!-- ══ 稀有金属报价 ══ -->
-    <div class="section-label">🔬 稀有金属报价</div>
-    <div class="card card-rare">
-      <div class="rare-header">
-        <div class="rare-source">📋 稀赢新材市场报价</div>
-        <div class="rare-date">更新：<span id="rareDate">—</span></div>
-      </div>
-      <div class="rare-grid" id="rareGrid"></div>
-      <div class="rare-note">单位：元人民币/千克（CNY/KG）· 仅供参考</div>
     </div>
 
-    <!-- ══ 大饼 + 比价 ══ -->
+    <!-- 大饼 + 比价 -->
+    <div class="block">
     <div class="section-label">🪙 大饼</div>
     <div class="row2">
       <div class="card card-btc">
@@ -153,8 +152,10 @@
         </div>
       </div>
     </div>
+    </div>
 
-    <!-- ══ 股票指数 ══ -->
+    <!-- 股票指数 -->
+    <div class="block">
     <div class="section-label">📈 股票指数</div>
     <div class="index-group-lbl">🇺🇸 美股</div>
     <div class="row2">
@@ -186,8 +187,10 @@
         <span class="badge flat" id="szBadge">◆ —%</span>
       </div>
     </div>
+    </div>
 
-    <!-- ══ 汽车销量 ══ -->
+    <!-- 汽车销量 -->
+    <div class="block">
     <div class="section-label">🚗 汽车销量</div>
     <div class="row2">
       <a class="card-link" href="autoUS" style="flex:1;min-width:0"><div class="card card-autoUS">
@@ -205,8 +208,10 @@
         <div class="auto-tip">零跑+81%，奇瑞出口创纪录 →</div>
       </div></a>
     </div>
+    </div>
 
-    <!-- ══ 汇率 ══ -->
+    <!-- 汇率 -->
+    <div class="block">
     <div class="section-label">💱 美元 / 人民币</div>
     <div class="card card-fx">
       <div class="card-tag tag-fx">USD / CNY · 实时汇率</div>
@@ -226,19 +231,23 @@
         <div class="fx-row"><span class="fx-k">1 CNY</span><span class="fx-arr">→</span><span class="fx-v">$ <span id="fxInverse">—</span></span></div>
       </div>
     </div>
+    </div>
 
-    <!-- ══ 市场重要事件 ══ -->
+    <!-- 市场重要事件 -->
+    <div class="block">
     <div class="section-label">📅 近期重要事件</div>
     <div class="card card-plain" style="margin:0 12px 8px">
       <div class="tbl-header">
         <div class="tbl-date-col">事件节点</div>
         <div class="tbl-event-col">事件</div>
-        <div class="tbl-impact-col">核心利空影响</div>
+        <div class="tbl-impact-col">核心影响</div>
       </div>
       <div id="eventsList"></div>
     </div>
+    </div>
 
-    <!-- ══ 核心利空/利多因素 ══ -->
+    <!-- 核心利空/利多因素 -->
+    <div class="block">
     <div class="section-label">🎯 市场核心因素</div>
     <div class="card card-plain" style="margin:0 12px 8px">
       <div class="risk-group-label">⚠️ 主要利空</div>
@@ -247,6 +256,9 @@
       <div class="risk-group-label">✅ 主要支撑</div>
       <div id="risksSupport"></div>
     </div>
+    </div>
+
+    </div><!-- /.board -->
 
     <!-- ══ 倒计时进度条 ══ -->
     <div class="progress-wrap">
@@ -256,7 +268,7 @@
 
     <!-- ══ 底部 ══ -->
     <div class="footer">
-      <div class="footer-brand">稀赢新材 · XIYINGXINCAI</div>
+      <div class="footer-brand">灵猫数据 · LYNNCAT</div>
       <div class="footer-src">国债: fiscaldata.treasury.gov · 贵金属/大饼: gold-api.com</div>
       <div class="footer-src">汇率: open.er-api.com · 指数: hq.sinajs.cn</div>
       <div class="footer-disc">仅供参考，不构成投资建议</div>
