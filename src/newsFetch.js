@@ -1,10 +1,14 @@
 // 定时收集每日资讯 — 路由：/news/fetch?secret=YOUR_SECRET
-// 数据源：Google News RSS（按分类拆成 3 个搜索源）+ News API（可选，需配置 NEWS_API_KEY）
+// 数据源：中文科技/财经媒体 RSS（混合内容池，按关键词分类）+ News API（可选，需配置 NEWS_API_KEY）
+//
+// 注：Google News RSS 在 Cloudflare Workers 网络下会被其反爬虫机制拦截，
+// 返回 503（本地用 curl 测试是 200，因为 IP 信誉不同），故不可用。
+// 这三个源是从公网逐一验证过、且能在 Workers 出口 IP 下正常返回内容的真实 RSS。
 
 const RSS_FEEDS = [
-  { category: 'IT', url: 'https://news.google.com/rss/search?q=%E7%A7%91%E6%8A%80%20OR%20AI%20OR%20%E4%BA%92%E8%81%94%E7%BD%91%20OR%20%E8%8A%AF%E7%89%87&hl=zh-CN&gl=CN&ceid=CN:zh-Hans' },
-  { category: 'Finance', url: 'https://news.google.com/rss/search?q=%E8%82%A1%E5%B8%82%20OR%20%E8%B4%A2%E7%BB%8F%20OR%20%E9%87%91%E8%9E%8D%20OR%20%E5%A4%AE%E8%A1%8C&hl=zh-CN&gl=CN&ceid=CN:zh-Hans' },
-  { category: 'Auto', url: 'https://news.google.com/rss/search?q=%E6%B1%BD%E8%BD%A6%20OR%20%E6%96%B0%E8%83%BD%E6%BA%90%E6%B1%BD%E8%BD%A6%20OR%20%E7%94%B5%E5%8A%A8%E8%BD%A6&hl=zh-CN&gl=CN&ceid=CN:zh-Hans' }
+  'https://www.ithome.com/rss/',
+  'https://sspai.com/feed',
+  'https://www.36kr.com/feed'
 ];
 
 export async function handleNewsFetch(request, env) {
@@ -98,36 +102,49 @@ async function fetchFromNewsApi(apiKey) {
 async function fetchFromRss() {
   const results = [];
 
-  for (const feed of RSS_FEEDS) {
+  for (const feedUrl of RSS_FEEDS) {
     try {
-      const response = await fetch(feed.url);
+      const response = await fetch(feedUrl);
       if (!response.ok) {
-        console.error(`RSS fetch (${feed.category}) not ok: ${response.status}`);
+        console.error(`RSS fetch (${feedUrl}) not ok: ${response.status}`);
         continue;
       }
 
       const xml = await response.text();
-      const items = parseRss(xml).slice(0, 8);
-      console.error(`RSS fetch (${feed.category}) parsed ${items.length} items from ${xml.length} bytes`);
+      const items = parseRss(xml).slice(0, 20);
+      console.error(`RSS fetch (${feedUrl}) parsed ${items.length} items from ${xml.length} bytes`);
 
       for (const item of items) {
         if (!item.title || !item.link) continue;
+        const category = categorizeArticle(item.title);
+        if (!category) continue;
         results.push({
           title: item.title,
           summary: null,
-          source: item.source || 'Google News',
-          category: feed.category,
+          source: item.source || new URL(feedUrl).hostname,
+          category,
           image_url: null,
           article_url: item.link,
           published_at: item.pubDate ? new Date(item.pubDate).toISOString() : new Date().toISOString()
         });
       }
     } catch (error) {
-      console.error(`Error fetching RSS (${feed.category}):`, error);
+      console.error(`Error fetching RSS (${feedUrl}):`, error);
     }
   }
 
   return results;
+}
+
+function categorizeArticle(text) {
+  const itKeywords = ['AI', '科技股', '互联网', '软件', '编程', '算法', '芯片', '应用', '苹果', '华为', '小米', '谷歌', '微软', 'OpenAI', '大模型'];
+  const financeKeywords = ['股票', '基金', '债券', '汇率', '理财', '投资', '金融', '银行', '期货', '黄金', '美股', '融资', 'IPO', '财报', '营收', '港股', 'A股'];
+  const autoKeywords = ['汽车', '车型', '销量', '新能源', '电动车', '自驾', '驾驶', '车企', '蔚来', '理想', '小鹏', '比亚迪', '特斯拉'];
+
+  for (const kw of itKeywords) if (text.includes(kw)) return 'IT';
+  for (const kw of financeKeywords) if (text.includes(kw)) return 'Finance';
+  for (const kw of autoKeywords) if (text.includes(kw)) return 'Auto';
+  return null;
 }
 
 function parseRss(xml) {
