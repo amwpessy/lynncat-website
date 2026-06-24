@@ -101,10 +101,14 @@ async function fetchFromRss() {
   for (const feed of RSS_FEEDS) {
     try {
       const response = await fetch(feed.url);
-      if (!response.ok) continue;
+      if (!response.ok) {
+        console.error(`RSS fetch (${feed.category}) not ok: ${response.status}`);
+        continue;
+      }
 
       const xml = await response.text();
       const items = parseRss(xml).slice(0, 8);
+      console.error(`RSS fetch (${feed.category}) parsed ${items.length} items from ${xml.length} bytes`);
 
       for (const item of items) {
         if (!item.title || !item.link) continue;
