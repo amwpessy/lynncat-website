@@ -1,0 +1,89 @@
+/* 灵猫数据 · 品牌主题 */
+:root {
+  --bg:#0f0f0f; --surface:#1a1a1a; --surface2:#232323; --border:#2a2a2a;
+  --text:#f0f0f0; --muted:#9a9a9a; --faint:#6a6a6a;
+  --accent:#f5a623; --accent2:#e07020;
+  --chip-bg:rgba(255,255,255,.07);
+  --shadow:0 2px 14px rgba(0,0,0,.5);
+}
+
+:root[data-theme='light'] {
+  --bg:#f6f6f8; --surface:#ffffff; --surface2:#f0f0f3; --border:#e3e3e8;
+  --text:#1b1b1f; --muted:#6a6a72; --faint:#9a9aa2;
+  --accent:#b35e09; --accent2:#8f4408;
+  --chip-bg:rgba(0,0,0,.05);
+  --shadow:0 2px 12px rgba(0,0,0,.06);
+}
+
+/* 基础容器 */
+body { background: var(--bg); color: var(--text); }
+.app { background: var(--bg); box-shadow: none; }
+.page { background: var(--bg) !important; }
+
+/* 顶部导航条 */
+.header { background: var(--surface) !important; border-bottom: 1px solid var(--border); }
+.logo { background: var(--chip-bg) !important; border-color: var(--border) !important; }
+.brand { color: var(--text); }
+.brand-sub { color: var(--muted); }
+
+/* 分区标题 */
+.section-label { color: var(--muted); }
+
+/* 卡片表面 */
+.card, .card-plain, .news-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+
+/* 分隔线 */
+.divider, .row-divider, .bar-bg { background: var(--border); }
+
+/* 表头 */
+.tbl-header { background: var(--surface2); color: var(--muted); }
+
+/* 主文字 */
+.debt-int, .metal-price, .index-price, .fx-rate, .br-val,
+.ratio-val, .day-total, .tbl-title, .risk-title, .news-item-title {
+  color: var(--text);
+}
+
+/* 次要文字 */
+.debt-sym, .debt-dec, .debt-sub, .br-label, .metal-unit, .sub-lbl,
+.ratio-lbl, .ratio-eq, .ratio-unit, .index-name, .fx-unit, .fx-box-lbl,
+.fx-k, .fx-arr, .rare-date, .rare-symbol, .rare-use, .rare-note,
+.auto-month, .auto-tip, .tbl-desc, .risk-desc, .news-item-summary, .news-item-time {
+  color: var(--muted);
+}
+
+/* 徽章和标签 */
+.badge, .card-tag, .news-category-badge {
+  background: var(--chip-bg);
+  color: var(--accent);
+  border-color: var(--border);
+}
+
+.badge.up { color: #10b981; }
+.badge.dn { color: #ef4444; }
+.badge.flat { color: var(--muted); }
+
+/* 按钮 */
+.tab-btn {
+  background: var(--surface2);
+  border-color: var(--border);
+  color: var(--muted);
+}
+
+.tab-btn.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+/* 底部 */
+.footer {
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.footer-brand { color: var(--text); }

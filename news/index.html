@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="灵猫数据 · 每日最新资讯 — IT业界、金融、汽车资讯聚合">
+<title>灵猫数据 · 每日资讯</title>
+<link rel="stylesheet" href="css/global.css">
+<link rel="stylesheet" href="css/news.css">
+<link rel="stylesheet" href="css/theme.css">
+<script>/* 按北京时间自动切换主题：白天(6-18)浅色，夜间深色 */
+(function(){function a(){var h;try{h=parseInt(new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Shanghai',hour:'numeric',hour12:false}).format(new Date()),10);}catch(e){h=new Date().getHours();}if(h===24)h=0;document.documentElement.setAttribute('data-theme',(h>=6&&h<18)?'light':'dark');}a();setInterval(a,300000);})();</script>
+</head>
+<body>
+<div class="app">
+  <div class="page">
+
+    <!-- ══ 品牌头部 ══ -->
+    <div class="header">
+      <div class="header-left">
+        <div class="logo">🐱</div>
+        <div>
+          <div class="brand">灵猫数据</div>
+          <div class="brand-sub">每日最新资讯</div>
+        </div>
+      </div>
+      <div class="header-right">
+        <a class="home-btn" href="/">← 返回主页</a>
+      </div>
+    </div>
+
+    <!-- ══ 日期选择器 ══ -->
+    <div class="news-toolbar">
+      <div class="date-picker">
+        <button class="date-btn" id="prevDateBtn" aria-label="上一天">←</button>
+        <div class="date-display" id="dateDisplay">加载中...</div>
+        <button class="date-btn" id="nextDateBtn" aria-label="下一天">→</button>
+      </div>
+    </div>
+
+    <!-- ══ 分类标签 ══ -->
+    <div class="category-tabs">
+      <button class="tab-btn active" data-category="all">全部</button>
+      <button class="tab-btn" data-category="IT">💻 IT业界</button>
+      <button class="tab-btn" data-category="Finance">💰 金融</button>
+      <button class="tab-btn" data-category="Auto">🚗 汽车</button>
+    </div>
+
+    <!-- ══ 资讯列表 ══ -->
+    <div class="news-container">
+      <div id="newsList" class="news-list">
+        <div class="loading-state">
+          <div class="spinner"></div>
+          <div>加载资讯中...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ 底部 ══ -->
+    <div class="footer">
+      <div class="footer-brand">灵猫数据 · LYNNCAT</div>
+      <div class="footer-src">资讯来源：News API + RSS 源</div>
+      <div class="footer-disc">仅供参考，不构成任何建议</div>
+    </div>
+
+  </div>
+</div>
+<script src="js/news.js"></script>
+</body>
+</html>
