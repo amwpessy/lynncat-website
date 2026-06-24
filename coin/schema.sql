@@ -15,6 +15,8 @@ create table if not exists coin_profiles (
 
 create index if not exists coin_profiles_balance_idx on coin_profiles (balance desc);
 create index if not exists coin_profiles_active_idx  on coin_profiles (last_active);
+-- 用户名大小写不敏感唯一（避免 Alice / alice 同时存在）
+create unique index if not exists coin_profiles_username_lower_idx on coin_profiles (lower(username));
 
 alter table coin_profiles enable row level security;
 
@@ -129,6 +131,23 @@ language sql security definer set search_path = public as $$
   limit 50;
 $$;
 
+-- ── 用户名登录：由用户名查出对应登录邮箱（仅返回邮箱，供前端登录用）──
+create or replace function email_for_login(p_username text) returns text
+language sql security definer set search_path = public as $$
+  select u.email
+  from coin_profiles p join auth.users u on u.id = p.id
+  where lower(p.username) = lower(p_username)
+  limit 1;
+$$;
+
+-- ── 用户名是否已被占用（大小写不敏感）──
+create or replace function username_taken(p_username text) returns boolean
+language sql security definer set search_path = public as $$
+  select exists(select 1 from coin_profiles where lower(username) = lower(p_username));
+$$;
+
+grant execute on function email_for_login(text)         to anon, authenticated;
+grant execute on function username_taken(text)          to anon, authenticated;
 grant execute on function mine()                         to anon, authenticated;
 grant execute on function transfer_coin(text, numeric)   to anon, authenticated;
 grant execute on function my_transfers()                 to anon, authenticated;

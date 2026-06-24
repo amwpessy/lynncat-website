@@ -31,8 +31,8 @@
   function setMode(m) {
     mode = m;
     setMsg(authMsg, '');
-    show(fUser, m === 'register');
-    show(fEmail, m === 'login' || m === 'register' || m === 'forgot');
+    show(fUser, m === 'login' || m === 'register');
+    show(fEmail, m === 'register' || m === 'forgot');
     show(fPass, m === 'login' || m === 'register');
     show(fNew, m === 'reset');
     pEl.setAttribute('autocomplete', m === 'register' ? 'new-password' : 'current-password');
@@ -69,14 +69,16 @@
     authBtn.disabled = true;
     try {
       if (mode === 'login') {
-        var em = eEl.value.trim(), p = pEl.value;
-        if (!validEmail(em)) throw new Error('请输入有效邮箱');
+        var lu = uEl.value.trim(), p = pEl.value;
+        if (!lu) throw new Error('请输入用户名');
         if (!p) throw new Error('请输入密码');
         setMsg(authMsg, '登录中…');
-        var lin = await sb.auth.signInWithPassword({ email: em, password: p });
+        // 用户名 → 登录邮箱
+        var le = await sb.rpc('email_for_login', { p_username: lu });
+        if (le.error || !le.data) throw new Error('用户名或密码错误');
+        var lin = await sb.auth.signInWithPassword({ email: le.data, password: p });
         if (lin.error) {
-          if (/Invalid login/i.test(lin.error.message)) throw new Error('邮箱或密码错误');
-          if (/not confirmed/i.test(lin.error.message)) throw new Error('该邮箱尚未验证');
+          if (/Invalid login/i.test(lin.error.message)) throw new Error('用户名或密码错误');
           throw lin.error;
         }
         await onLoggedIn();
@@ -87,6 +89,9 @@
         if (!validEmail(re)) throw new Error('请输入有效邮箱（用于找回密码）');
         if (!rp || rp.length < 6) throw new Error('密码至少 6 位');
         setMsg(authMsg, '注册中…');
+        // 先检查用户名是否已被占用（大小写不敏感），避免产生孤立账号
+        var taken = await sb.rpc('username_taken', { p_username: u });
+        if (!taken.error && taken.data === true) throw new Error('用户名已被占用，请换一个');
         var reg = await sb.auth.signUp({ email: re, password: rp, options: { data: { username: u } } });
         if (reg.error) {
           var m1 = reg.error.message || '';
