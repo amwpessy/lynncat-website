@@ -74,10 +74,7 @@
       const endOfDay = new Date(currentDate);
       endOfDay.setDate(endOfDay.getDate() + 1);
 
-      const startIso = startOfDay.toISOString().split('T')[0];
-      const endIso = endOfDay.toISOString().split('T')[0];
-
-      let url = `${SUPABASE_URL}/rest/v1/news?published_at=gte.${startIso}T00:00:00&published_at=lt.${endIso}T00:00:00&order=published_at.desc`;
+      let url = `${SUPABASE_URL}/rest/v1/news?published_at=gte.${startOfDay.toISOString()}&published_at=lt.${endOfDay.toISOString()}&order=published_at.desc`;
 
       if (selectedCategory !== 'all') {
         url += `&category=eq.${selectedCategory}`;
