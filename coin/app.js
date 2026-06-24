@@ -5,7 +5,7 @@
   // ── 配置（与 feeding 同一个 Supabase 项目）──
   var SUPABASE_URL = 'https://ndwafsoitodanawxfdob.supabase.co';
   var SUPABASE_ANON_KEY = 'sb_publishable_7mxUvl503DLkuRw006Atug_mkspk6Eb';
-  var EMAIL_DOMAIN = '@coin.lynncat.app'; // 用「用户名→合成邮箱」实现纯用户名登录
+  var EMAIL_DOMAIN = '@lynncat.com'; // 用「用户名→合成邮箱」实现纯用户名登录（该域名通过 Supabase 校验）
 
   var sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
