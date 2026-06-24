@@ -28,11 +28,24 @@ create table bookings (
   address         text,
   pet_info        text,
   notes           text,
+  photo_urls      text[] not null default '{}',      -- 客户上传的现场照片（钥匙/猫粮摆放位置等）
   kind            text not null default 'normal',    -- normal 正常 | extra 加号
   status          text not null default 'confirmed', -- confirmed 已确认 | pending 待确认 | rejected 已拒绝
   created_at      timestamptz not null default now()
 );
 create index bookings_day_idx on bookings (d);
+
+-- 照片存储桶：公开桶（任何人持有完整随机 URL 即可访问），但不开放 select/list 策略，
+-- 所以无法列出桶内文件，只能访问已知的（UUID 文件名）具体链接。anon 只能新增，不能改/删/列。
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('feeding-photos', 'feeding-photos', true, 8388608,
+        array['image/jpeg','image/png','image/webp','image/heic','image/heif'])
+on conflict (id) do update set public = true, file_size_limit = 8388608,
+        allowed_mime_types = array['image/jpeg','image/png','image/webp','image/heic','image/heif'];
+
+create policy feeding_photos_insert on storage.objects
+for insert to anon
+with check (bucket_id = 'feeding-photos');
 
 -- ---------- 2. 凭据校验（账号密码写在服务端，前端看不到） ----------
 -- 如需改账号/密码，改这里的两个字符串即可。
@@ -57,7 +70,8 @@ $$;
 
 -- 客户直接预约（当天未满 3 单才成功）
 create or replace function book_day(
-  p_d date, p_name text, p_phone text, p_address text, p_pet text, p_notes text
+  p_d date, p_name text, p_phone text, p_address text, p_pet text, p_notes text,
+  p_photos text[] default '{}'
 ) returns json language plpgsql security definer as $$
 declare v_cnt int; v_avail bool; v_id uuid;
 begin
@@ -74,15 +88,16 @@ begin
     return json_build_object('ok', false, 'error', 'full');
   end if;
 
-  insert into bookings(d, customer_name, customer_phone, address, pet_info, notes, kind, status)
-  values (p_d, p_name, p_phone, p_address, p_pet, p_notes, 'normal', 'confirmed')
+  insert into bookings(d, customer_name, customer_phone, address, pet_info, notes, photo_urls, kind, status)
+  values (p_d, p_name, p_phone, p_address, p_pet, p_notes, p_photos, 'normal', 'confirmed')
   returning id into v_id;
   return json_build_object('ok', true, 'booking_id', v_id);
 end; $$;
 
 -- 客户申请加号（当天已满时，提交待确认申请）
 create or replace function request_extra(
-  p_d date, p_name text, p_phone text, p_address text, p_pet text, p_notes text
+  p_d date, p_name text, p_phone text, p_address text, p_pet text, p_notes text,
+  p_photos text[] default '{}'
 ) returns json language plpgsql security definer as $$
 declare v_avail bool; v_id uuid;
 begin
@@ -93,8 +108,8 @@ begin
     return json_build_object('ok', false, 'error', 'unavailable');
   end if;
 
-  insert into bookings(d, customer_name, customer_phone, address, pet_info, notes, kind, status)
-  values (p_d, p_name, p_phone, p_address, p_pet, p_notes, 'extra', 'pending')
+  insert into bookings(d, customer_name, customer_phone, address, pet_info, notes, photo_urls, kind, status)
+  values (p_d, p_name, p_phone, p_address, p_pet, p_notes, p_photos, 'extra', 'pending')
   returning id into v_id;
   return json_build_object('ok', true, 'booking_id', v_id);
 end; $$;
@@ -102,7 +117,8 @@ end; $$;
 -- 客户批量预约：一次提交多个日期。未满的直接确认，已满的自动转为加号申请。
 -- 返回每天的处理结果：booked 已预约 | pending 加号待确认 | unavailable 不可约
 create or replace function book_days(
-  p_dates date[], p_name text, p_phone text, p_address text, p_pet text, p_notes text
+  p_dates date[], p_name text, p_phone text, p_address text, p_pet text, p_notes text,
+  p_photos text[] default '{}'
 ) returns json language plpgsql security definer as $$
 declare
   v_d date; v_cnt int; v_avail bool; v_status text; v_results json[] := '{}';
@@ -117,12 +133,12 @@ begin
       perform pg_advisory_xact_lock(hashtext(v_d::text));
       select count(*) into v_cnt from bookings where d = v_d and status = 'confirmed';
       if v_cnt >= 3 then
-        insert into bookings(d, customer_name, customer_phone, address, pet_info, notes, kind, status)
-        values (v_d, p_name, p_phone, p_address, p_pet, p_notes, 'extra', 'pending');
+        insert into bookings(d, customer_name, customer_phone, address, pet_info, notes, photo_urls, kind, status)
+        values (v_d, p_name, p_phone, p_address, p_pet, p_notes, p_photos, 'extra', 'pending');
         v_status := 'pending';
       else
-        insert into bookings(d, customer_name, customer_phone, address, pet_info, notes, kind, status)
-        values (v_d, p_name, p_phone, p_address, p_pet, p_notes, 'normal', 'confirmed');
+        insert into bookings(d, customer_name, customer_phone, address, pet_info, notes, photo_urls, kind, status)
+        values (v_d, p_name, p_phone, p_address, p_pet, p_notes, p_photos, 'normal', 'confirmed');
         v_status := 'booked';
       end if;
     end if;
@@ -136,7 +152,7 @@ create or replace function my_bookings(p_phone text)
 returns json language sql stable security definer as $$
   select coalesce(json_agg(row_to_json(b)), '[]'::json)
   from (
-    select d, kind, status, pet_info, notes, created_at
+    select d, kind, status, pet_info, notes, photo_urls, created_at
     from bookings
     where customer_phone = p_phone
       and d >= (current_date - interval '2 months')::date
@@ -163,7 +179,7 @@ begin
     'days', (select coalesce(json_agg(d order by d), '[]'::json)
              from available_days where d >= current_date),
     'bookings', (select coalesce(json_agg(row_to_json(b)), '[]'::json)
-             from (select id, d, customer_name, customer_phone, address, pet_info, notes, kind, status, created_at
+             from (select id, d, customer_name, customer_phone, address, pet_info, notes, photo_urls, kind, status, created_at
                    from bookings where d >= current_date order by d, created_at) b)
   );
 end; $$;
@@ -195,16 +211,18 @@ begin
   return json_build_object('ok', true);
 end; $$;
 
--- 喂猫员修改某个订单的内容
+-- 喂猫员修改某个订单的内容（p_photos 为 null 时保留原照片，传数组则整体替换）
 create or replace function update_booking(
   p_user text, p_pass text, p_id uuid,
-  p_name text, p_phone text, p_address text, p_pet text, p_notes text
+  p_name text, p_phone text, p_address text, p_pet text, p_notes text,
+  p_photos text[] default null
 ) returns json language plpgsql security definer as $$
 begin
   if not _check_feeder(p_user, p_pass) then return json_build_object('ok', false); end if;
   update bookings set
     customer_name = p_name, customer_phone = p_phone,
-    address = p_address, pet_info = p_pet, notes = p_notes
+    address = p_address, pet_info = p_pet, notes = p_notes,
+    photo_urls = coalesce(p_photos, photo_urls)
   where id = p_id;
   return json_build_object('ok', true);
 end; $$;
@@ -222,14 +240,14 @@ end; $$;
 alter table available_days enable row level security;
 alter table bookings       enable row level security;
 
-grant execute on function public_calendar()                                         to anon;
-grant execute on function book_day(date, text, text, text, text, text)              to anon;
-grant execute on function request_extra(date, text, text, text, text, text)         to anon;
-grant execute on function book_days(date[], text, text, text, text, text)           to anon;
-grant execute on function my_bookings(text)                                          to anon;
-grant execute on function feeder_login(text, text)                                  to anon;
-grant execute on function feeder_overview(text, text)                               to anon;
-grant execute on function set_available_days(text, text, date[])                    to anon;
-grant execute on function decide_request(text, text, uuid, boolean)                 to anon;
-grant execute on function update_booking(text, text, uuid, text, text, text, text, text) to anon;
-grant execute on function delete_booking(text, text, uuid)                          to anon;
+grant execute on function public_calendar()                                              to anon;
+grant execute on function book_day(date, text, text, text, text, text, text[])          to anon;
+grant execute on function request_extra(date, text, text, text, text, text, text[])     to anon;
+grant execute on function book_days(date[], text, text, text, text, text, text[])       to anon;
+grant execute on function my_bookings(text)                                             to anon;
+grant execute on function feeder_login(text, text)                                      to anon;
+grant execute on function feeder_overview(text, text)                                   to anon;
+grant execute on function set_available_days(text, text, date[])                        to anon;
+grant execute on function decide_request(text, text, uuid, boolean)                      to anon;
+grant execute on function update_booking(text, text, uuid, text, text, text, text, text, text[]) to anon;
+grant execute on function delete_booking(text, text, uuid)                              to anon;

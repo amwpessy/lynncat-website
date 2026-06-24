@@ -123,6 +123,12 @@
 
   .spinner { display:inline-block; width:15px; height:15px; border:2px solid rgba(0,0,0,.25); border-top-color:#1a0e06; border-radius:50%; animation:spin .7s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg);} }
+
+  .photo-row { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0; }
+  .photo-thumb { position:relative; width:64px; height:64px; border-radius:10px; overflow:hidden; border:1px solid var(--border); background:var(--surface2); flex-shrink:0; }
+  .photo-thumb img { width:100%; height:100%; object-fit:cover; display:block; cursor:pointer; }
+  .photo-thumb.uploading { display:flex; align-items:center; justify-content:center; }
+  .photo-thumb .rm { position:absolute; top:-6px; right:-6px; width:20px; height:20px; border-radius:50%; background:var(--red); color:#fff; border:none; font-size:12px; line-height:20px; text-align:center; cursor:pointer; padding:0; }
 </style>
 <script>
 /* 按北京时间自动切换主题：白天(6:00–18:00)浅色，夜间深色 */
@@ -264,6 +270,11 @@
     <div class="chips" id="serviceChips"></div>
     <label><span data-en>Feeding</span><span data-zh>猫咪喂食习惯</span></label>
     <div class="chips" id="feedChips"></div>
+    <label><span data-en>Photos (optional)</span><span data-zh>现场照片（可选）</span></label>
+    <p class="sub" style="margin:-4px 0 8px;"><span data-en>Show the feeder where the key or cat food is.</span><span data-zh>方便喂猫员看清钥匙、猫粮等的摆放位置。</span></p>
+    <div class="photo-row" id="cPhotos"></div>
+    <input type="file" id="cPhotoInput" accept="image/*" multiple style="display:none" onchange="handlePhotoSelect(event,'cust')">
+    <button type="button" class="btn ghost sm" onclick="document.getElementById('cPhotoInput').click()">📷 <span data-en>Add photo</span><span data-zh>添加照片</span></button>
     <label><span data-en>Notes (optional)</span><span data-zh>备注（可选）</span></label>
     <textarea id="cNotes"></textarea>
     <div id="bookMsg"></div>
@@ -310,6 +321,10 @@
     <textarea id="ePet"></textarea>
     <label><span data-en>Notes</span><span data-zh>备注</span></label>
     <textarea id="eNotes"></textarea>
+    <label><span data-en>Photos</span><span data-zh>现场照片</span></label>
+    <div class="photo-row" id="ePhotos"></div>
+    <input type="file" id="ePhotoInput" accept="image/*" multiple style="display:none" onchange="handlePhotoSelect(event,'edit')">
+    <button type="button" class="btn ghost sm" onclick="document.getElementById('ePhotoInput').click()">📷 <span data-en>Add photo</span><span data-zh>添加照片</span></button>
     <div id="editMsg"></div>
     <div class="row" style="margin-top:18px;">
       <button class="btn ghost" style="flex:0 0 auto;" onclick="closeEdit()"><span data-en>Cancel</span><span data-zh>取消</span></button>
@@ -359,7 +374,7 @@ const T = {
     selDatesLabel:'已选日期', batchFull:n=>'其中 '+n+' 天已约满，将作为加号申请，需喂猫员确认。',
     sumBooked:n=>'✅ '+n+' 天预约成功', sumPending:n=>n+' 天已满，加号申请待确认', sumUnavail:n=>n+' 天不可约',
     rejected:'已拒绝', enterPhone:'请输入手机号', noMyBk:'没有找到预约记录',
-    confirmDelOrder:'确定删除这个订单？', editSaved:'已保存 ✓'
+    confirmDelOrder:'确定删除这个订单？', editSaved:'已保存 ✓', photoWait:'照片还在上传中，请稍候'
   },
   en: {
     needUser:'Enter username and password', wrong:'Wrong username or password', welcome:'Welcome back',
@@ -377,7 +392,7 @@ const T = {
     selDatesLabel:'Selected dates', batchFull:n=>n+' of them '+(n>1?'are':'is')+' full — will be sent as extra-slot request(s) for approval.',
     sumBooked:n=>'✅ '+n+' day'+(n>1?'s':'')+' booked', sumPending:n=>n+' full — extra request(s) pending', sumUnavail:n=>n+' unavailable',
     rejected:'Rejected', enterPhone:'Please enter your phone', noMyBk:'No bookings found',
-    confirmDelOrder:'Delete this order?', editSaved:'Saved ✓'
+    confirmDelOrder:'Delete this order?', editSaved:'Saved ✓', photoWait:'Photos are still uploading, please wait'
   }
 };
 function t(k){ return T[lang()][k]; }
@@ -573,6 +588,80 @@ function composePet(){
   return parts.join(' · ');
 }
 
+/* ----- 现场照片：选择后本地压缩再上传到 Supabase Storage（feeding-photos 桶），随机文件名 ----- */
+const MAX_PHOTOS = 4;
+let custPhotos = []; // 元素为已上传的 url 字符串，或 {uploading:true} 占位对象
+let editPhotos = [];
+function resizeImage(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const maxW = 1280;
+        let w = img.width, h = img.height;
+        if (w > maxW){ h = Math.round(h * maxW / w); w = maxW; }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('toBlob failed')), 'image/jpeg', 0.75);
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+async function uploadPhoto(blob){
+  const path = (window.crypto && crypto.randomUUID ? crypto.randomUUID() : (Date.now()+'-'+Math.random().toString(36).slice(2))) + '.jpg';
+  const { error } = await sb.storage.from('feeding-photos').upload(path, blob, { contentType:'image/jpeg' });
+  if (error) throw error;
+  const { data } = sb.storage.from('feeding-photos').getPublicUrl(path);
+  return data.publicUrl;
+}
+function renderPhotoRow(containerId, arr){
+  const box = document.getElementById(containerId);
+  if (!box) return;
+  box.innerHTML = arr.map((p, i) => {
+    if (typeof p === 'string'){
+      return '<div class="photo-thumb"><img src="'+esc(p)+'" onclick="window.open(\''+esc(p)+'\',\'_blank\')">'
+        + '<button type="button" class="rm" onclick="removePhoto(\''+containerId+'\','+i+')">×</button></div>';
+    }
+    return '<div class="photo-thumb uploading"><span class="spinner"></span></div>';
+  }).join('');
+}
+function removePhoto(containerId, idx){
+  const arr = containerId === 'cPhotos' ? custPhotos : editPhotos;
+  arr.splice(idx, 1);
+  renderPhotoRow(containerId, arr);
+}
+async function handlePhotoSelect(ev, which){
+  const containerId = which === 'cust' ? 'cPhotos' : 'ePhotos';
+  const arr = which === 'cust' ? custPhotos : editPhotos;
+  const files = Array.from(ev.target.files || []);
+  ev.target.value = '';
+  for (const file of files){
+    if (arr.length >= MAX_PHOTOS) break;
+    const idx = arr.length;
+    arr.push({ uploading:true });
+    renderPhotoRow(containerId, arr);
+    try {
+      const blob = await resizeImage(file);
+      arr[idx] = await uploadPhoto(blob);
+    } catch(e){
+      arr.splice(idx, 1);
+    }
+    renderPhotoRow(containerId, arr);
+  }
+}
+function photoThumbsHtml(urls){
+  if (!urls || !urls.length) return '';
+  return '<div class="photo-row">' + urls.map(u =>
+    '<div class="photo-thumb"><img src="'+esc(u)+'" onclick="event.stopPropagation();window.open(\''+esc(u)+'\',\'_blank\')"></div>'
+  ).join('') + '</div>';
+}
+
 /* 记住上次填写，下次自动带出 */
 let custProfile = null;
 try { custProfile = JSON.parse(localStorage.getItem('lynncat-cust-profile')||'null'); } catch(e){}
@@ -614,6 +703,7 @@ function openBatch(){
   document.getElementById('bookBtn').textContent = t('batchBtn')(days.length);
   clearMsg(document.getElementById('bookMsg'));
   applyProfile(); // 自动带出上次填写
+  custPhotos = []; renderPhotoRow('cPhotos', custPhotos);
   document.getElementById('bookOverlay').classList.remove('hidden');
 }
 function closeBook(){ document.getElementById('bookOverlay').classList.add('hidden'); }
@@ -646,6 +736,7 @@ function renderMyBookings(list){
     let info = '';
     if (b.pet_info) info += '<div class="m">🐈 '+esc(b.pet_info)+'</div>';
     if (b.notes) info += '<div class="m">📝 '+esc(b.notes)+'</div>';
+    info += photoThumbsHtml(b.photo_urls);
     return '<div class="slot"><div><div class="t">'+esc(fmtDate(b.d))
       +' <span class="tag '+stCls+'">'+esc(stTxt)+'</span>'+extra+'</div>'+info+'</div></div>';
   }).join('');
@@ -656,6 +747,7 @@ async function confirmBatch(){
   const phone = document.getElementById('cPhone').value.trim();
   const msg = document.getElementById('bookMsg');
   if (!name || !phone){ showMsg(msg,'err',t('needBook')); return; }
+  if (custPhotos.some(p => typeof p !== 'string')){ showMsg(msg,'err',t('photoWait')); return; }
   const days = selectedSorted();
   if (!days.length){ closeBook(); return; }
   const btn = document.getElementById('bookBtn');
@@ -665,7 +757,8 @@ async function confirmBatch(){
     p_dates: days, p_name: name, p_phone: phone,
     p_address: document.getElementById('cAddr').value.trim(),
     p_pet: composePet(),
-    p_notes: document.getElementById('cNotes').value.trim()
+    p_notes: document.getElementById('cNotes').value.trim(),
+    p_photos: custPhotos
   });
   btn.disabled = false; btn.textContent = btnText;
   if (error || !data || !data.ok){ showMsg(msg,'err',t('err')); return; }
@@ -770,6 +863,7 @@ function renderPending(){
     if (b.address) info += '<div class="m">📍 '+esc(b.address)+'</div>';
     if (b.pet_info) info += '<div class="m">🐈 '+esc(b.pet_info)+'</div>';
     if (b.notes) info += '<div class="m">📝 '+esc(b.notes)+'</div>';
+    info += photoThumbsHtml(b.photo_urls);
     return '<div class="slot"><div><div class="t">'+esc(fmtDate(b.d))+'<span class="tag extra">'+esc(t('extra'))+'</span></div>'+info+'</div>'
       + '<div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">'
       + '<button class="btn green sm" onclick="decide(\''+b.id+'\',true)">'+esc(t('approve'))+'</button>'
@@ -799,6 +893,7 @@ function renderBookingList(){
       if (b.address) info += '<div class="m">📍 '+esc(b.address)+'</div>';
       if (b.pet_info) info += '<div class="m">🐈 '+esc(b.pet_info)+'</div>';
       if (b.notes) info += '<div class="m">📝 '+esc(b.notes)+'</div>';
+      info += photoThumbsHtml(b.photo_urls);
       const tag = b.kind==='extra' ? '<span class="tag extra">'+esc(t('extra'))+'</span>' : '';
       html += '<div class="slot" style="cursor:pointer;" onclick="openEdit(\''+b.id+'\')"><div><div class="t">'+esc(t('confirmed'))+tag+'</div>'+info+'</div><span style="color:var(--muted);font-size:14px;flex-shrink:0;">✏️</span></div>';
     });
@@ -820,6 +915,8 @@ function openEdit(id){
   document.getElementById('eAddr').value  = b.address || '';
   document.getElementById('ePet').value   = b.pet_info || '';
   document.getElementById('eNotes').value = b.notes || '';
+  editPhotos = (b.photo_urls || []).slice();
+  renderPhotoRow('ePhotos', editPhotos);
   clearMsg(document.getElementById('editMsg'));
   document.getElementById('editOverlay').classList.remove('hidden');
 }
@@ -830,12 +927,14 @@ async function saveEdit(){
   const name = document.getElementById('eName').value.trim();
   const phone = document.getElementById('ePhone').value.trim();
   if (!name || !phone){ showMsg(msg,'err',t('needBook')); return; }
+  if (editPhotos.some(p => typeof p !== 'string')){ showMsg(msg,'err',t('photoWait')); return; }
   const { data, error } = await sb.rpc('update_booking', {
     p_user:feeder.user, p_pass:feeder.pass, p_id:editId,
     p_name:name, p_phone:phone,
     p_address:document.getElementById('eAddr').value.trim(),
     p_pet:document.getElementById('ePet').value.trim(),
-    p_notes:document.getElementById('eNotes').value.trim()
+    p_notes:document.getElementById('eNotes').value.trim(),
+    p_photos: editPhotos
   });
   if (error || !data || !data.ok){ showMsg(msg,'err',t('err')); return; }
   closeEdit(); loadFeederOverview();
