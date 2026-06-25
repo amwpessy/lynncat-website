@@ -266,6 +266,7 @@
     <input id="cDoor" autocomplete="off" style="margin-top:8px;">
     <label><span data-en>Number of cats</span><span data-zh>猫咪只数</span></label>
     <div class="chips" id="catCountChips"></div>
+    <textarea id="cOtherPet" class="hidden" style="margin-top:8px;"></textarea>
     <label><span data-en>Services needed</span><span data-zh>需要的服务</span></label>
     <div class="chips" id="serviceChips"></div>
     <label><span data-en>Feeding</span><span data-zh>猫咪喂食习惯</span></label>
@@ -554,6 +555,8 @@ let selectedServices = new Set();
 let selectedFeeds = new Set();
 let selectedDoor = '';
 let selectedWater = '';
+let hasOtherPet = false;
+function toggleOtherPet(){ hasOtherPet = !hasOtherPet; renderChips(); }
 function renderChips(){
   const cc = document.getElementById('catCountChips');
   const sc = document.getElementById('serviceChips');
@@ -561,7 +564,14 @@ function renderChips(){
   if (!cc || !sc || !fc) return;
   cc.innerHTML = CAT_COUNTS.map(c =>
     '<button type="button" class="chip'+(selectedCount===c?' on':'')+'" onclick="setCount(\''+c+'\')">'
-    + c + (lang()==='zh'?' 只':'') + '</button>').join('');
+    + c + (lang()==='zh'?' 只':'') + '</button>').join('')
+    + '<button type="button" class="chip'+(hasOtherPet?' on':'')+'" onclick="toggleOtherPet()">'
+    + (lang()==='zh'?'还有其他宠物？':'Other pets too?') + '</button>';
+  const otherPet = document.getElementById('cOtherPet');
+  if (otherPet){
+    otherPet.classList.toggle('hidden', !hasOtherPet);
+    otherPet.placeholder = lang()==='zh' ? '宠物类型、喂食方式（如：1只狗，每天早晚各1次干粮）' : 'Pet type & feeding routine (e.g. 1 dog, dry food twice a day)';
+  }
   sc.innerHTML = SERVICES.map(s =>
     '<button type="button" class="chip'+(selectedServices.has(s.id)?' on':'')+'" onclick="toggleService(\''+s.id+'\')">'
     + esc(lang()==='zh'?s.zh:s.en) + '</button>').join('');
@@ -602,6 +612,10 @@ function composePet(){
   const parts = [ selectedCount + '只猫' ];
   if (selectedServices.size) parts.push(SERVICES.filter(s=>selectedServices.has(s.id)).map(s=>s.zh).join('、'));
   if (selectedFeeds.size) parts.push('喂食：' + FEEDS.filter(s=>selectedFeeds.has(s.id)).map(s=>s.zh).join('、'));
+  if (hasOtherPet){
+    const det = (document.getElementById('cOtherPet').value || '').trim();
+    parts.push('其他宠物：' + (det || '待补充说明'));
+  }
   if (selectedWater){
     const wn = WATERS.find(w=>w.id===selectedWater).zh;
     const det = (document.getElementById('cWaterDetail').value || '').trim();
@@ -700,11 +714,13 @@ function applyProfile(){
   document.getElementById('cNotes').value = p.notes || '';
   document.getElementById('cDoor').value = p.door_detail || '';
   document.getElementById('cWaterDetail').value = p.water_detail || '';
+  document.getElementById('cOtherPet').value = p.other_pet_detail || '';
   selectedCount = p.count || '1';
   selectedServices = new Set(p.services || []);
   selectedFeeds = new Set(p.feeds || []);
   selectedDoor = p.door || '';
   selectedWater = p.water || '';
+  hasOtherPet = !!p.other_pet;
   renderChips();
 }
 function saveProfile(){
@@ -715,7 +731,8 @@ function saveProfile(){
     notes: document.getElementById('cNotes').value.trim(),
     count: selectedCount, services: Array.from(selectedServices), feeds: Array.from(selectedFeeds),
     door: selectedDoor, door_detail: document.getElementById('cDoor').value.trim(),
-    water: selectedWater, water_detail: document.getElementById('cWaterDetail').value.trim()
+    water: selectedWater, water_detail: document.getElementById('cWaterDetail').value.trim(),
+    other_pet: hasOtherPet, other_pet_detail: document.getElementById('cOtherPet').value.trim()
   };
   try { localStorage.setItem('lynncat-cust-profile', JSON.stringify(custProfile)); } catch(e){}
 }
