@@ -109,18 +109,13 @@
     newsList.innerHTML = newsData.map(item => `
       <a href="${item.article_url}" target="_blank" rel="noopener" class="news-item-link">
         <div class="news-item">
-          <div class="news-item-header">
-            ${item.image_url ? `<img src="${item.image_url}" alt="" class="news-item-image" onerror="this.style.display='none'">` : ''}
-            <div class="news-item-content">
-              <span class="news-category-badge">${getCategoryEmoji(item.category)} ${getCategoryLabel(item.category)}</span>
-              <div class="news-item-title">${escapeHtml(item.title)}</div>
-              <div class="news-item-summary">${escapeHtml(item.summary || '...')}</div>
-            </div>
-          </div>
-          <div class="news-item-footer">
-            <span class="news-item-source">${escapeHtml(item.source)}</span>
+          <div class="news-item-top">
+            <span class="news-category-badge">${getCategoryEmoji(item.category)} ${getCategoryLabel(item.category)}</span>
             <span class="news-item-time">${formatTime(item.published_at)}</span>
           </div>
+          <div class="news-item-title">${escapeHtml(item.title)}</div>
+          ${item.summary ? `<div class="news-item-summary">${escapeHtml(item.summary)}</div>` : ''}
+          <div class="news-item-source">来源：${escapeHtml(item.source)}</div>
         </div>
       </a>
     `).join('');
