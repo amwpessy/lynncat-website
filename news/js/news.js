@@ -13,6 +13,8 @@
   const prevDateBtn = document.getElementById('prevDateBtn');
   const nextDateBtn = document.getElementById('nextDateBtn');
   const tabButtons = document.querySelectorAll('.tab-btn');
+  const sidebarHot = document.getElementById('sidebarHot');
+  const sidebarCatLinks = document.querySelectorAll('.widget-links a[data-category]');
 
   // 初始化
   init();
@@ -28,16 +30,46 @@
     prevDateBtn.addEventListener('click', prevDate);
     nextDateBtn.addEventListener('click', nextDate);
     tabButtons.forEach(btn => {
-      btn.addEventListener('click', () => {
-        tabButtons.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        selectedCategory = btn.dataset.category;
-        loadNews();
+      btn.addEventListener('click', () => selectCategory(btn.dataset.category));
+    });
+    sidebarCatLinks.forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        selectCategory(link.dataset.category);
       });
     });
 
     // 首次加载
     loadNews();
+    loadSidebarHot();
+  }
+
+  function selectCategory(category) {
+    selectedCategory = category;
+    tabButtons.forEach(b => b.classList.toggle('active', b.dataset.category === category));
+    loadNews();
+  }
+
+  // 侧栏「最新资讯」：不受日期/分类筛选影响，始终显示全站最新 8 条标题
+  async function loadSidebarHot() {
+    try {
+      const url = `${SUPABASE_URL}/rest/v1/news?select=title,article_url&order=published_at.desc&limit=8`;
+      const response = await fetch(url, {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      if (!data || data.length === 0) {
+        sidebarHot.innerHTML = '<li class="widget-empty">暂无数据</li>';
+        return;
+      }
+      sidebarHot.innerHTML = data.map(item => `
+        <li><a href="${item.article_url}" target="_blank" rel="noopener" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</a></li>
+      `).join('');
+    } catch (error) {
+      console.error('加载侧栏失败:', error);
+      sidebarHot.innerHTML = '<li class="widget-empty">加载失败</li>';
+    }
   }
 
   function prevDate() {

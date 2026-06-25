@@ -1,41 +1,42 @@
 /* 灵猫数据 · 品牌主题（蓝色，参考老 cnbeta 配色） */
 :root {
   --bg:#0e1420; --surface:#16202f; --surface2:#1d2c3f; --border:#26384d;
-  --text:#eef3f9; --muted:#94a7bd; --faint:#5d7188;
-  --accent:#4a90ff; --accent2:#2f6fe0;
+  --text:#c4d2e3; --muted:#94a7bd; --faint:#5d7188;
+  --accent:#5b9dff; --accent2:#2f6fe0;
+  --link:#5b9dff;
   --chip-bg:rgba(74,144,255,.12);
   --shadow:0 2px 14px rgba(0,0,0,.5);
-  --header-bg: linear-gradient(135deg, #1457c4, #0d3a94);
+  --header-bg: linear-gradient(180deg, #1c63d6, #0d3a94);
+  --header-accent: #0a2c70;
   --header-text: #ffffff;
 }
 
 :root[data-theme='light'] {
-  --bg:#eef3fb; --surface:#ffffff; --surface2:#f1f5fc; --border:#dce6f5;
-  --text:#16243a; --muted:#52688a; --faint:#8198b8;
-  --accent:#1457c4; --accent2:#0d3a94;
+  --bg:#d9e2ef; --surface:#ffffff; --surface2:#eef2f9; --border:#d3ddee;
+  --text:#222222; --muted:#52688a; --faint:#8198b8;
+  --accent:#14509e; --accent2:#0d3a94;
+  --link:#1457c4;
   --chip-bg:rgba(20,87,196,.08);
   --shadow:0 2px 12px rgba(20,87,196,.08);
-  --header-bg: linear-gradient(135deg, #1f6fe0, #1457c4);
+  --header-bg: linear-gradient(180deg, #1f6fe0, #1457c4);
+  --header-accent: #0d3a94;
   --header-text: #ffffff;
 }
 
 /* 基础容器 */
 body { background: var(--bg); color: var(--text); }
-.app { background: var(--bg); box-shadow: none; }
-.page { background: var(--bg) !important; }
+.app { background: var(--surface); box-shadow: none; }
+.page { background: var(--surface) !important; }
 
-/* 顶部导航条 — 蓝色品牌底色，呼应老 cnbeta 的蓝色 header */
-.header { background: var(--header-bg) !important; border-bottom: none; }
-.logo { background: rgba(255,255,255,.15) !important; border-color: rgba(255,255,255,.25) !important; }
+/* 顶部导航条颜色已在 global.css 用变量写好，这里只补主题相关覆盖 */
 .brand { color: var(--header-text); }
 .brand-sub { color: rgba(255,255,255,.75); }
-.home-btn { background: rgba(255,255,255,.15) !important; color: var(--header-text) !important; }
 
 /* 分区标题 */
 .section-label { color: var(--muted); }
 
 /* 卡片表面 */
-.card, .card-plain, .news-item {
+.card, .card-plain {
   background: var(--surface);
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
@@ -49,7 +50,7 @@ body { background: var(--bg); color: var(--text); }
 
 /* 主文字 */
 .debt-int, .metal-price, .index-price, .fx-rate, .br-val,
-.ratio-val, .day-total, .tbl-title, .risk-title, .news-item-title {
+.ratio-val, .day-total, .tbl-title, .risk-title {
   color: var(--text);
 }
 
@@ -57,12 +58,12 @@ body { background: var(--bg); color: var(--text); }
 .debt-sym, .debt-dec, .debt-sub, .br-label, .metal-unit, .sub-lbl,
 .ratio-lbl, .ratio-eq, .ratio-unit, .index-name, .fx-unit, .fx-box-lbl,
 .fx-k, .fx-arr, .rare-date, .rare-symbol, .rare-use, .rare-note,
-.auto-month, .auto-tip, .tbl-desc, .risk-desc, .news-item-summary, .news-item-time {
+.auto-month, .auto-tip, .tbl-desc, .risk-desc {
   color: var(--muted);
 }
 
 /* 徽章和标签 */
-.badge, .card-tag, .news-category-badge {
+.badge, .card-tag {
   background: var(--chip-bg);
   color: var(--accent);
   border-color: var(--border);
@@ -72,19 +73,6 @@ body { background: var(--bg); color: var(--text); }
 .badge.dn { color: #ef4444; }
 .badge.flat { color: var(--muted); }
 
-/* 按钮 */
-.tab-btn {
-  background: var(--surface2);
-  border-color: var(--border);
-  color: var(--muted);
-}
-
-.tab-btn.active {
-  background: var(--accent);
-  color: white;
-  border-color: var(--accent);
-}
-
 /* 底部 */
 .footer {
   border-top: 1px solid var(--border);
@@ -92,28 +80,3 @@ body { background: var(--bg); color: var(--text); }
 }
 
 .footer-brand { color: var(--text); }
-
-/* ============================================================
-   电脑端布局：不再是「手机窄条」，而是真正的桌面卡片流
-   （和 xxxc 子页面统一的桌面处理方式）
-   ============================================================ */
-@media (min-width: 900px) {
-  html { background: var(--bg); }
-  body { min-height: 100vh; background: var(--bg); padding: 30px 24px; }
-
-  /* cnbeta 式单列阅读版式：桌面端不是铺满铺宽，是居中的阅读列 + 卡片外壳 */
-  .app {
-    max-width: 760px;
-    min-height: 0;
-    border: 1px solid var(--border);
-    border-radius: 18px;
-    box-shadow: 0 24px 70px rgba(0,0,0,.42);
-  }
-  :root[data-theme='light'] .app { box-shadow: 0 24px 70px rgba(28,48,86,.16), 0 6px 20px rgba(28,48,86,.08); }
-  .app > .page > .header { border-radius: 18px 18px 0 0; }
-
-  .news-toolbar, .category-tabs, .news-container {
-    padding-left: 24px;
-    padding-right: 24px;
-  }
-}
