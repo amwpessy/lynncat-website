@@ -181,18 +181,19 @@ function parseRss(xml) {
   return items;
 }
 
-// RSS description 里夹带完整 HTML（含 <a>查看全文</a>、署名行等），
-// 这里只做"展示用摘要"的清理：去标签、去常见的尾部跳转文案、截断。
+// RSS description 里的 HTML 标签是以 HTML 实体编码的（&lt;p&gt;...&lt;/p&gt;），
+// 不是字面 <p> 标签，必须先解码实体、再去标签——顺序反了的话，字面 <tag> 还没出现，
+// 去标签那一步直接扑空，解码完实体后标签反而原样保留在最终摘要里。
 function cleanSummary(rawDescription) {
   if (!rawDescription) return null;
   let text = rawDescription
-    .replace(/<[^>]+>/g, '')
-    .replace(/查看全文|阅读全文|更多内容请点击/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/<[^>]+>/g, '')
+    .replace(/查看全文|阅读全文|更多内容请点击/g, '')
     .replace(/\s+/g, ' ')
     .trim();
   if (!text) return null;
