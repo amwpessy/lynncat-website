@@ -270,6 +270,9 @@
     <div class="chips" id="serviceChips"></div>
     <label><span data-en>Feeding</span><span data-zh>猫咪喂食习惯</span></label>
     <div class="chips" id="feedChips"></div>
+    <label><span data-en>Drinking water</span><span data-zh>饮用水</span></label>
+    <div class="chips" id="waterChips"></div>
+    <input id="cWaterDetail" autocomplete="off" style="margin-top:8px;" class="hidden">
     <label><span data-en>Photos (optional)</span><span data-zh>现场照片（可选）</span></label>
     <p class="sub" style="margin:-4px 0 8px;"><span data-en>Show the feeder where the key or cat food is.</span><span data-zh>方便喂猫员看清钥匙、猫粮等的摆放位置。</span></p>
     <div class="photo-row" id="cPhotos"></div>
@@ -373,6 +376,7 @@ const T = {
     selN:n=>'已选 '+n+' 天', batchTitle:n=>'预约 '+n+' 天', batchBtn:n=>'确认预约 '+n+' 天',
     selDatesLabel:'已选日期', batchFull:n=>'其中 '+n+' 天已约满，将作为加号申请，需喂猫员确认。',
     sumBooked:n=>'✅ '+n+' 天预约成功', sumPending:n=>n+' 天已满，加号申请待确认', sumUnavail:n=>n+' 天不可约',
+    sumDuplicate:n=>n+' 天你已经预约过了，未重复提交',
     rejected:'已拒绝', enterPhone:'请输入手机号', noMyBk:'没有找到预约记录',
     confirmDelOrder:'确定删除这个订单？', editSaved:'已保存 ✓', photoWait:'照片还在上传中，请稍候'
   },
@@ -391,6 +395,7 @@ const T = {
     selN:n=>n+' day'+(n>1?'s':'')+' selected', batchTitle:n=>'Book '+n+' day'+(n>1?'s':''), batchBtn:n=>'Confirm '+n+' day'+(n>1?'s':''),
     selDatesLabel:'Selected dates', batchFull:n=>n+' of them '+(n>1?'are':'is')+' full — will be sent as extra-slot request(s) for approval.',
     sumBooked:n=>'✅ '+n+' day'+(n>1?'s':'')+' booked', sumPending:n=>n+' full — extra request(s) pending', sumUnavail:n=>n+' unavailable',
+    sumDuplicate:n=>n+' day'+(n>1?'s':'')+' already booked by you — not duplicated',
     rejected:'Rejected', enterPhone:'Please enter your phone', noMyBk:'No bookings found',
     confirmDelOrder:'Delete this order?', editSaved:'Saved ✓', photoWait:'Photos are still uploading, please wait'
   }
@@ -538,10 +543,17 @@ const DOORS = [
   {id:'key',  zh:'钥匙',   en:'Key'},
   {id:'code', zh:'密码锁', en:'Keypad lock'}
 ];
+const WATERS = [
+  {id:'fountain', zh:'饮水机', en:'Water fountain'},
+  {id:'filtered', zh:'过滤水', en:'Filtered water'},
+  {id:'tap',      zh:'水龙头', en:'Tap water'},
+  {id:'other',    zh:'其他',   en:'Other'}
+];
 let selectedCount = '1';
 let selectedServices = new Set();
 let selectedFeeds = new Set();
 let selectedDoor = '';
+let selectedWater = '';
 function renderChips(){
   const cc = document.getElementById('catCountChips');
   const sc = document.getElementById('serviceChips');
@@ -560,6 +572,15 @@ function renderChips(){
   if (dc) dc.innerHTML = DOORS.map(s =>
     '<button type="button" class="chip'+(selectedDoor===s.id?' on':'')+'" onclick="setDoor(\''+s.id+'\')">'
     + esc(lang()==='zh'?s.zh:s.en) + '</button>').join('');
+  const wc = document.getElementById('waterChips');
+  if (wc) wc.innerHTML = WATERS.map(s =>
+    '<button type="button" class="chip'+(selectedWater===s.id?' on':'')+'" onclick="setWater(\''+s.id+'\')">'
+    + esc(lang()==='zh'?s.zh:s.en) + '</button>').join('');
+  const waterDetail = document.getElementById('cWaterDetail');
+  if (waterDetail){
+    waterDetail.classList.toggle('hidden', selectedWater !== 'other');
+    waterDetail.placeholder = lang()==='zh' ? '请描述饮水方式' : 'Describe the water source';
+  }
   const door = document.getElementById('cDoor');
   if (door) door.placeholder = selectedDoor==='code'
     ? (lang()==='zh'?'请设置临时密码':'Set a temporary code')
@@ -575,11 +596,17 @@ function setCount(c){ selectedCount = c; renderChips(); }
 function toggleService(id){ selectedServices.has(id) ? selectedServices.delete(id) : selectedServices.add(id); renderChips(); }
 function toggleFeed(id){ selectedFeeds.has(id) ? selectedFeeds.delete(id) : selectedFeeds.add(id); renderChips(); }
 function setDoor(id){ selectedDoor = (selectedDoor===id ? '' : id); renderChips(); }
+function setWater(id){ selectedWater = (selectedWater===id ? '' : id); renderChips(); }
 function composePet(){
   // 统一用中文存储，方便喂猫员阅读
   const parts = [ selectedCount + '只猫' ];
   if (selectedServices.size) parts.push(SERVICES.filter(s=>selectedServices.has(s.id)).map(s=>s.zh).join('、'));
   if (selectedFeeds.size) parts.push('喂食：' + FEEDS.filter(s=>selectedFeeds.has(s.id)).map(s=>s.zh).join('、'));
+  if (selectedWater){
+    const wn = WATERS.find(w=>w.id===selectedWater).zh;
+    const det = (document.getElementById('cWaterDetail').value || '').trim();
+    parts.push('饮水：' + (selectedWater==='other' && det ? det : wn));
+  }
   if (selectedDoor){
     const dn = selectedDoor==='code' ? '密码锁' : '钥匙';
     const det = (document.getElementById('cDoor').value || '').trim();
@@ -672,10 +699,12 @@ function applyProfile(){
   document.getElementById('cAddr').value  = p.addr  || '';
   document.getElementById('cNotes').value = p.notes || '';
   document.getElementById('cDoor').value = p.door_detail || '';
+  document.getElementById('cWaterDetail').value = p.water_detail || '';
   selectedCount = p.count || '1';
   selectedServices = new Set(p.services || []);
   selectedFeeds = new Set(p.feeds || []);
   selectedDoor = p.door || '';
+  selectedWater = p.water || '';
   renderChips();
 }
 function saveProfile(){
@@ -685,7 +714,8 @@ function saveProfile(){
     addr:  document.getElementById('cAddr').value.trim(),
     notes: document.getElementById('cNotes').value.trim(),
     count: selectedCount, services: Array.from(selectedServices), feeds: Array.from(selectedFeeds),
-    door: selectedDoor, door_detail: document.getElementById('cDoor').value.trim()
+    door: selectedDoor, door_detail: document.getElementById('cDoor').value.trim(),
+    water: selectedWater, water_detail: document.getElementById('cWaterDetail').value.trim()
   };
   try { localStorage.setItem('lynncat-cust-profile', JSON.stringify(custProfile)); } catch(e){}
 }
@@ -742,7 +772,9 @@ function renderMyBookings(list){
   }).join('');
 }
 
+let bookingInFlight = false;
 async function confirmBatch(){
+  if (bookingInFlight) return; // 防止快速重复点击造成重复提交
   const name = document.getElementById('cName').value.trim();
   const phone = document.getElementById('cPhone').value.trim();
   const msg = document.getElementById('bookMsg');
@@ -750,6 +782,7 @@ async function confirmBatch(){
   if (custPhotos.some(p => typeof p !== 'string')){ showMsg(msg,'err',t('photoWait')); return; }
   const days = selectedSorted();
   if (!days.length){ closeBook(); return; }
+  bookingInFlight = true;
   const btn = document.getElementById('bookBtn');
   const btnText = btn.textContent;
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
@@ -760,6 +793,7 @@ async function confirmBatch(){
     p_notes: document.getElementById('cNotes').value.trim(),
     p_photos: custPhotos
   });
+  bookingInFlight = false;
   btn.disabled = false; btn.textContent = btnText;
   if (error || !data || !data.ok){ showMsg(msg,'err',t('err')); return; }
   saveProfile(); // 记住这次填写，方便下次自动带出
@@ -767,9 +801,11 @@ async function confirmBatch(){
   const booked = res.filter(r=>r.status==='booked').length;
   const pending = res.filter(r=>r.status==='pending').length;
   const unavail = res.filter(r=>r.status==='unavailable').length;
+  const dup = res.filter(r=>r.status==='duplicate').length;
   const parts = [];
   if (booked) parts.push(t('sumBooked')(booked));
   if (pending) parts.push(t('sumPending')(pending));
+  if (dup) parts.push(t('sumDuplicate')(dup));
   if (unavail) parts.push(t('sumUnavail')(unavail));
   showMsg(msg, (booked||pending)?'ok':'err', parts.join(' · '));
   selDays.clear(); updateSelBar();

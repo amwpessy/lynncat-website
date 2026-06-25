@@ -83,6 +83,14 @@ begin
     return json_build_object('ok', false, 'error', 'unavailable');
   end if;
 
+  -- 同一手机号同一天已有未拒绝的预约，视为重复提交，直接返回原单（不再插入新行）
+  select id into v_id from bookings
+    where d = p_d and customer_phone = p_phone and status in ('confirmed','pending')
+    limit 1;
+  if v_id is not null then
+    return json_build_object('ok', true, 'booking_id', v_id, 'duplicate', true);
+  end if;
+
   select count(*) into v_cnt from bookings where d = p_d and status = 'confirmed';
   if v_cnt >= 3 then
     return json_build_object('ok', false, 'error', 'full');
@@ -108,6 +116,13 @@ begin
     return json_build_object('ok', false, 'error', 'unavailable');
   end if;
 
+  select id into v_id from bookings
+    where d = p_d and customer_phone = p_phone and status in ('confirmed','pending')
+    limit 1;
+  if v_id is not null then
+    return json_build_object('ok', true, 'booking_id', v_id, 'duplicate', true);
+  end if;
+
   insert into bookings(d, customer_name, customer_phone, address, pet_info, notes, photo_urls, kind, status)
   values (p_d, p_name, p_phone, p_address, p_pet, p_notes, p_photos, 'extra', 'pending')
   returning id into v_id;
@@ -121,7 +136,7 @@ create or replace function book_days(
   p_photos text[] default '{}'
 ) returns json language plpgsql security definer as $$
 declare
-  v_d date; v_cnt int; v_avail bool; v_status text; v_results json[] := '{}';
+  v_d date; v_cnt int; v_avail bool; v_status text; v_results json[] := '{}'; v_dup uuid;
 begin
   foreach v_d in array (select array_agg(distinct x order by x) from unnest(p_dates) x) loop
     select exists(select 1 from available_days where d = v_d) into v_avail;
@@ -130,16 +145,24 @@ begin
        or v_d > (current_date + interval '2 months')::date then
       v_status := 'unavailable';
     else
-      perform pg_advisory_xact_lock(hashtext(v_d::text));
-      select count(*) into v_cnt from bookings where d = v_d and status = 'confirmed';
-      if v_cnt >= 3 then
-        insert into bookings(d, customer_name, customer_phone, address, pet_info, notes, photo_urls, kind, status)
-        values (v_d, p_name, p_phone, p_address, p_pet, p_notes, p_photos, 'extra', 'pending');
-        v_status := 'pending';
+      -- 同一手机号同一天已有未拒绝的预约，视为重复提交，跳过插入
+      select id into v_dup from bookings
+        where d = v_d and customer_phone = p_phone and status in ('confirmed','pending')
+        limit 1;
+      if v_dup is not null then
+        v_status := 'duplicate';
       else
-        insert into bookings(d, customer_name, customer_phone, address, pet_info, notes, photo_urls, kind, status)
-        values (v_d, p_name, p_phone, p_address, p_pet, p_notes, p_photos, 'normal', 'confirmed');
-        v_status := 'booked';
+        perform pg_advisory_xact_lock(hashtext(v_d::text));
+        select count(*) into v_cnt from bookings where d = v_d and status = 'confirmed';
+        if v_cnt >= 3 then
+          insert into bookings(d, customer_name, customer_phone, address, pet_info, notes, photo_urls, kind, status)
+          values (v_d, p_name, p_phone, p_address, p_pet, p_notes, p_photos, 'extra', 'pending');
+          v_status := 'pending';
+        else
+          insert into bookings(d, customer_name, customer_phone, address, pet_info, notes, photo_urls, kind, status)
+          values (v_d, p_name, p_phone, p_address, p_pet, p_notes, p_photos, 'normal', 'confirmed');
+          v_status := 'booked';
+        end if;
       end if;
     end if;
     v_results := array_append(v_results, json_build_object('d', v_d, 'status', v_status));
