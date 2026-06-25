@@ -1,18 +1,22 @@
-/* 灵猫数据 · 品牌主题 */
+/* 灵猫数据 · 品牌主题（蓝色，参考老 cnbeta 配色） */
 :root {
-  --bg:#0f0f0f; --surface:#1a1a1a; --surface2:#232323; --border:#2a2a2a;
-  --text:#f0f0f0; --muted:#9a9a9a; --faint:#6a6a6a;
-  --accent:#f5a623; --accent2:#e07020;
-  --chip-bg:rgba(255,255,255,.07);
+  --bg:#0e1420; --surface:#16202f; --surface2:#1d2c3f; --border:#26384d;
+  --text:#eef3f9; --muted:#94a7bd; --faint:#5d7188;
+  --accent:#4a90ff; --accent2:#2f6fe0;
+  --chip-bg:rgba(74,144,255,.12);
   --shadow:0 2px 14px rgba(0,0,0,.5);
+  --header-bg: linear-gradient(135deg, #1457c4, #0d3a94);
+  --header-text: #ffffff;
 }
 
 :root[data-theme='light'] {
-  --bg:#f6f6f8; --surface:#ffffff; --surface2:#f0f0f3; --border:#e3e3e8;
-  --text:#1b1b1f; --muted:#6a6a72; --faint:#9a9aa2;
-  --accent:#b35e09; --accent2:#8f4408;
-  --chip-bg:rgba(0,0,0,.05);
-  --shadow:0 2px 12px rgba(0,0,0,.06);
+  --bg:#eef3fb; --surface:#ffffff; --surface2:#f1f5fc; --border:#dce6f5;
+  --text:#16243a; --muted:#52688a; --faint:#8198b8;
+  --accent:#1457c4; --accent2:#0d3a94;
+  --chip-bg:rgba(20,87,196,.08);
+  --shadow:0 2px 12px rgba(20,87,196,.08);
+  --header-bg: linear-gradient(135deg, #1f6fe0, #1457c4);
+  --header-text: #ffffff;
 }
 
 /* 基础容器 */
@@ -20,11 +24,12 @@ body { background: var(--bg); color: var(--text); }
 .app { background: var(--bg); box-shadow: none; }
 .page { background: var(--bg) !important; }
 
-/* 顶部导航条 */
-.header { background: var(--surface) !important; border-bottom: 1px solid var(--border); }
-.logo { background: var(--chip-bg) !important; border-color: var(--border) !important; }
-.brand { color: var(--text); }
-.brand-sub { color: var(--muted); }
+/* 顶部导航条 — 蓝色品牌底色，呼应老 cnbeta 的蓝色 header */
+.header { background: var(--header-bg) !important; border-bottom: none; }
+.logo { background: rgba(255,255,255,.15) !important; border-color: rgba(255,255,255,.25) !important; }
+.brand { color: var(--header-text); }
+.brand-sub { color: rgba(255,255,255,.75); }
+.home-btn { background: rgba(255,255,255,.15) !important; color: var(--header-text) !important; }
 
 /* 分区标题 */
 .section-label { color: var(--muted); }
