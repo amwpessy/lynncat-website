@@ -120,7 +120,7 @@ async function fetchFromRss() {
         if (!category) continue;
         results.push({
           title: item.title,
-          summary: null,
+          summary: cleanSummary(item.description),
           source: item.source || new URL(feedUrl).hostname,
           category,
           image_url: null,
@@ -173,11 +173,30 @@ function parseRss(xml) {
       title,
       link: getTag('link'),
       pubDate: getTag('pubDate'),
-      source
+      source,
+      description: getTag('description')
     });
   }
 
   return items;
+}
+
+// RSS description 里夹带完整 HTML（含 <a>查看全文</a>、署名行等），
+// 这里只做"展示用摘要"的清理：去标签、去常见的尾部跳转文案、截断。
+function cleanSummary(rawDescription) {
+  if (!rawDescription) return null;
+  let text = rawDescription
+    .replace(/<[^>]+>/g, '')
+    .replace(/查看全文|阅读全文|更多内容请点击/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!text) return null;
+  return text.length > 120 ? text.slice(0, 120) + '...' : text;
 }
 
 function deduplicateNews(news) {
