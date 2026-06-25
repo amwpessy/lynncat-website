@@ -205,7 +205,10 @@ async function storeNews(supabaseUrl, supabaseKey, newsItems) {
   let stored = 0;
 
   try {
-    const response = await fetch(`${supabaseUrl}/rest/v1/news`, {
+    // on_conflict=article_url 是必须的：article_url 的唯一约束不是主键（id 才是），
+    // resolution=ignore-duplicates 不指定 on_conflict 时 PostgREST 只会按主键判重，
+    // 实际命中 article_url 唯一约束时会直接返回 409 而不是静默跳过。
+    const response = await fetch(`${supabaseUrl}/rest/v1/news?on_conflict=article_url`, {
       method: 'POST',
       headers: {
         'apikey': supabaseKey,
