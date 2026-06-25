@@ -570,7 +570,7 @@ function renderChips(){
   const otherPet = document.getElementById('cOtherPet');
   if (otherPet){
     otherPet.classList.toggle('hidden', !hasOtherPet);
-    otherPet.placeholder = lang()==='zh' ? '宠物类型、喂食方式（如：1只狗，每天早晚各1次干粮）' : 'Pet type & feeding routine (e.g. 1 dog, dry food twice a day)';
+    otherPet.placeholder = lang()==='zh' ? '宠物类型、喂食方式' : 'Pet type & feeding routine';
   }
   sc.innerHTML = SERVICES.map(s =>
     '<button type="button" class="chip'+(selectedServices.has(s.id)?' on':'')+'" onclick="toggleService(\''+s.id+'\')">'
