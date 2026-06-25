@@ -190,16 +190,25 @@ function deduplicateNews(news) {
   });
 }
 
-async function storeNews(supabaseUrl, supabaseKey, newsItems) {
-  const categoryLimit = new Map();
-  const limitedNews = [];
+// 每次运行最多新增 5 条（按分类轮流取，避免某一类把额度占满），
+// 配合每小时一次的 Cron Trigger，控制更新节奏而不是一次性灌入一大批。
+const MAX_PER_RUN = 5;
 
+async function storeNews(supabaseUrl, supabaseKey, newsItems) {
+  const byCategory = new Map();
   for (const item of newsItems) {
-    const count = categoryLimit.get(item.category) || 0;
-    if (count < 5) {
-      limitedNews.push(item);
-      categoryLimit.set(item.category, count + 1);
-    }
+    if (!byCategory.has(item.category)) byCategory.set(item.category, []);
+    byCategory.get(item.category).push(item);
+  }
+
+  const categories = [...byCategory.keys()];
+  const limitedNews = [];
+  let i = 0;
+  while (limitedNews.length < MAX_PER_RUN && categories.some(c => byCategory.get(c).length > 0)) {
+    const cat = categories[i % categories.length];
+    const bucket = byCategory.get(cat);
+    if (bucket.length > 0) limitedNews.push(bucket.shift());
+    i++;
   }
 
   let stored = 0;

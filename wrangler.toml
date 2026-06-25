@@ -7,4 +7,4 @@ assets = { directory = ".", binding = "ASSETS" }
 enabled = true
 
 [triggers]
-crons = ["0 18 * * *"]
+crons = ["0 * * * *"]
