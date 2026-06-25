@@ -65,7 +65,8 @@ async function fetchFromNewsApi(apiKey) {
   const keywords = [
     { category: 'IT', q: 'technology AI startup' },
     { category: 'Finance', q: 'finance stock market' },
-    { category: 'Auto', q: 'automotive electric vehicles' }
+    { category: 'Auto', q: 'automotive electric vehicles' },
+    { category: 'Game', q: 'video game gaming industry' }
   ];
 
   const results = [];
@@ -137,10 +138,15 @@ async function fetchFromRss() {
 }
 
 function categorizeArticle(text) {
+  // 游戏关键词放最前面判断：像「红魔游戏平板...骁龙处理器」这类硬件新闻
+  // 本质是游戏类，但同时也会命中 IT 的"芯片"关键词，必须先判游戏再判 IT。
+  const gameKeywords = ['游戏', '手游', '主机游戏', 'Steam', '任天堂', 'PlayStation', 'Xbox', 'switch',
+    '原神', '王者荣耀', '英雄联盟', 'SLG', '网易游戏', '腾讯游戏', 'GTA', '副本', 'DLC', '怀旧服', '公测', '内测'];
   const itKeywords = ['AI', '科技股', '互联网', '软件', '编程', '算法', '芯片', '应用', '苹果', '华为', '小米', '谷歌', '微软', 'OpenAI', '大模型'];
   const financeKeywords = ['股票', '基金', '债券', '汇率', '理财', '投资', '金融', '银行', '期货', '黄金', '美股', '融资', 'IPO', '财报', '营收', '港股', 'A股'];
   const autoKeywords = ['汽车', '车型', '销量', '新能源', '电动车', '自驾', '驾驶', '车企', '蔚来', '理想', '小鹏', '比亚迪', '特斯拉'];
 
+  for (const kw of gameKeywords) if (text.toLowerCase().includes(kw.toLowerCase())) return 'Game';
   for (const kw of itKeywords) if (text.includes(kw)) return 'IT';
   for (const kw of financeKeywords) if (text.includes(kw)) return 'Finance';
   for (const kw of autoKeywords) if (text.includes(kw)) return 'Auto';

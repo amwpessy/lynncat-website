@@ -149,12 +149,12 @@
   }
 
   function getCategoryEmoji(category) {
-    const emojis = { IT: '💻', Finance: '💰', Auto: '🚗' };
+    const emojis = { IT: '💻', Finance: '💰', Auto: '🚗', Game: '🎮' };
     return emojis[category] || '📰';
   }
 
   function getCategoryLabel(category) {
-    const labels = { IT: 'IT业界', Finance: '金融', Auto: '汽车' };
+    const labels = { IT: 'IT业界', Finance: '金融', Auto: '汽车', Game: '游戏' };
     return labels[category] || category;
   }
 
