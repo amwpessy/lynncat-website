@@ -250,6 +250,30 @@ begin
   return json_build_object('ok', true);
 end; $$;
 
+-- 喂猫员代客下单（客户不方便自己下单时，喂猫员手动建单）。
+-- 不受每天3单上限限制，由喂猫员自行判断是否接单；同一客户同一天已有未拒绝的预约则返回原单，不重复创建。
+create or replace function feeder_create_booking(
+  p_user text, p_pass text, p_d date,
+  p_name text, p_phone text, p_address text, p_pet text, p_notes text,
+  p_photos text[] default '{}'
+) returns json language plpgsql security definer as $$
+declare v_id uuid;
+begin
+  if not _check_feeder(p_user, p_pass) then return json_build_object('ok', false); end if;
+
+  select id into v_id from bookings
+    where d = p_d and customer_phone = p_phone and status in ('confirmed','pending')
+    limit 1;
+  if v_id is not null then
+    return json_build_object('ok', true, 'booking_id', v_id, 'duplicate', true);
+  end if;
+
+  insert into bookings(d, customer_name, customer_phone, address, pet_info, notes, photo_urls, kind, status)
+  values (p_d, p_name, p_phone, p_address, p_pet, p_notes, p_photos, 'normal', 'confirmed')
+  returning id into v_id;
+  return json_build_object('ok', true, 'booking_id', v_id);
+end; $$;
+
 -- 喂猫员删除某个订单
 create or replace function delete_booking(p_user text, p_pass text, p_id uuid)
 returns json language plpgsql security definer as $$
@@ -273,4 +297,5 @@ grant execute on function feeder_overview(text, text)                           
 grant execute on function set_available_days(text, text, date[])                        to anon;
 grant execute on function decide_request(text, text, uuid, boolean)                      to anon;
 grant execute on function update_booking(text, text, uuid, text, text, text, text, text, text[]) to anon;
+grant execute on function feeder_create_booking(text, text, date, text, text, text, text, text, text[]) to anon;
 grant execute on function delete_booking(text, text, uuid)                              to anon;

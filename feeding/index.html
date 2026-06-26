@@ -236,7 +236,10 @@
 
       <!-- 预约明细 -->
       <div class="card">
-        <h2><span data-en>Bookings</span><span data-zh>预约明细</span></h2>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+          <h2 style="margin:0;"><span data-en>Bookings</span><span data-zh>预约明细</span></h2>
+          <button class="btn sm" style="flex-shrink:0;" onclick="openFeederCreate()">+ <span data-en>New booking</span><span data-zh>代客下单</span></button>
+        </div>
         <div id="bookingList"></div>
       </div>
     </div>
@@ -338,6 +341,41 @@
   </div>
 </div>
 
+<!-- 喂猫员代客下单 -->
+<div id="fcOverlay" class="overlay hidden">
+  <div class="modal">
+    <h3><span data-en>New booking</span><span data-zh>新建订单</span></h3>
+    <p class="sub"><span data-en>Book on behalf of a customer who can't book themselves.</span><span data-zh>客户不方便自己下单时，由你代为下单。</span></p>
+    <label><span data-en>Date</span><span data-zh>日期</span></label>
+    <input type="date" id="fcDate">
+    <div class="row">
+      <div>
+        <label><span data-en>Name</span><span data-zh>称呼</span></label>
+        <input id="fcName" autocomplete="off">
+      </div>
+      <div>
+        <label><span data-en>Phone</span><span data-zh>手机号</span></label>
+        <input id="fcPhone" inputmode="tel" autocomplete="off">
+      </div>
+    </div>
+    <label><span data-en>Address</span><span data-zh>喂猫地址</span></label>
+    <input id="fcAddr" autocomplete="off">
+    <label><span data-en>Cat info / services</span><span data-zh>猫咪与服务信息</span></label>
+    <textarea id="fcPet"></textarea>
+    <label><span data-en>Notes</span><span data-zh>备注</span></label>
+    <textarea id="fcNotes"></textarea>
+    <label><span data-en>Photos</span><span data-zh>现场照片</span></label>
+    <div class="photo-row" id="fcPhotos"></div>
+    <input type="file" id="fcPhotoInput" accept="image/*" multiple style="display:none" onchange="handlePhotoSelect(event,'fc')">
+    <button type="button" class="btn ghost sm" onclick="document.getElementById('fcPhotoInput').click()">📷 <span data-en>Add photo</span><span data-zh>添加照片</span></button>
+    <div id="fcMsg"></div>
+    <div class="row" style="margin-top:18px;">
+      <button class="btn ghost" style="flex:0 0 auto;" onclick="closeFeederCreate()"><span data-en>Cancel</span><span data-zh>取消</span></button>
+      <button class="btn" style="flex:1;" id="fcBtn" onclick="submitFeederCreate()"><span data-en>Create booking</span><span data-zh>创建订单</span></button>
+    </div>
+  </div>
+</div>
+
 <div id="selBar" class="selbar hidden">
   <span class="cnt" id="selCount"></span>
   <div style="display:flex;gap:8px;">
@@ -379,7 +417,8 @@ const T = {
     sumBooked:n=>'✅ '+n+' 天预约成功', sumPending:n=>n+' 天已满，加号申请待确认', sumUnavail:n=>n+' 天不可约',
     sumDuplicate:n=>n+' 天你已经预约过了，未重复提交',
     rejected:'已拒绝', enterPhone:'请输入手机号', noMyBk:'没有找到预约记录',
-    confirmDelOrder:'确定删除这个订单？', editSaved:'已保存 ✓', photoWait:'照片还在上传中，请稍候'
+    confirmDelOrder:'确定删除这个订单？', editSaved:'已保存 ✓', photoWait:'照片还在上传中，请稍候',
+    feederDup:'该客户当天已有预约，未重复创建'
   },
   en: {
     needUser:'Enter username and password', wrong:'Wrong username or password', welcome:'Welcome back',
@@ -398,7 +437,8 @@ const T = {
     sumBooked:n=>'✅ '+n+' day'+(n>1?'s':'')+' booked', sumPending:n=>n+' full — extra request(s) pending', sumUnavail:n=>n+' unavailable',
     sumDuplicate:n=>n+' day'+(n>1?'s':'')+' already booked by you — not duplicated',
     rejected:'Rejected', enterPhone:'Please enter your phone', noMyBk:'No bookings found',
-    confirmDelOrder:'Delete this order?', editSaved:'Saved ✓', photoWait:'Photos are still uploading, please wait'
+    confirmDelOrder:'Delete this order?', editSaved:'Saved ✓', photoWait:'Photos are still uploading, please wait',
+    feederDup:'This customer already has a booking that day — not duplicated'
   }
 };
 function t(k){ return T[lang()][k]; }
@@ -633,6 +673,7 @@ function composePet(){
 const MAX_PHOTOS = 4;
 let custPhotos = []; // 元素为已上传的 url 字符串，或 {uploading:true} 占位对象
 let editPhotos = [];
+let fcPhotos = []; // 喂猫员代客下单用
 function resizeImage(file){
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -673,13 +714,13 @@ function renderPhotoRow(containerId, arr){
   }).join('');
 }
 function removePhoto(containerId, idx){
-  const arr = containerId === 'cPhotos' ? custPhotos : editPhotos;
+  const arr = containerId === 'cPhotos' ? custPhotos : (containerId === 'ePhotos' ? editPhotos : fcPhotos);
   arr.splice(idx, 1);
   renderPhotoRow(containerId, arr);
 }
 async function handlePhotoSelect(ev, which){
-  const containerId = which === 'cust' ? 'cPhotos' : 'ePhotos';
-  const arr = which === 'cust' ? custPhotos : editPhotos;
+  const containerId = which === 'cust' ? 'cPhotos' : (which === 'edit' ? 'ePhotos' : 'fcPhotos');
+  const arr = which === 'cust' ? custPhotos : (which === 'edit' ? editPhotos : fcPhotos);
   const files = Array.from(ev.target.files || []);
   ev.target.value = '';
   for (const file of files){
@@ -1000,6 +1041,47 @@ async function deleteEdit(){
   });
   if (error || !data || !data.ok){ showMsg(document.getElementById('editMsg'),'err',t('err')); return; }
   closeEdit(); loadFeederOverview();
+}
+
+/* ----- 喂猫员代客下单 ----- */
+function openFeederCreate(){
+  document.getElementById('fcDate').value = todayStr();
+  document.getElementById('fcDate').min = todayStr();
+  document.getElementById('fcDate').max = ymd(windowEnd());
+  document.getElementById('fcName').value = '';
+  document.getElementById('fcPhone').value = '';
+  document.getElementById('fcAddr').value = '';
+  document.getElementById('fcPet').value = '';
+  document.getElementById('fcNotes').value = '';
+  fcPhotos = []; renderPhotoRow('fcPhotos', fcPhotos);
+  clearMsg(document.getElementById('fcMsg'));
+  document.getElementById('fcOverlay').classList.remove('hidden');
+}
+function closeFeederCreate(){ document.getElementById('fcOverlay').classList.add('hidden'); }
+async function submitFeederCreate(){
+  if (!feeder) return;
+  const msg = document.getElementById('fcMsg');
+  const d = document.getElementById('fcDate').value;
+  const name = document.getElementById('fcName').value.trim();
+  const phone = document.getElementById('fcPhone').value.trim();
+  if (!d || !name || !phone){ showMsg(msg,'err',t('needBook')); return; }
+  if (fcPhotos.some(p => typeof p !== 'string')){ showMsg(msg,'err',t('photoWait')); return; }
+  const btn = document.getElementById('fcBtn');
+  const btnText = btn.textContent;
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  const { data, error } = await sb.rpc('feeder_create_booking', {
+    p_user:feeder.user, p_pass:feeder.pass, p_d:d,
+    p_name:name, p_phone:phone,
+    p_address:document.getElementById('fcAddr').value.trim(),
+    p_pet:document.getElementById('fcPet').value.trim(),
+    p_notes:document.getElementById('fcNotes').value.trim(),
+    p_photos: fcPhotos
+  });
+  btn.disabled = false; btn.textContent = btnText;
+  if (error || !data || !data.ok){ showMsg(msg,'err',t('err')); return; }
+  showMsg(msg, 'ok', data.duplicate ? t('feederDup') : t('editSaved'));
+  loadFeederOverview();
+  setTimeout(closeFeederCreate, 1200);
 }
 
 /* ---------------- 语言切换时重绘 ---------------- */
