@@ -1,0 +1,6 @@
+# 不作为静态资源上传/服务的路径（Cloudflare Workers Assets）
+gkzy/data
+gkzy/crawler
+.wrangler
+.git
+node_modules

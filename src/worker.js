@@ -1,5 +1,6 @@
 import { handleSina } from './sina.js';
 import { handleNewsFetch, runNewsFetch } from './newsFetch.js';
+import { handleGkzy } from './gkzy.js';
 
 export default {
   async fetch(request, env, ctx) {
@@ -11,6 +12,10 @@ export default {
 
     if (url.pathname === '/news/fetch') {
       return handleNewsFetch(request, env);
+    }
+
+    if (url.pathname.startsWith('/gkzy/api/')) {
+      return handleGkzy(request, env);
     }
 
     return env.ASSETS.fetch(request);

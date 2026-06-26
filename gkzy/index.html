@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="灵猫高考 · 志愿填报参考 — 基于近5年(2021-2025)真实录取分数线，按位次智能匹配冲稳保院校与专业">
+<title>灵猫高考 · 志愿填报参考</title>
+<link rel="stylesheet" href="css/gkzy.css">
+</head>
+<body data-theme="dark">
+<div class="wrap">
+
+  <header class="hd">
+    <a class="brand" href="/">🐱 <b>灵猫高考</b> · 志愿填报参考</a>
+    <a class="home" href="/">← 返回主页</a>
+  </header>
+
+  <section class="hero">
+    <h1>按<span class="grad">位次</span>填志愿，<span class="grad">冲稳保</span>一目了然</h1>
+    <p>依据近 5 年（2021–2025）全国真实录取数据，输入你的分数与位次，智能匹配适合的院校与专业。</p>
+  </section>
+
+  <!-- 查询表单 -->
+  <form class="panel form" id="queryForm">
+    <div class="field">
+      <label>省份</label>
+      <select id="prov" required></select>
+    </div>
+    <div class="field">
+      <label>科类 / 选科</label>
+      <select id="type"><option value="">加载中…</option></select>
+    </div>
+    <div class="field">
+      <label>分数</label>
+      <input id="score" type="number" min="0" max="750" placeholder="如 580" inputmode="numeric">
+    </div>
+    <div class="field">
+      <label>位次（推荐）</label>
+      <input id="rank" type="number" min="1" placeholder="如 25000" inputmode="numeric">
+    </div>
+    <button class="btn" type="submit">智能推荐</button>
+  </form>
+  <p class="hint" id="hint">提示：位次比分数更稳定，强烈建议填写「一分一段表」上的位次以获得准确匹配。</p>
+
+  <!-- 结果 -->
+  <div id="status" class="status"></div>
+  <div class="cols" id="results" hidden>
+    <div class="col chong"><h3>🚀 冲一冲 <span class="cnt" id="cntC">0</span></h3><div class="list" id="listC"></div></div>
+    <div class="col wen"><h3>🎯 稳一稳 <span class="cnt" id="cntW">0</span></h3><div class="list" id="listW"></div></div>
+    <div class="col bao"><h3>🛡️ 保一保 <span class="cnt" id="cntB">0</span></h3><div class="list" id="listB"></div></div>
+  </div>
+
+  <footer class="ft">
+    数据来源：公开录取数据整理（掌上高考），仅供参考，请以各省考试院与高校官方公布为准。
+  </footer>
+</div>
+
+<!-- 院校专业详情弹层 -->
+<div class="modal" id="modal" hidden>
+  <div class="modal-card">
+    <div class="modal-hd"><span id="modalTitle"></span><button id="modalClose">✕</button></div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<script src="js/gkzy.js"></script>
+</body>
+</html>
