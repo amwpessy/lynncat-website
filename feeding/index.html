@@ -129,6 +129,12 @@
   .photo-thumb img { width:100%; height:100%; object-fit:cover; display:block; cursor:pointer; }
   .photo-thumb.uploading { display:flex; align-items:center; justify-content:center; }
   .photo-thumb .rm { position:absolute; top:-6px; right:-6px; width:20px; height:20px; border-radius:50%; background:var(--red); color:#fff; border:none; font-size:12px; line-height:20px; text-align:center; cursor:pointer; padding:0; }
+
+  .suggest-list { position:absolute; left:0; right:0; top:100%; margin-top:2px; background:var(--surface); border:1px solid var(--border); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,.25); z-index:50; overflow:hidden; max-height:220px; overflow-y:auto; }
+  .suggest-item { padding:10px 13px; font-size:14px; cursor:pointer; border-bottom:1px solid var(--border); }
+  .suggest-item:last-child { border-bottom:none; }
+  .suggest-item:hover, .suggest-item:active { background:var(--surface2); }
+  .suggest-item .p { color:var(--muted); font-size:12px; margin-left:8px; }
 </style>
 <script>
 /* 按北京时间自动切换主题：白天(6:00–18:00)浅色，夜间深色 */
@@ -252,15 +258,12 @@
     <h3 id="bookTitle"></h3>
     <p class="sub" id="bookDateLabel"></p>
     <input type="date" id="bookDateInput" class="hidden">
-    <div id="fcRecentBox" class="hidden">
-      <p class="sub" style="margin:10px 0 6px;"><span data-en>Recent customers — tap to fill</span><span data-zh>最近客户，点击快速填写</span></p>
-      <div class="chips" id="fcRecentChips"></div>
-    </div>
     <div id="bookNotice" class="notice hidden"></div>
     <div class="row" style="margin-top:6px;">
-      <div>
+      <div style="position:relative;">
         <label><span data-en>Your name</span><span data-zh>你的称呼</span></label>
-        <input id="cName" autocomplete="name">
+        <input id="cName" autocomplete="name" oninput="renderFcSuggest()" onfocus="renderFcSuggest()" onblur="setTimeout(hideFcSuggest,150)">
+        <div id="fcSuggest" class="suggest-list hidden"></div>
       </div>
       <div>
         <label><span data-en>Phone</span><span data-zh>手机号</span></label>
@@ -389,7 +392,7 @@ const T = {
     rejected:'已拒绝', enterPhone:'请输入手机号', noMyBk:'没有找到预约记录',
     confirmDelOrder:'确定删除这个订单？', editSaved:'已保存 ✓', photoWait:'照片还在上传中，请稍候',
     feederDup:'该客户当天已有预约，未重复创建',
-    feederNewTitle:'代客下单', feederNewBtn:'创建订单', feederNoRecent:'暂无最近客户记录'
+    feederNewTitle:'代客下单', feederNewBtn:'创建订单'
   },
   en: {
     needUser:'Enter username and password', wrong:'Wrong username or password', welcome:'Welcome back',
@@ -410,7 +413,7 @@ const T = {
     rejected:'Rejected', enterPhone:'Please enter your phone', noMyBk:'No bookings found',
     confirmDelOrder:'Delete this order?', editSaved:'Saved ✓', photoWait:'Photos are still uploading, please wait',
     feederDup:'This customer already has a booking that day — not duplicated',
-    feederNewTitle:'New booking for a customer', feederNewBtn:'Create booking', feederNoRecent:'No recent customers yet'
+    feederNewTitle:'New booking for a customer', feederNewBtn:'Create booking'
   }
 };
 function t(k){ return T[lang()][k]; }
@@ -763,14 +766,29 @@ function saveFeederCustomer(){
   if (feederCustomers.length > MAX_FEEDER_CUSTOMERS) feederCustomers.length = MAX_FEEDER_CUSTOMERS;
   try { localStorage.setItem('lynncat-feeder-customers', JSON.stringify(feederCustomers)); } catch(e){}
 }
-function renderFeederRecent(){
-  const box = document.getElementById('fcRecentChips');
+function hideFcSuggest(){
+  const box = document.getElementById('fcSuggest');
+  if (box) box.classList.add('hidden');
+}
+function renderFcSuggest(){
+  const box = document.getElementById('fcSuggest');
   if (!box) return;
-  if (!feederCustomers.length){ box.innerHTML = '<span class="sub" style="margin:0;">'+esc(t('feederNoRecent'))+'</span>'; return; }
-  box.innerHTML = feederCustomers.map((c, i) =>
-    '<button type="button" class="chip" onclick="applyProfileFields(feederCustomers['+i+'])">'
-    + esc(c.name || c.phone) + '</button>'
-  ).join('');
+  if (bookMode !== 'feeder'){ box.classList.add('hidden'); return; }
+  const q = document.getElementById('cName').value.trim().toLowerCase();
+  const pool = q
+    ? feederCustomers.filter(c => (c.name && c.name.toLowerCase().includes(q)) || (c.phone && c.phone.includes(q)))
+    : feederCustomers;
+  const top = pool.slice(0, 6);
+  if (!top.length){ box.classList.add('hidden'); return; }
+  box.innerHTML = top.map(c => {
+    const idx = feederCustomers.indexOf(c);
+    return '<div class="suggest-item" onclick="pickFeederCustomer('+idx+')">'+esc(c.name || '(未命名)')+'<span class="p">'+esc(c.phone || '')+'</span></div>';
+  }).join('');
+  box.classList.remove('hidden');
+}
+function pickFeederCustomer(idx){
+  applyProfileFields(feederCustomers[idx]);
+  hideFcSuggest();
 }
 
 let bookMode = 'customer'; // 'customer' 客户自己批量预约 | 'feeder' 喂猫员代客下单（共用同一个弹窗）
@@ -780,7 +798,7 @@ function openBatch(){
   bookMode = 'customer';
   document.getElementById('bookDateInput').classList.add('hidden');
   document.getElementById('bookDateLabel').classList.remove('hidden');
-  document.getElementById('fcRecentBox').classList.add('hidden');
+  hideFcSuggest();
   const fullN = days.filter(ds => custMap[ds] && custMap[ds].cnt >= CAP).length;
   document.getElementById('bookTitle').textContent = t('batchTitle')(days.length);
   document.getElementById('bookDateLabel').textContent =
@@ -807,10 +825,9 @@ function openFeederCreate(){
   document.getElementById('bookNotice').classList.add('hidden');
   document.getElementById('bookBtn').textContent = t('feederNewBtn');
   clearMsg(document.getElementById('bookMsg'));
-  // 代客下单不带出客户自己的本地记忆资料，默认留空，但可从下面的"最近客户"里一键填入
+  // 代客下单不带出客户自己的本地记忆资料，默认留空；输入称呼时会弹出匹配的老客户供选择
   applyProfileFields(null);
-  document.getElementById('fcRecentBox').classList.remove('hidden');
-  renderFeederRecent();
+  hideFcSuggest();
   custPhotos = []; renderPhotoRow('cPhotos', custPhotos);
   document.getElementById('bookOverlay').classList.remove('hidden');
 }
