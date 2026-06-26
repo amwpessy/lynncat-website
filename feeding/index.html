@@ -252,6 +252,10 @@
     <h3 id="bookTitle"></h3>
     <p class="sub" id="bookDateLabel"></p>
     <input type="date" id="bookDateInput" class="hidden">
+    <div id="fcRecentBox" class="hidden">
+      <p class="sub" style="margin:10px 0 6px;"><span data-en>Recent customers — tap to fill</span><span data-zh>最近客户，点击快速填写</span></p>
+      <div class="chips" id="fcRecentChips"></div>
+    </div>
     <div id="bookNotice" class="notice hidden"></div>
     <div class="row" style="margin-top:6px;">
       <div>
@@ -385,7 +389,7 @@ const T = {
     rejected:'已拒绝', enterPhone:'请输入手机号', noMyBk:'没有找到预约记录',
     confirmDelOrder:'确定删除这个订单？', editSaved:'已保存 ✓', photoWait:'照片还在上传中，请稍候',
     feederDup:'该客户当天已有预约，未重复创建',
-    feederNewTitle:'代客下单', feederNewBtn:'创建订单'
+    feederNewTitle:'代客下单', feederNewBtn:'创建订单', feederNoRecent:'暂无最近客户记录'
   },
   en: {
     needUser:'Enter username and password', wrong:'Wrong username or password', welcome:'Welcome back',
@@ -406,7 +410,7 @@ const T = {
     rejected:'Rejected', enterPhone:'Please enter your phone', noMyBk:'No bookings found',
     confirmDelOrder:'Delete this order?', editSaved:'Saved ✓', photoWait:'Photos are still uploading, please wait',
     feederDup:'This customer already has a booking that day — not duplicated',
-    feederNewTitle:'New booking for a customer', feederNewBtn:'Create booking'
+    feederNewTitle:'New booking for a customer', feederNewBtn:'Create booking', feederNoRecent:'No recent customers yet'
   }
 };
 function t(k){ return T[lang()][k]; }
@@ -711,11 +715,13 @@ function photoThumbsHtml(urls){
   ).join('') + '</div>';
 }
 
-/* 记住上次填写，下次自动带出 */
+/* 记住上次填写，下次自动带出（客户自己的设备）；喂猫员代客下单则按手机号记一份小客户簿 */
 let custProfile = null;
 try { custProfile = JSON.parse(localStorage.getItem('lynncat-cust-profile')||'null'); } catch(e){}
-function applyProfile(){
-  const p = custProfile || {};
+let feederCustomers = [];
+try { feederCustomers = JSON.parse(localStorage.getItem('lynncat-feeder-customers')||'[]'); } catch(e){}
+function applyProfileFields(p){
+  p = p || {};
   document.getElementById('cName').value  = p.name  || '';
   document.getElementById('cPhone').value = p.phone || '';
   document.getElementById('cAddr').value  = p.addr  || '';
@@ -731,8 +737,9 @@ function applyProfile(){
   hasOtherPet = !!p.other_pet;
   renderChips();
 }
-function saveProfile(){
-  custProfile = {
+function applyProfile(){ applyProfileFields(custProfile); }
+function buildProfileFromForm(){
+  return {
     name:  document.getElementById('cName').value.trim(),
     phone: document.getElementById('cPhone').value.trim(),
     addr:  document.getElementById('cAddr').value.trim(),
@@ -742,7 +749,28 @@ function saveProfile(){
     water: selectedWater, water_detail: document.getElementById('cWaterDetail').value.trim(),
     other_pet: hasOtherPet, other_pet_detail: document.getElementById('cOtherPet').value.trim()
   };
+}
+function saveProfile(){
+  custProfile = buildProfileFromForm();
   try { localStorage.setItem('lynncat-cust-profile', JSON.stringify(custProfile)); } catch(e){}
+}
+const MAX_FEEDER_CUSTOMERS = 20;
+function saveFeederCustomer(){
+  const profile = buildProfileFromForm();
+  if (!profile.phone) return;
+  feederCustomers = feederCustomers.filter(c => c.phone !== profile.phone);
+  feederCustomers.unshift(profile);
+  if (feederCustomers.length > MAX_FEEDER_CUSTOMERS) feederCustomers.length = MAX_FEEDER_CUSTOMERS;
+  try { localStorage.setItem('lynncat-feeder-customers', JSON.stringify(feederCustomers)); } catch(e){}
+}
+function renderFeederRecent(){
+  const box = document.getElementById('fcRecentChips');
+  if (!box) return;
+  if (!feederCustomers.length){ box.innerHTML = '<span class="sub" style="margin:0;">'+esc(t('feederNoRecent'))+'</span>'; return; }
+  box.innerHTML = feederCustomers.map((c, i) =>
+    '<button type="button" class="chip" onclick="applyProfileFields(feederCustomers['+i+'])">'
+    + esc(c.name || c.phone) + '</button>'
+  ).join('');
 }
 
 let bookMode = 'customer'; // 'customer' 客户自己批量预约 | 'feeder' 喂猫员代客下单（共用同一个弹窗）
@@ -752,6 +780,7 @@ function openBatch(){
   bookMode = 'customer';
   document.getElementById('bookDateInput').classList.add('hidden');
   document.getElementById('bookDateLabel').classList.remove('hidden');
+  document.getElementById('fcRecentBox').classList.add('hidden');
   const fullN = days.filter(ds => custMap[ds] && custMap[ds].cnt >= CAP).length;
   document.getElementById('bookTitle').textContent = t('batchTitle')(days.length);
   document.getElementById('bookDateLabel').textContent =
@@ -778,17 +807,10 @@ function openFeederCreate(){
   document.getElementById('bookNotice').classList.add('hidden');
   document.getElementById('bookBtn').textContent = t('feederNewBtn');
   clearMsg(document.getElementById('bookMsg'));
-  // 代客下单不带出客户自己的本地记忆资料，全部留空由喂猫员手动填写
-  document.getElementById('cName').value = '';
-  document.getElementById('cPhone').value = '';
-  document.getElementById('cAddr').value = '';
-  document.getElementById('cNotes').value = '';
-  document.getElementById('cDoor').value = '';
-  document.getElementById('cWaterDetail').value = '';
-  document.getElementById('cOtherPet').value = '';
-  selectedCount = '1'; selectedServices = new Set(); selectedFeeds = new Set();
-  selectedDoor = ''; selectedWater = ''; hasOtherPet = false;
-  renderChips();
+  // 代客下单不带出客户自己的本地记忆资料，默认留空，但可从下面的"最近客户"里一键填入
+  applyProfileFields(null);
+  document.getElementById('fcRecentBox').classList.remove('hidden');
+  renderFeederRecent();
   custPhotos = []; renderPhotoRow('cPhotos', custPhotos);
   document.getElementById('bookOverlay').classList.remove('hidden');
 }
@@ -855,6 +877,7 @@ async function confirmBatch(){
     bookingInFlight = false;
     btn.disabled = false; btn.textContent = btnText;
     if (error || !data || !data.ok){ showMsg(msg,'err',t('err')); return; }
+    saveFeederCustomer(); // 记住这个客户的信息，下次代下单可一键填入
     showMsg(msg, 'ok', data.duplicate ? t('feederDup') : t('editSaved'));
     loadFeederOverview();
     setTimeout(closeBook, 1200);
