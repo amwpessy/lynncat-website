@@ -315,10 +315,14 @@ def _do_major_part(sid, year, delay):
 
 
 def _select_sids(conn, args):
-    """根据 --schools / --level 选择院校ID列表。"""
+    """根据 --schools / --level / --key-schools 选择院校ID列表。"""
     if args.schools:
         return args.schools
-    if getattr(args, "level", None):
+    if getattr(args, "key_schools", False):
+        rows = conn.execute(
+            "SELECT school_id FROM schools "
+            "WHERE f985=1 OR f211=1 OR dual_class_name='双一流' ORDER BY school_id").fetchall()
+    elif getattr(args, "level", None):
         rows = conn.execute(
             "SELECT school_id FROM schools WHERE level_name LIKE ? ORDER BY school_id",
             (f"%{args.level}%",)).fetchall()
@@ -399,10 +403,14 @@ def main():
     p = sub.add_parser("college"); common(p)
     p.add_argument("--schools", type=int, nargs="*", help="院校ID筛选")
     p.add_argument("--level", help="按院校层次筛选，如 专科/本科（匹配 schools.level_name 包含此字符串）")
+    p.add_argument("--key-schools", action="store_true",
+                    help="只抓重点院校(985/211/双一流，约164所)")
     p.add_argument("--years", type=int, nargs="*", help="年份筛选")
     p = sub.add_parser("major"); common(p)
     p.add_argument("--schools", type=int, nargs="*", help="院校ID筛选")
     p.add_argument("--level", help="按院校层次筛选，如 专科/本科")
+    p.add_argument("--key-schools", action="store_true",
+                    help="只抓重点院校(985/211/双一流，约164所)")
     p.add_argument("--years", type=int, nargs="*", help="年份筛选")
     sub.add_parser("stats")
 

@@ -9,16 +9,19 @@ cd "$(dirname "$0")"
 C="${CONCURRENCY:-2}"
 D="${DELAY:-0.8}"
 
-echo "[1/4] 院校列表"
+echo "[1/5] 院校列表"
 python3 crawl.py schools --delay "$D"
 
-echo "[2/4] 院校线 · 专科优先（1507所×5年，确保大专批尽快可查）"
+echo "[2/5] 专业线 · 重点院校优先（985/211/双一流，约164所×5年，量小但用户最关心，先抓完）"
+python3 crawl.py major --key-schools --concurrency "$C" --delay "$D"
+
+echo "[3/5] 院校线 · 专科优先（1507所×5年，确保大专批尽快可查）"
 python3 crawl.py college --level 专科 --concurrency "$C" --delay "$D"
 
-echo "[3/4] 院校线 · 其余全部（断点续抓，已完成的会跳过）"
+echo "[4/5] 院校线 · 其余全部（断点续抓，已完成的会跳过）"
 python3 crawl.py college --concurrency "$C" --delay "$D"
 
-echo "[4/4] 专业线（2991校×5年，最久）"
+echo "[5/5] 专业线 · 其余全部（2991校×5年，最久，断点续抓）"
 python3 crawl.py major --concurrency "$C" --delay "$D"
 
 echo "== 完成，统计 =="
