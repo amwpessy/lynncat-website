@@ -221,6 +221,15 @@
         <div id="pendingList"></div>
       </div>
 
+      <!-- 预约明细 -->
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+          <h2 style="margin:0;"><span data-en>Bookings</span><span data-zh>预约明细</span></h2>
+          <button class="btn sm" style="flex-shrink:0;" onclick="openFeederCreate()">+ <span data-en>New booking</span><span data-zh>代客下单</span></button>
+        </div>
+        <div id="bookingList"></div>
+      </div>
+
       <!-- 勾选可接单日期 -->
       <div class="card">
         <h2><span data-en>My available dates</span><span data-zh>勾选可接单日期</span></h2>
@@ -232,15 +241,6 @@
         <div id="feederCal"><div class="empty"><span data-en>Loading…</span><span data-zh>加载中…</span></div></div>
         <button class="btn full" id="saveDaysBtn" onclick="saveDays()"><span data-en>Save dates</span><span data-zh>保存日期</span></button>
         <div id="saveDaysMsg"></div>
-      </div>
-
-      <!-- 预约明细 -->
-      <div class="card">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
-          <h2 style="margin:0;"><span data-en>Bookings</span><span data-zh>预约明细</span></h2>
-          <button class="btn sm" style="flex-shrink:0;" onclick="openFeederCreate()">+ <span data-en>New booking</span><span data-zh>代客下单</span></button>
-        </div>
-        <div id="bookingList"></div>
       </div>
     </div>
   </section>
