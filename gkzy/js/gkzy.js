@@ -96,17 +96,26 @@ function setStatus(msg, err) {
   s.className = 'status' + (err ? ' err' : '');
 }
 
-function render(d) {
-  const groups = [['C', d.chong], ['W', d.wen], ['B', d.bao]];
-  let total = 0;
+function renderGroup(prefix, g) {
+  g = g || {};
+  const groups = [['C', g.chong], ['W', g.wen], ['B', g.bao]];
+  let sub = 0;
   groups.forEach(([k, arr]) => {
     arr = arr || [];
-    total += arr.length;
-    $('cnt' + k).textContent = arr.length;
-    const box = $('list' + k);
+    sub += arr.length;
+    $('cnt' + prefix + k).textContent = arr.length;
+    const box = $('list' + prefix + k);
     box.innerHTML = arr.length ? '' : '<div class="empty">暂无匹配</div>';
     arr.forEach(it => box.appendChild(card(it)));
   });
+  $('cnt' + prefix).textContent = sub;
+  return sub;
+}
+
+function render(d) {
+  const totalIn = renderGroup('In', d.inProvince);
+  const totalOut = renderGroup('Out', d.outProvince);
+  const total = totalIn + totalOut;
   setStatus(total ? `共匹配 ${total} 个志愿方向（基于 ${d.year} 年录取数据 · ${d.basis === 'rank' ? '按位次' : '按分数'}匹配）` : '没有匹配到院校，试试调整分数或位次');
   $('results').hidden = false;
 }

@@ -160,7 +160,8 @@ async function recommend(env, q) {
     `SELECT MAX(year) AS y FROM college_score WHERE local_province_id=? AND local_type_name=?`)
     .bind(prov, type).first();
   const year = yr && yr.y;
-  if (!year) return j({ chong: [], wen: [], bao: [], year: null, basis: rank ? 'rank' : 'score', usesLeft: auth.usesLeft, maxUses: auth.maxUses });
+  const empty = { chong: [], wen: [], bao: [] };
+  if (!year) return j({ inProvince: empty, outProvince: empty, year: null, basis: rank ? 'rank' : 'score', usesLeft: auth.usesLeft, maxUses: auth.maxUses });
 
   const useRank = rank != null;
   const basis = useRank ? 'rank' : 'score';
@@ -191,7 +192,9 @@ async function recommend(env, q) {
       .bind(prov, type, year, score - 40, score + 25).all();
   }
 
-  const chong = [], wen = [], bao = [];
+  // 按学校所在省份是否=考生所在省份，拆成本省/外省两组，各自再分冲稳保
+  const inG = { chong: [], wen: [], bao: [] };
+  const outG = { chong: [], wen: [], bao: [] };
   const seen = new Set();
   for (const r of (rows.results || [])) {
     const key = r.school_id + '|' + (r.special_group ?? '') + '|' + (r.local_batch_name ?? '');
@@ -204,26 +207,33 @@ async function recommend(env, q) {
       f985: r.f985, f211: r.f211, dual: r.dual_class_name,
       province: r.province_name, city: r.city_name,
     };
+    const g = (r.province_name && r.province_name === r.local_province_name) ? inG : outG;
     if (useRank) {
       const ratio = r.min_section / rank;
       item.delta = rank - r.min_section;
-      if (ratio < 0.93) chong.push(item);
-      else if (ratio <= 1.10) wen.push(item);
-      else bao.push(item);
+      if (ratio < 0.93) g.chong.push(item);
+      else if (ratio <= 1.10) g.wen.push(item);
+      else g.bao.push(item);
     } else {
       const diff = score - r.min_score;
       item.delta = diff;
-      if (diff < 0) chong.push(item);
-      else if (diff <= 8) wen.push(item);
-      else bao.push(item);
+      if (diff < 0) g.chong.push(item);
+      else if (diff <= 8) g.wen.push(item);
+      else g.bao.push(item);
     }
   }
   const cap = a => a.slice(0, 40);
-  if (useRank) {
-    chong.sort((a, b) => b.min_section - a.min_section);
-    bao.sort((a, b) => a.min_section - b.min_section);
-  }
-  return j({ chong: cap(chong), wen: cap(wen), bao: cap(bao), year, basis, usesLeft: auth.usesLeft, maxUses: auth.maxUses });
+  const finalize = g => {
+    if (useRank) {
+      g.chong.sort((a, b) => b.min_section - a.min_section);
+      g.bao.sort((a, b) => a.min_section - b.min_section);
+    }
+    return { chong: cap(g.chong), wen: cap(g.wen), bao: cap(g.bao) };
+  };
+  return j({
+    inProvince: finalize(inG), outProvince: finalize(outG),
+    year, basis, usesLeft: auth.usesLeft, maxUses: auth.maxUses,
+  });
 }
 
 // ── 需授权码（不消耗）：某院校在该省的专业线 ──

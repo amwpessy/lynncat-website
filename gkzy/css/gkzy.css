@@ -44,6 +44,11 @@ select:focus,input:focus{border-color:var(--accent)}
 .status{text-align:center;color:var(--muted);padding:26px 0;font-size:15px}
 .status.err{color:var(--chong)}
 
+.grouptitle{display:flex;align-items:center;gap:10px;font-size:17px;font-weight:700;
+  margin-top:34px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.grouptitle:first-of-type{margin-top:6px}
+.grouptitle .cnt{font-weight:600}
+
 .cols{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:24px}
 .col{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
   padding:16px;min-height:120px;box-shadow:var(--shadow)}
