@@ -257,7 +257,8 @@
   <div class="modal">
     <h3 id="bookTitle"></h3>
     <p class="sub" id="bookDateLabel"></p>
-    <input type="date" id="bookDateInput" class="hidden">
+    <input type="date" id="bookDateInput" class="hidden" oninput="updateFcDateLabel()">
+    <p class="sub" id="fcDateLabel" style="margin:6px 0 0; font-weight:700; color:var(--accent-ink);"></p>
     <div id="bookNotice" class="notice hidden"></div>
     <div class="row" style="margin-top:6px;">
       <div style="position:relative;">
@@ -391,7 +392,8 @@ const T = {
     sumDuplicate:n=>n+' 天你已经预约过了，未重复提交',
     rejected:'已拒绝', enterPhone:'请输入手机号', noMyBk:'没有找到预约记录',
     confirmDelOrder:'确定删除这个订单？', editSaved:'已保存 ✓', photoWait:'照片还在上传中，请稍候',
-    feederDup:'该客户当天已有预约，未重复创建',
+    feederDup:d=>'该客户在 '+fmtDate(d)+' 已有预约，未重复创建（请检查日期是否选对）',
+    feederCreated:d=>'已为 '+fmtDate(d)+' 创建订单 ✓',
     feederNewTitle:'代客下单', feederNewBtn:'创建订单'
   },
   en: {
@@ -412,7 +414,8 @@ const T = {
     sumDuplicate:n=>n+' day'+(n>1?'s':'')+' already booked by you — not duplicated',
     rejected:'Rejected', enterPhone:'Please enter your phone', noMyBk:'No bookings found',
     confirmDelOrder:'Delete this order?', editSaved:'Saved ✓', photoWait:'Photos are still uploading, please wait',
-    feederDup:'This customer already has a booking that day — not duplicated',
+    feederDup:d=>'This customer already has a booking on '+fmtDate(d)+' — not duplicated (check the date is right)',
+    feederCreated:d=>'Booking created for '+fmtDate(d)+' ✓',
     feederNewTitle:'New booking for a customer', feederNewBtn:'Create booking'
   }
 };
@@ -790,6 +793,12 @@ function pickFeederCustomer(idx){
   applyProfileFields(feederCustomers[idx]);
   hideFcSuggest();
 }
+function updateFcDateLabel(){
+  const lbl = document.getElementById('fcDateLabel');
+  if (!lbl) return;
+  const d = document.getElementById('bookDateInput').value;
+  lbl.textContent = d ? ('📅 ' + fmtDate(d)) : '';
+}
 
 let bookMode = 'customer'; // 'customer' 客户自己批量预约 | 'feeder' 喂猫员代客下单（共用同一个弹窗）
 function openBatch(){
@@ -798,6 +807,7 @@ function openBatch(){
   bookMode = 'customer';
   document.getElementById('bookDateInput').classList.add('hidden');
   document.getElementById('bookDateLabel').classList.remove('hidden');
+  document.getElementById('fcDateLabel').textContent = '';
   hideFcSuggest();
   const fullN = days.filter(ds => custMap[ds] && custMap[ds].cnt >= CAP).length;
   document.getElementById('bookTitle').textContent = t('batchTitle')(days.length);
@@ -822,6 +832,7 @@ function openFeederCreate(){
   const di = document.getElementById('bookDateInput');
   di.classList.remove('hidden');
   di.value = todayStr(); di.min = todayStr(); di.max = ymd(windowEnd());
+  updateFcDateLabel();
   document.getElementById('bookNotice').classList.add('hidden');
   document.getElementById('bookBtn').textContent = t('feederNewBtn');
   clearMsg(document.getElementById('bookMsg'));
@@ -895,7 +906,7 @@ async function confirmBatch(){
     btn.disabled = false; btn.textContent = btnText;
     if (error || !data || !data.ok){ showMsg(msg,'err',t('err')); return; }
     saveFeederCustomer(); // 记住这个客户的信息，下次代下单可一键填入
-    showMsg(msg, 'ok', data.duplicate ? t('feederDup') : t('editSaved'));
+    showMsg(msg, 'ok', data.duplicate ? t('feederDup')(d) : t('feederCreated')(d));
     loadFeederOverview();
     setTimeout(closeBook, 1200);
     return;
