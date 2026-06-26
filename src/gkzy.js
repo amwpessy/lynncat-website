@@ -166,6 +166,12 @@ async function recommend(env, q) {
   const basis = useRank ? 'rank' : 'score';
   let rows;
   if (useRank) {
+    // 按比例(0.45x~2.4x)算窗口；位次越靠头部(数字越小)按比例算出的绝对宽度会退化到几乎为0，
+    // 而全国最难考的学校最低位次通常也有几十到上百名，导致查不到任何结果。
+    // 加一个固定的最小绝对宽度兜底，确保头部/尾部极端位次也能匹配到学校。
+    const MIN_SPAN = 3000;
+    const lo = Math.max(0, Math.min(Math.floor(rank * 0.45), rank - MIN_SPAN));
+    const hi = Math.max(Math.ceil(rank * 2.4), rank + MIN_SPAN);
     rows = await env.DB.prepare(
       `SELECT cs.*, s.f985, s.f211, s.dual_class_name, s.province_name, s.city_name
        FROM college_score cs LEFT JOIN schools s ON s.school_id=cs.school_id
@@ -173,7 +179,7 @@ async function recommend(env, q) {
          AND cs.min_section IS NOT NULL
          AND cs.min_section BETWEEN ? AND ?
        ORDER BY cs.min_section`)
-      .bind(prov, type, year, Math.floor(rank * 0.45), Math.ceil(rank * 2.4)).all();
+      .bind(prov, type, year, lo, hi).all();
   } else {
     rows = await env.DB.prepare(
       `SELECT cs.*, s.f985, s.f211, s.dual_class_name, s.province_name, s.city_name
