@@ -129,6 +129,8 @@ function card(it) {
   if (Number(it.f211) === 1) tags.push('<span class="tag t211">211</span>');
   // sg_info 是该专业组的选科要求（如"物理必选"），比内部序号(sg_name)对考生更有意义
   if (it.sg_info && it.sg_info !== 'null' && it.sg_info !== '-') tags.push(`<span class="tag tsg">${esc(it.sg_info)}</span>`);
+  // 同校同批次可能有多个专业组选科要求/分数线刚好相同，已合并展示，标注合并了几个
+  if (it.groupCount > 1) tags.push(`<span class="tag">×${it.groupCount}个专业组同分</span>`);
   const loc = [it.province, it.city].filter(Boolean).join('·');
   const delta = it.delta != null
     ? `<span class="delta ${it.delta >= 0 ? 'up' : 'dn'}">${it.delta >= 0 ? '+' : ''}${it.delta}位</span>` : '';

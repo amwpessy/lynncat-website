@@ -192,37 +192,44 @@ async function recommend(env, q) {
       .bind(prov, type, year, score - 40, score + 25).all();
   }
 
-  // 按学校所在省份是否=考生所在省份，拆成本省/外省两组，各自再分冲稳保
-  const inG = { chong: [], wen: [], bao: [] };
-  const outG = { chong: [], wen: [], bao: [] };
-  const seen = new Set();
+  // 同校同批次可能有多个专业组(special_group)，不同专业组选科要求/分数线可能刚好相同，
+  // 这种情况下卡片显示内容会完全一样，看起来像重复——按"展示内容"合并，标注合并了几个专业组。
+  const merged = new Map();
   for (const r of (rows.results || [])) {
-    const key = r.school_id + '|' + (r.special_group ?? '') + '|' + (r.local_batch_name ?? '');
-    if (seen.has(key)) continue;
-    seen.add(key);
-    const item = {
+    const dispKey = [r.school_id, r.local_batch_name, r.sg_info, r.min_score, r.min_section].join('|');
+    const found = merged.get(dispKey);
+    if (found) { found.groupCount++; continue; }
+    merged.set(dispKey, {
       school_id: r.school_id, school_name: r.school_name,
       batch: r.local_batch_name, sg_info: r.sg_info,
       min_score: r.min_score, min_section: r.min_section,
       f985: r.f985, f211: r.f211, dual: r.dual_class_name,
       province: r.province_name, city: r.city_name,
-    };
-    const g = (r.province_name && r.province_name === r.local_province_name) ? inG : outG;
+      local_province_name: r.local_province_name, groupCount: 1,
+    });
+  }
+
+  // 按学校所在省份是否=考生所在省份，拆成本省/外省两组，各自再分冲稳保
+  const inG = { chong: [], wen: [], bao: [] };
+  const outG = { chong: [], wen: [], bao: [] };
+  for (const item of merged.values()) {
+    const g = (item.province && item.province === item.local_province_name) ? inG : outG;
     if (useRank) {
-      const ratio = r.min_section / rank;
-      item.delta = rank - r.min_section;
+      const ratio = item.min_section / rank;
+      item.delta = rank - item.min_section;
       if (ratio < 0.93) g.chong.push(item);
       else if (ratio <= 1.10) g.wen.push(item);
       else g.bao.push(item);
     } else {
-      const diff = score - r.min_score;
+      const diff = score - item.min_score;
       item.delta = diff;
       if (diff < 0) g.chong.push(item);
       else if (diff <= 8) g.wen.push(item);
       else g.bao.push(item);
     }
   }
-  const cap = a => a.slice(0, 40);
+  const strip = it => { delete it.local_province_name; return it; };
+  const cap = a => a.slice(0, 40).map(strip);
   const finalize = g => {
     if (useRank) {
       g.chong.sort((a, b) => b.min_section - a.min_section);
