@@ -7,7 +7,7 @@
 <title>灵猫高考 · 志愿填报参考</title>
 <link rel="stylesheet" href="css/gkzy.css">
 </head>
-<body data-theme="dark">
+<body data-theme="light">
 <div class="wrap">
 
   <header class="hd">
@@ -40,7 +40,17 @@
     </div>
     <button class="btn" type="submit">智能推荐</button>
   </form>
-  <p class="hint" id="hint">提示：位次比分数更稳定，强烈建议填写「一分一段表」上的位次以获得准确匹配。</p>
+  <!-- 授权码 -->
+  <div class="panel codebar">
+    <div class="field">
+      <label>授权码（每个可查询 10 次）</label>
+      <input id="code" type="text" placeholder="请输入授权码" autocomplete="off">
+    </div>
+    <button class="btn ghost" type="button" id="saveCode">保存</button>
+    <div class="uses" id="usesInfo"></div>
+  </div>
+
+  <p class="hint" id="hint">提示：位次比分数更稳定，强烈建议填写「一分一段表」上的位次以获得准确匹配。需向管理员获取授权码后方可查询。</p>
 
   <!-- 结果 -->
   <div id="status" class="status"></div>

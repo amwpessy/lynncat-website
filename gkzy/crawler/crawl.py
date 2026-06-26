@@ -239,10 +239,9 @@ def _do_college_part(sid, year, delay):
 
 def cmd_college(args):
     conn = connect()
-    sids = args.schools or [r[0] for r in conn.execute(
-        "SELECT school_id FROM schools ORDER BY school_id").fetchall()]
+    sids = _select_sids(conn, args)
     if not sids:
-        print("schools 表为空，请先运行: python3 crawl.py schools")
+        print("无匹配院校（schools 表为空或 --level 没命中），先运行: python3 crawl.py schools")
         return
     years = args.years or YEARS
     tasks = [(s, y) for s in sids for y in years
@@ -315,16 +314,25 @@ def _do_major_part(sid, year, delay):
     return sid, year, items, num
 
 
+def _select_sids(conn, args):
+    """根据 --schools / --level 选择院校ID列表。"""
+    if args.schools:
+        return args.schools
+    if getattr(args, "level", None):
+        rows = conn.execute(
+            "SELECT school_id FROM schools WHERE level_name LIKE ? ORDER BY school_id",
+            (f"%{args.level}%",)).fetchall()
+    else:
+        rows = conn.execute("SELECT school_id FROM schools ORDER BY school_id").fetchall()
+    return [r[0] for r in rows]
+
+
 def cmd_major(args):
     conn = connect()
-    if args.schools:
-        sids = args.schools
-    else:
-        sids = [r[0] for r in conn.execute(
-            "SELECT school_id FROM schools ORDER BY school_id").fetchall()]
-        if not sids:
-            print("schools 表为空，请先运行: python3 crawl.py schools")
-            return
+    sids = _select_sids(conn, args)
+    if not sids:
+        print("无匹配院校（schools 表为空或 --level 没命中），先运行: python3 crawl.py schools")
+        return
     years = args.years or YEARS
     tasks = [(s, y) for s in sids for y in years
              if not (is_done(conn, "major", f"{s}|{y}") and not args.force)]
@@ -390,9 +398,11 @@ def main():
     p = sub.add_parser("schools"); common(p)
     p = sub.add_parser("college"); common(p)
     p.add_argument("--schools", type=int, nargs="*", help="院校ID筛选")
+    p.add_argument("--level", help="按院校层次筛选，如 专科/本科（匹配 schools.level_name 包含此字符串）")
     p.add_argument("--years", type=int, nargs="*", help="年份筛选")
     p = sub.add_parser("major"); common(p)
     p.add_argument("--schools", type=int, nargs="*", help="院校ID筛选")
+    p.add_argument("--level", help="按院校层次筛选，如 专科/本科")
     p.add_argument("--years", type=int, nargs="*", help="年份筛选")
     sub.add_parser("stats")
 

@@ -41,11 +41,27 @@ async function loadTypes() {
 provSel.addEventListener('change', loadTypes);
 loadTypes();
 
+// 授权码：本地记忆
+const codeInput = $('code');
+codeInput.value = localStorage.getItem('gkzy_code') || '';
+function saveCode() {
+  localStorage.setItem('gkzy_code', codeInput.value.trim());
+  setStatus(codeInput.value.trim() ? '授权码已保存 ✓' : '已清除授权码');
+}
+$('saveCode').addEventListener('click', saveCode);
+function showUses(left, max) {
+  $('usesInfo').innerHTML = (left == null) ? ''
+    : `本授权码剩余 <b>${left}</b> / ${max} 次`;
+}
+
 // 提交查询
 $('queryForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const prov = provSel.value, type = typeSel.value;
   const score = $('score').value.trim(), rank = $('rank').value.trim();
+  const code = codeInput.value.trim();
+  if (!code) { setStatus('请先输入授权码（向管理员获取）', true); codeInput.focus(); return; }
+  localStorage.setItem('gkzy_code', code);
   if (!rank && !score) { setStatus('请至少填写分数或位次', true); return; }
 
   const btn = e.target.querySelector('.btn');
@@ -54,13 +70,19 @@ $('queryForm').addEventListener('submit', async (e) => {
   $('results').hidden = true;
 
   try {
-    const qs = new URLSearchParams({ prov, type });
+    const qs = new URLSearchParams({ prov, type, code });
     if (rank) qs.set('rank', rank);
     if (score) qs.set('score', score);
     const r = await fetch(`${API}/recommend?${qs}`);
-    if (!r.ok) throw new Error('HTTP ' + r.status);
     const d = await r.json();
+    if (r.status === 403) {           // 授权码无效 / 已用完
+      showUses(d.usesLeft, d.maxUses);
+      setStatus(d.error || '授权码无效或已用完', true);
+      return;
+    }
+    if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
     render(d);
+    showUses(d.usesLeft, d.maxUses);
   } catch (err) {
     setStatus('查询失败：' + err.message + '（数据可能仍在导入，请稍后重试）', true);
   } finally {
@@ -117,7 +139,7 @@ async function openMajors(it) {
   $('modalBody').innerHTML = '<div class="empty">加载中…</div>';
   $('modal').hidden = false;
   try {
-    const qs = new URLSearchParams({ prov: provSel.value, type: typeSel.value, school_id: it.school_id });
+    const qs = new URLSearchParams({ prov: provSel.value, type: typeSel.value, school_id: it.school_id, code: codeInput.value.trim() });
     const r = await fetch(`${API}/majors?${qs}`);
     const d = await r.json();
     const rows = d.majors || [];
