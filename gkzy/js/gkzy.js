@@ -127,20 +127,27 @@ function card(it) {
   // 掌上高考编码：1=是，2=否（不能用真值判断，否则 2 也会被当作“是”）
   if (Number(it.f985) === 1) tags.push('<span class="tag t985">985</span>');
   if (Number(it.f211) === 1) tags.push('<span class="tag t211">211</span>');
-  // sg_info 是该专业组的选科要求（如"物理必选"），比内部序号(sg_name)对考生更有意义
+  // sg_info 是选科要求；同批次下若有多种选科要求会汇总成"N种选科要求"
   if (it.sg_info && it.sg_info !== 'null' && it.sg_info !== '-') tags.push(`<span class="tag tsg">${esc(it.sg_info)}</span>`);
-  // 同校同批次可能有多个专业组选科要求/分数线刚好相同，已合并展示，标注合并了几个
-  if (it.groupCount > 1) tags.push(`<span class="tag">×${it.groupCount}个专业组同分</span>`);
+  // 同校同批次常有几十个专业组，已按批次合并成一张卡，标注合并了几个专业组
+  if (it.groupCount > 1) tags.push(`<span class="tag">含${it.groupCount}个专业组</span>`);
   const loc = [it.province, it.city].filter(Boolean).join('·');
   const delta = it.delta != null
     ? `<span class="delta ${it.delta >= 0 ? 'up' : 'dn'}">${it.delta >= 0 ? '+' : ''}${it.delta}位</span>` : '';
+  // 同批次内有多个专业组时分数线不止一个，展示区间；否则展示单一分数
+  const scoreText = it.score_range
+    ? `${it.score_range[0]}~${it.score_range[1]}分` : `${it.min_score ?? '—'}分`;
+  const sectionText = it.section_range
+    ? `位次 ${it.section_range[0]}~${it.section_range[1]}` : `位次 ${it.min_section ?? '—'}`;
+  const rangeHint = it.score_range
+    ? '<div class="rangehint">冲稳保按该批次最容易上的专业组计算，点击查看全部专业组明细</div>' : '';
   el.innerHTML = `
     <div class="row1"><span class="name">${esc(it.school_name)}</span></div>
     <div class="tags">${tags.join('')}<span class="tag">${esc(it.batch || '')}</span></div>
     <div class="meta">
       <span>${esc(loc)}</span>
-      <span><span class="sc">${it.min_score ?? '—'}</span>分 / 位次 ${it.min_section ?? '—'} ${delta}</span>
-    </div>`;
+      <span><span class="sc">${scoreText}</span> / ${sectionText} ${delta}</span>
+    </div>${rangeHint}`;
   el.addEventListener('click', () => openMajors(it));
   return el;
 }

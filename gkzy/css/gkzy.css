@@ -72,6 +72,14 @@ select:focus,input:focus{border-color:var(--accent)}
 .card .sc{color:var(--text);font-weight:700}
 .card .delta{font-size:11px}
 .delta.up{color:var(--chong)} .delta.dn{color:var(--bao)}
+.rangehint{font-size:11px;color:var(--muted);margin-top:6px;padding-top:6px;border-top:1px dashed var(--border)}
+
+.explain{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);
+  padding:16px 18px;margin-top:18px;font-size:13px;color:var(--muted);line-height:1.7}
+.explain b{color:var(--text)}
+.explain .row{display:flex;gap:8px;margin-top:4px}
+.explain .dot{flex:0 0 auto;width:8px;height:8px;border-radius:50%;margin-top:5px}
+.dot.chong{background:var(--chong)} .dot.wen{background:var(--wen)} .dot.bao{background:var(--bao)}
 .empty{color:var(--muted);font-size:13px;text-align:center;padding:20px 0}
 
 .ft{text-align:center;color:var(--muted);font-size:12px;margin-top:40px;

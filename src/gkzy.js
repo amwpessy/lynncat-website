@@ -192,28 +192,48 @@ async function recommend(env, q) {
       .bind(prov, type, year, score - 40, score + 25).all();
   }
 
-  // 同校同批次可能有多个专业组(special_group)，不同专业组选科要求/分数线可能刚好相同，
-  // 这种情况下卡片显示内容会完全一样，看起来像重复——按"展示内容"合并，标注合并了几个专业组。
-  const merged = new Map();
+  // 同校同批次下常有几十个"专业组"，选科要求和分数线只差1~2分，逐条展示会被同一所
+  // 学校刷屏，看起来像重复。按(学校+批次)聚合成一张卡：用"最容易上的那个专业组"的
+  // 分数/位次决定冲稳保(因为那是这个批次里把握最大的入口)，同时展示分数区间和专业组总数，
+  // 点卡片仍可在弹层里看到该校全部专业组明细。
+  const batches = new Map();
   for (const r of (rows.results || [])) {
-    const dispKey = [r.school_id, r.local_batch_name, r.sg_info, r.min_score, r.min_section].join('|');
-    const found = merged.get(dispKey);
-    if (found) { found.groupCount++; continue; }
-    merged.set(dispKey, {
-      school_id: r.school_id, school_name: r.school_name,
-      batch: r.local_batch_name, sg_info: r.sg_info,
-      min_score: r.min_score, min_section: r.min_section,
-      f985: r.f985, f211: r.f211, dual: r.dual_class_name,
-      province: r.province_name, city: r.city_name,
-      local_province_name: r.local_province_name, groupCount: 1,
-    });
+    const bKey = r.school_id + '|' + (r.local_batch_name ?? '');
+    let b = batches.get(bKey);
+    if (!b) {
+      b = {
+        school_id: r.school_id, school_name: r.school_name, batch: r.local_batch_name,
+        f985: r.f985, f211: r.f211, dual: r.dual_class_name,
+        province: r.province_name, city: r.city_name, local_province_name: r.local_province_name,
+        sgInfoSet: new Set(), groupCount: 0,
+        easyScore: r.min_score, easySection: r.min_section,   // 该批次里最容易进的一条(用于分类)
+        hardScore: r.min_score, hardSection: r.min_section,   // 该批次里最难进的一条(用于展示区间)
+      };
+      batches.set(bKey, b);
+    }
+    b.groupCount++;
+    if (r.sg_info) b.sgInfoSet.add(r.sg_info);
+    const easier = useRank ? r.min_section > b.easySection : r.min_score < b.easyScore;
+    if (easier) { b.easyScore = r.min_score; b.easySection = r.min_section; }
+    const harder = useRank ? r.min_section < b.hardSection : r.min_score > b.hardScore;
+    if (harder) { b.hardScore = r.min_score; b.hardSection = r.min_section; }
   }
 
   // 按学校所在省份是否=考生所在省份，拆成本省/外省两组，各自再分冲稳保
   const inG = { chong: [], wen: [], bao: [] };
   const outG = { chong: [], wen: [], bao: [] };
-  for (const item of merged.values()) {
-    const g = (item.province && item.province === item.local_province_name) ? inG : outG;
+  for (const b of batches.values()) {
+    const item = {
+      school_id: b.school_id, school_name: b.school_name, batch: b.batch,
+      sg_info: b.sgInfoSet.size === 1 ? [...b.sgInfoSet][0]
+        : (b.sgInfoSet.size > 1 ? `${b.sgInfoSet.size}种选科要求` : null),
+      min_score: b.easyScore, min_section: b.easySection,
+      score_range: b.hardScore !== b.easyScore ? [b.hardScore, b.easyScore].sort((x, y) => x - y) : null,
+      section_range: b.hardSection !== b.easySection ? [b.hardSection, b.easySection].sort((x, y) => x - y) : null,
+      groupCount: b.groupCount,
+      f985: b.f985, f211: b.f211, dual: b.dual, province: b.province, city: b.city,
+    };
+    const g = (item.province && item.province === b.local_province_name) ? inG : outG;
     if (useRank) {
       const ratio = item.min_section / rank;
       item.delta = rank - item.min_section;
@@ -228,8 +248,7 @@ async function recommend(env, q) {
       else g.bao.push(item);
     }
   }
-  const strip = it => { delete it.local_province_name; return it; };
-  const cap = a => a.slice(0, 40).map(strip);
+  const cap = a => a.slice(0, 40);
   const finalize = g => {
     if (useRank) {
       g.chong.sort((a, b) => b.min_section - a.min_section);
