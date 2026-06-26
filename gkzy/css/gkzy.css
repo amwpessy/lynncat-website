@@ -94,7 +94,9 @@ select:focus,input:focus{border-color:var(--accent)}
   border-bottom:1px solid var(--border);font-weight:700}
 .modal-hd button{background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer}
 .modal-body{padding:8px 18px 18px;overflow:auto}
-.mtable{width:100%;border-collapse:collapse;font-size:13px}
+.mtitle{font-size:13px;font-weight:700;margin:14px 0 6px;color:var(--text)}
+.mtitle:first-child{margin-top:2px}
+.mtable{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:10px}
 .mtable th,.mtable td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--border)}
 .mtable th{color:var(--muted);font-weight:600;font-size:12px}
 .mtable td.n{color:var(--text);font-weight:600}

@@ -152,23 +152,40 @@ function card(it) {
   return el;
 }
 
-// 院校专业线详情
+// 院校专业线详情 + 近5年录取线趋势
 async function openMajors(it) {
-  $('modalTitle').textContent = `${it.school_name} · 专业录取线`;
+  $('modalTitle').textContent = `${it.school_name} · 录取详情`;
   $('modalBody').innerHTML = '<div class="empty">加载中…</div>';
   $('modal').hidden = false;
   try {
     const qs = new URLSearchParams({ prov: provSel.value, type: typeSel.value, school_id: it.school_id, code: codeInput.value.trim() });
     const r = await fetch(`${API}/majors?${qs}`);
     const d = await r.json();
+    const trend = d.trend || [];
     const rows = d.majors || [];
-    if (!rows.length) { $('modalBody').innerHTML = '<div class="empty">暂无专业线数据（专业线抓取/导入中）</div>'; return; }
-    $('modalBody').innerHTML = `<table class="mtable">
-      <thead><tr><th>专业</th><th>年份</th><th>最低分</th><th>位次</th></tr></thead>
-      <tbody>${rows.map(m => `<tr>
-        <td class="n">${esc(m.sp_name || m.spname || '')}</td>
-        <td>${m.year}</td><td>${m.min_score ?? '—'}</td><td>${m.min_section ?? '—'}</td>
-      </tr>`).join('')}</tbody></table>`;
+
+    let html = '';
+    if (trend.length) {
+      html += `<div class="mtitle">近5年录取线趋势</div><table class="mtable">
+        <thead><tr><th>年份</th><th>批次</th><th>最低分</th><th>位次</th></tr></thead>
+        <tbody>${trend.map(t => `<tr>
+          <td>${t.year}</td><td class="n">${esc(t.batch || '')}</td>
+          <td>${t.min_score ?? '—'}</td><td>${t.min_section ?? '—'}</td>
+        </tr>`).join('')}</tbody></table>`;
+    }
+    if (rows.length) {
+      html += `<div class="mtitle">专业录取线</div><table class="mtable">
+        <thead><tr><th>专业</th><th>年份</th><th>最低分</th><th>位次</th></tr></thead>
+        <tbody>${rows.map(m => `<tr>
+          <td class="n">${esc(m.sp_name || m.spname || '')}</td>
+          <td>${m.year}</td><td>${m.min_score ?? '—'}</td><td>${m.min_section ?? '—'}</td>
+        </tr>`).join('')}</tbody></table>`;
+    } else if (!trend.length) {
+      html = '<div class="empty">暂无数据（数据抓取/导入中）</div>';
+    } else {
+      html += '<div class="empty">暂无专业线数据（专业线抓取/导入中）</div>';
+    }
+    $('modalBody').innerHTML = html;
   } catch (e) {
     $('modalBody').innerHTML = '<div class="empty">加载失败</div>';
   }

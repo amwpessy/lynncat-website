@@ -269,6 +269,20 @@ async function majors(env, q) {
   const sid = +q.get('school_id');
   if (!prov || !sid) return j({ error: 'prov & school_id required' }, 400);
   if (!await codeExists(env, q.get('code'))) return j({ error: '请输入有效授权码' }, 403);
+
+  // 该校近5年录取线趋势(按批次)：同一批次每年取最容易上的那条(分最低/位次最大)作代表，
+  // 方便考生一眼看出这所学校历年录取线的变化趋势。
+  const trendRows = await env.DB.prepare(
+    `SELECT year, local_batch_name AS batch, MIN(min_score) AS min_score,
+            MAX(min_section) AS min_section
+     FROM college_score
+     WHERE local_province_id=? AND school_id=? ${type ? 'AND local_type_name=?' : ''}
+       AND min_score IS NOT NULL
+     GROUP BY year, local_batch_name
+     ORDER BY year DESC, min_section ASC
+     LIMIT 50`)
+    .bind(...(type ? [prov, sid, type] : [prov, sid])).all();
+
   const r = await env.DB.prepare(
     `SELECT year, spname, sp_name, level2_name, local_batch_name,
             min_score, max_score, min_section
@@ -277,5 +291,5 @@ async function majors(env, q) {
      ORDER BY year DESC, min_section ASC
      LIMIT 200`)
     .bind(...(type ? [prov, sid, type] : [prov, sid])).all();
-  return j({ majors: r.results || [] });
+  return j({ trend: trendRows.results || [], majors: r.results || [] });
 }
