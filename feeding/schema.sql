@@ -250,28 +250,32 @@ begin
   return json_build_object('ok', true);
 end; $$;
 
--- 喂猫员代客下单（客户不方便自己下单时，喂猫员手动建单）。
--- 不受每天3单上限限制，由喂猫员自行判断是否接单；同一客户同一天已有未拒绝的预约则返回原单，不重复创建。
-create or replace function feeder_create_booking(
-  p_user text, p_pass text, p_d date,
+-- 喂猫员代客下单（客户不方便自己下单时，喂猫员手动建单；一次可选多天）。
+-- 不受每天3单上限限制，由喂猫员自行判断是否接单；同一客户同一天已有未拒绝的预约则跳过（标记 duplicate），不重复创建。
+create or replace function feeder_create_bookings(
+  p_user text, p_pass text, p_dates date[],
   p_name text, p_phone text, p_address text, p_pet text, p_notes text,
   p_photos text[] default '{}'
 ) returns json language plpgsql security definer as $$
-declare v_id uuid;
+declare v_d date; v_id uuid; v_status text; v_results json[] := '{}';
 begin
   if not _check_feeder(p_user, p_pass) then return json_build_object('ok', false); end if;
 
-  select id into v_id from bookings
-    where d = p_d and customer_phone = p_phone and status in ('confirmed','pending')
-    limit 1;
-  if v_id is not null then
-    return json_build_object('ok', true, 'booking_id', v_id, 'duplicate', true);
-  end if;
-
-  insert into bookings(d, customer_name, customer_phone, address, pet_info, notes, photo_urls, kind, status)
-  values (p_d, p_name, p_phone, p_address, p_pet, p_notes, p_photos, 'normal', 'confirmed')
-  returning id into v_id;
-  return json_build_object('ok', true, 'booking_id', v_id);
+  foreach v_d in array (select array_agg(distinct x order by x) from unnest(p_dates) x) loop
+    select id into v_id from bookings
+      where d = v_d and customer_phone = p_phone and status in ('confirmed','pending')
+      limit 1;
+    if v_id is not null then
+      v_status := 'duplicate';
+    else
+      insert into bookings(d, customer_name, customer_phone, address, pet_info, notes, photo_urls, kind, status)
+      values (v_d, p_name, p_phone, p_address, p_pet, p_notes, p_photos, 'normal', 'confirmed')
+      returning id into v_id;
+      v_status := 'booked';
+    end if;
+    v_results := array_append(v_results, json_build_object('d', v_d, 'status', v_status, 'booking_id', v_id));
+  end loop;
+  return json_build_object('ok', true, 'results', array_to_json(v_results));
 end; $$;
 
 -- 喂猫员删除某个订单
@@ -297,5 +301,5 @@ grant execute on function feeder_overview(text, text)                           
 grant execute on function set_available_days(text, text, date[])                        to anon;
 grant execute on function decide_request(text, text, uuid, boolean)                      to anon;
 grant execute on function update_booking(text, text, uuid, text, text, text, text, text, text[]) to anon;
-grant execute on function feeder_create_booking(text, text, date, text, text, text, text, text, text[]) to anon;
+grant execute on function feeder_create_bookings(text, text, date[], text, text, text, text, text, text[]) to anon;
 grant execute on function delete_booking(text, text, uuid)                              to anon;

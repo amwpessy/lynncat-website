@@ -257,8 +257,8 @@
   <div class="modal">
     <h3 id="bookTitle"></h3>
     <p class="sub" id="bookDateLabel"></p>
-    <input type="date" id="bookDateInput" class="hidden" oninput="updateFcDateLabel()">
-    <p class="sub" id="fcDateLabel" style="margin:6px 0 0; font-weight:700; color:var(--accent-ink);"></p>
+    <div id="fcCal" class="hidden"></div>
+    <p class="sub hidden" id="fcDateLabel" style="margin:6px 0 12px; font-weight:700; color:var(--accent-ink);"></p>
     <div id="bookNotice" class="notice hidden"></div>
     <div class="row" style="margin-top:6px;">
       <div style="position:relative;">
@@ -392,9 +392,10 @@ const T = {
     sumDuplicate:n=>n+' 天你已经预约过了，未重复提交',
     rejected:'已拒绝', enterPhone:'请输入手机号', noMyBk:'没有找到预约记录',
     confirmDelOrder:'确定删除这个订单？', editSaved:'已保存 ✓', photoWait:'照片还在上传中，请稍候',
-    feederDup:d=>'该客户在 '+fmtDate(d)+' 已有预约，未重复创建（请检查日期是否选对）',
-    feederCreated:d=>'已为 '+fmtDate(d)+' 创建订单 ✓',
-    feederNewTitle:'代客下单', feederNewBtn:'创建订单'
+    feederSumBooked:n=>'✅ 已为 '+n+' 天创建订单', feederSumDup:n=>n+' 天该客户已有预约，未重复创建',
+    feederNewTitle:n=>n>0?('代客下单（已选 '+n+' 天）'):'代客下单',
+    feederNewBtn:n=>n>0?('创建 '+n+' 天订单'):'创建订单',
+    needDate:'请在日历上选择至少一天', feederPickDate:'点选一天或多天'
   },
   en: {
     needUser:'Enter username and password', wrong:'Wrong username or password', welcome:'Welcome back',
@@ -414,9 +415,10 @@ const T = {
     sumDuplicate:n=>n+' day'+(n>1?'s':'')+' already booked by you — not duplicated',
     rejected:'Rejected', enterPhone:'Please enter your phone', noMyBk:'No bookings found',
     confirmDelOrder:'Delete this order?', editSaved:'Saved ✓', photoWait:'Photos are still uploading, please wait',
-    feederDup:d=>'This customer already has a booking on '+fmtDate(d)+' — not duplicated (check the date is right)',
-    feederCreated:d=>'Booking created for '+fmtDate(d)+' ✓',
-    feederNewTitle:'New booking for a customer', feederNewBtn:'Create booking'
+    feederSumBooked:n=>'✅ Booking created for '+n+' day'+(n>1?'s':''), feederSumDup:n=>n+' day'+(n>1?'s':'')+' already booked for this customer — not duplicated',
+    feederNewTitle:n=>n>0?('New booking ('+n+' day'+(n>1?'s':'')+' selected)'):'New booking for a customer',
+    feederNewBtn:n=>n>0?('Create '+n+' day'+(n>1?'s':'')+' booking'):'Create booking',
+    needDate:'Please select at least one date on the calendar', feederPickDate:'Tap one or more dates'
   }
 };
 function t(k){ return T[lang()][k]; }
@@ -793,11 +795,35 @@ function pickFeederCustomer(idx){
   applyProfileFields(feederCustomers[idx]);
   hideFcSuggest();
 }
+/* ----- 代客下单的多日历选择（复用 dayCounts/monthGrids，独立于客户自己的 selDays） ----- */
+let fcSelDays = new Set();
+function renderFcCal(){
+  const box = document.getElementById('fcCal');
+  if (!box) return;
+  box.innerHTML = monthGrids((ds, day, inWin) => {
+    if (!inWin) return '<div class="cal-cell muted">'+day+'</div>';
+    const c = dayCounts(ds);
+    const sel = fcSelDays.has(ds) ? ' selc' : '';
+    const badge = c.confirmed > 0 ? '<div class="cal-badge">'+c.confirmed+'/'+CAP+'</div>' : '';
+    return '<div class="cal-cell clickable'+sel+'" onclick="toggleFcSel(\''+ds+'\')">'+day+badge+'</div>';
+  });
+}
+function toggleFcSel(ds){
+  if (fcSelDays.has(ds)) fcSelDays.delete(ds); else fcSelDays.add(ds);
+  renderFcCal();
+  refreshFcHeader();
+  updateFcDateLabel();
+}
+function refreshFcHeader(){
+  const n = fcSelDays.size;
+  document.getElementById('bookTitle').textContent = t('feederNewTitle')(n);
+  document.getElementById('bookBtn').textContent = t('feederNewBtn')(n);
+}
 function updateFcDateLabel(){
   const lbl = document.getElementById('fcDateLabel');
   if (!lbl) return;
-  const d = document.getElementById('bookDateInput').value;
-  lbl.textContent = d ? ('📅 ' + fmtDate(d)) : '';
+  const days = Array.from(fcSelDays).sort();
+  lbl.textContent = days.length ? ('📅 ' + days.map(fmtDate).join('、')) : t('feederPickDate');
 }
 
 let bookMode = 'customer'; // 'customer' 客户自己批量预约 | 'feeder' 喂猫员代客下单（共用同一个弹窗）
@@ -805,9 +831,9 @@ function openBatch(){
   const days = selectedSorted();
   if (!days.length) return;
   bookMode = 'customer';
-  document.getElementById('bookDateInput').classList.add('hidden');
+  document.getElementById('fcCal').classList.add('hidden');
   document.getElementById('bookDateLabel').classList.remove('hidden');
-  document.getElementById('fcDateLabel').textContent = '';
+  document.getElementById('fcDateLabel').classList.add('hidden');
   hideFcSuggest();
   const fullN = days.filter(ds => custMap[ds] && custMap[ds].cnt >= CAP).length;
   document.getElementById('bookTitle').textContent = t('batchTitle')(days.length);
@@ -824,17 +850,17 @@ function openBatch(){
 }
 function closeBook(){ document.getElementById('bookOverlay').classList.add('hidden'); }
 
-/* ----- 喂猫员代客下单：复用客户预约弹窗的全部选项（钥匙/猫数/服务/喂食/饮水/其他宠物/照片） ----- */
+/* ----- 喂猫员代客下单：复用客户预约弹窗的全部选项（钥匙/猫数/服务/喂食/饮水/其他宠物/照片），日期可多选 ----- */
 function openFeederCreate(){
   bookMode = 'feeder';
-  document.getElementById('bookTitle').textContent = t('feederNewTitle');
   document.getElementById('bookDateLabel').classList.add('hidden');
-  const di = document.getElementById('bookDateInput');
-  di.classList.remove('hidden');
-  di.value = todayStr(); di.min = todayStr(); di.max = ymd(windowEnd());
+  fcSelDays = new Set(); // 强制喂猫员明确选日期，不预选"今天"，避免漏改日期撞单
+  document.getElementById('fcCal').classList.remove('hidden');
+  document.getElementById('fcDateLabel').classList.remove('hidden');
+  renderFcCal();
+  refreshFcHeader();
   updateFcDateLabel();
   document.getElementById('bookNotice').classList.add('hidden');
-  document.getElementById('bookBtn').textContent = t('feederNewBtn');
   clearMsg(document.getElementById('bookMsg'));
   // 代客下单不带出客户自己的本地记忆资料，默认留空；输入称呼时会弹出匹配的老客户供选择
   applyProfileFields(null);
@@ -888,14 +914,14 @@ async function confirmBatch(){
 
   if (bookMode === 'feeder'){
     if (!feeder) return;
-    const d = document.getElementById('bookDateInput').value;
-    if (!d){ showMsg(msg,'err',t('needBook')); return; }
+    const dates = Array.from(fcSelDays).sort();
+    if (!dates.length){ showMsg(msg,'err',t('needDate')); return; }
     bookingInFlight = true;
     const btn = document.getElementById('bookBtn');
     const btnText = btn.textContent;
     btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
-    const { data, error } = await sb.rpc('feeder_create_booking', {
-      p_user:feeder.user, p_pass:feeder.pass, p_d:d,
+    const { data, error } = await sb.rpc('feeder_create_bookings', {
+      p_user:feeder.user, p_pass:feeder.pass, p_dates:dates,
       p_name:name, p_phone:phone,
       p_address: document.getElementById('cAddr').value.trim(),
       p_pet: composePet(),
@@ -906,9 +932,15 @@ async function confirmBatch(){
     btn.disabled = false; btn.textContent = btnText;
     if (error || !data || !data.ok){ showMsg(msg,'err',t('err')); return; }
     saveFeederCustomer(); // 记住这个客户的信息，下次代下单可一键填入
-    showMsg(msg, 'ok', data.duplicate ? t('feederDup')(d) : t('feederCreated')(d));
+    const res = data.results || [];
+    const booked = res.filter(r=>r.status==='booked').length;
+    const dup = res.filter(r=>r.status==='duplicate').length;
+    const parts = [];
+    if (booked) parts.push(t('feederSumBooked')(booked));
+    if (dup) parts.push(t('feederSumDup')(dup));
+    showMsg(msg, booked ? 'ok' : 'err', parts.join(' · '));
     loadFeederOverview();
-    setTimeout(closeBook, 1200);
+    setTimeout(closeBook, 1500);
     return;
   }
 
