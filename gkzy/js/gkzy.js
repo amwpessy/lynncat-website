@@ -118,7 +118,8 @@ function card(it) {
   // 掌上高考编码：1=是，2=否（不能用真值判断，否则 2 也会被当作“是”）
   if (Number(it.f985) === 1) tags.push('<span class="tag t985">985</span>');
   if (Number(it.f211) === 1) tags.push('<span class="tag t211">211</span>');
-  if (it.sg_name && it.sg_name !== 'null') tags.push(`<span class="tag tsg">${esc(it.sg_name)}</span>`);
+  // sg_info 是该专业组的选科要求（如"物理必选"），比内部序号(sg_name)对考生更有意义
+  if (it.sg_info && it.sg_info !== 'null' && it.sg_info !== '-') tags.push(`<span class="tag tsg">${esc(it.sg_info)}</span>`);
   const loc = [it.province, it.city].filter(Boolean).join('·');
   const delta = it.delta != null
     ? `<span class="delta ${it.delta >= 0 ? 'up' : 'dn'}">${it.delta >= 0 ? '+' : ''}${it.delta}位</span>` : '';

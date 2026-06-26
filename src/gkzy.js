@@ -193,7 +193,7 @@ async function recommend(env, q) {
     seen.add(key);
     const item = {
       school_id: r.school_id, school_name: r.school_name,
-      batch: r.local_batch_name, sg_name: r.sg_name,
+      batch: r.local_batch_name, sg_info: r.sg_info,
       min_score: r.min_score, min_section: r.min_section,
       f985: r.f985, f211: r.f211, dual: r.dual_class_name,
       province: r.province_name, city: r.city_name,
