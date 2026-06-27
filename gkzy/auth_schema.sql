@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS auth_codes (
   code       TEXT PRIMARY KEY,
   max_uses   INTEGER NOT NULL DEFAULT 10,
   used_count INTEGER NOT NULL DEFAULT 0,
+  revoked    INTEGER NOT NULL DEFAULT 0,
   note       TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );

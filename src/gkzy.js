@@ -20,6 +20,7 @@ export async function handleGkzy(request, env) {
     if (path === 'admin/login') return await adminLogin(request, env);
     if (path === 'admin/codes') return await adminCodes(request, env);
     if (path === 'admin/generate') return await adminGenerate(request, env);
+    if (path === 'admin/revoke') return await adminRevoke(request, env);
     if (path === 'recommend') return await recommend(env, q);
     if (path === 'majors') return await majors(env, q);
     return j({ error: 'unknown endpoint' }, 404);
@@ -34,22 +35,23 @@ async function consumeCode(env, code) {
   code = (code || '').trim();
   if (!code) return { ok: false, status: 403, error: '请输入授权码' };
   const row = await env.DB.prepare(
-    'SELECT max_uses, used_count FROM auth_codes WHERE code=?').bind(code).first();
+    'SELECT max_uses, used_count, revoked FROM auth_codes WHERE code=?').bind(code).first();
   if (!row) return { ok: false, status: 403, error: '授权码无效' };
+  if (row.revoked) return { ok: false, status: 403, error: '授权码已被管理员注销' };
   const res = await env.DB.prepare(
-    'UPDATE auth_codes SET used_count=used_count+1 WHERE code=? AND used_count<max_uses')
+    'UPDATE auth_codes SET used_count=used_count+1 WHERE code=? AND used_count<max_uses AND revoked=0')
     .bind(code).run();
   const changed = res.meta && res.meta.changes;
   if (!changed) return { ok: false, status: 403, error: '授权码已用完', usesLeft: 0, maxUses: row.max_uses };
   return { ok: true, usesLeft: row.max_uses - row.used_count - 1, maxUses: row.max_uses };
 }
 
-// 仅校验存在（用于详情查看，不消耗次数）
+// 仅校验存在且未注销（用于详情查看，不消耗次数）
 async function codeExists(env, code) {
   code = (code || '').trim();
   if (!code) return false;
-  const row = await env.DB.prepare('SELECT 1 FROM auth_codes WHERE code=?').bind(code).first();
-  return !!row;
+  const row = await env.DB.prepare('SELECT revoked FROM auth_codes WHERE code=?').bind(code).first();
+  return !!row && !row.revoked;
 }
 
 // ── 管理员鉴权 ─────────────────────────────────────────
@@ -102,12 +104,25 @@ async function adminLogin(request, env) {
 async function adminCodes(request, env) {
   if (!await requireAdmin(request, env)) return j({ error: '未登录或登录已过期' }, 401);
   const r = await env.DB.prepare(
-    'SELECT code, max_uses, used_count, created_at, note FROM auth_codes ORDER BY created_at DESC, rowid DESC')
+    'SELECT code, max_uses, used_count, revoked, created_at, note FROM auth_codes ORDER BY created_at DESC, rowid DESC')
     .all();
   const codes = r.results || [];
   const total = codes.length;
   const totalUses = codes.reduce((s, c) => s + (c.used_count || 0), 0);
   return j({ codes, total, totalUses });
+}
+
+async function adminRevoke(request, env) {
+  if (!await requireAdmin(request, env)) return j({ error: '未登录或登录已过期' }, 401);
+  if (request.method !== 'POST') return j({ error: 'POST only' }, 405);
+  const body = await request.json().catch(() => ({}));
+  const code = (body.code || '').trim();
+  const revoked = body.revoked ? 1 : 0;
+  if (!code) return j({ error: 'code required' }, 400);
+  const res = await env.DB.prepare('UPDATE auth_codes SET revoked=? WHERE code=?')
+    .bind(revoked, code).run();
+  if (!res.meta || !res.meta.changes) return j({ error: '授权码不存在' }, 404);
+  return j({ code, revoked: !!revoked });
 }
 
 async function adminGenerate(request, env) {

@@ -71,17 +71,44 @@ function renderCodes(codes) {
   body.innerHTML = codes.map(c => {
     const pct = c.max_uses ? Math.min(100, Math.round(c.used_count / c.max_uses * 100)) : 0;
     const exhausted = c.used_count >= c.max_uses;
-    return `<tr>
-      <td class="code">${esc(c.code)}</td>
+    const revoked = !!c.revoked;
+    return `<tr style="${revoked ? 'opacity:.55' : ''}">
+      <td class="code">${esc(c.code)}${revoked ? ' <span class="tag" style="background:#fdecec;color:var(--chong)">已注销</span>' : ''}</td>
       <td><span class="bar"><i style="width:${pct}%"></i></span>
           <span style="color:${exhausted ? 'var(--chong)' : 'var(--muted)'}">${c.used_count} / ${c.max_uses}${exhausted ? '（已用完）' : ''}</span></td>
       <td style="color:var(--muted)">${esc(c.note || '')}</td>
       <td style="color:var(--muted)">${esc((c.created_at || '').replace('T', ' '))}</td>
-      <td><button class="copybtn" data-code="${esc(c.code)}">复制</button></td>
+      <td style="display:flex;gap:6px">
+        <button class="copybtn" data-code="${esc(c.code)}">复制</button>
+        <button class="copybtn revokebtn" data-code="${esc(c.code)}" data-revoked="${revoked ? '1' : '0'}"
+          style="${revoked ? 'color:var(--bao);border-color:var(--bao)' : 'color:var(--chong);border-color:var(--chong)'}">
+          ${revoked ? '恢复' : '注销'}
+        </button>
+      </td>
     </tr>`;
   }).join('');
-  body.querySelectorAll('.copybtn').forEach(b =>
+  body.querySelectorAll('.copybtn:not(.revokebtn)').forEach(b =>
     b.addEventListener('click', () => copy(b.dataset.code, b)));
+  body.querySelectorAll('.revokebtn').forEach(b =>
+    b.addEventListener('click', () => toggleRevoke(b.dataset.code, b.dataset.revoked === '1', b)));
+}
+
+async function toggleRevoke(code, currentlyRevoked, btn) {
+  const nextRevoked = !currentlyRevoked;
+  if (nextRevoked && !confirm(`确定要注销授权码 ${code} 吗？注销后该码立即无法继续查询。`)) return;
+  btn.disabled = true;
+  try {
+    const r = await fetch(`${API}/revoke`, {
+      method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({ code, revoked: nextRevoked }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || '操作失败');
+    await loadCodes();
+  } catch (e) {
+    alert(e.message);
+    btn.disabled = false;
+  }
 }
 
 function copy(text, el) {
