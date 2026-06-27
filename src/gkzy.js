@@ -173,14 +173,29 @@ async function recommend(env, q) {
     const MIN_SPAN = 3000;
     const lo = Math.max(0, Math.min(Math.floor(rank * 0.45), rank - MIN_SPAN));
     const hi = Math.max(Math.ceil(rank * 2.4), rank + MIN_SPAN);
-    rows = await env.DB.prepare(
-      `SELECT cs.*, s.f985, s.f211, s.dual_class_name, s.province_name, s.city_name
-       FROM college_score cs LEFT JOIN schools s ON s.school_id=cs.school_id
-       WHERE cs.local_province_id=? AND cs.local_type_name=? AND cs.year=?
-         AND cs.min_section IS NOT NULL
-         AND cs.min_section BETWEEN ? AND ?
-       ORDER BY cs.min_section`)
-      .bind(prov, type, year, lo, hi).all();
+    // 艺术类等科类官方不发布位次("一分一段")，min_section 全部为空。只按位次查会把这些
+    // 科类整个排除掉。若用户也填了分数，对这类"无位次"记录额外按分数窗口兜底纳入。
+    if (score != null) {
+      rows = await env.DB.prepare(
+        `SELECT cs.*, s.f985, s.f211, s.dual_class_name, s.province_name, s.city_name
+         FROM college_score cs LEFT JOIN schools s ON s.school_id=cs.school_id
+         WHERE cs.local_province_id=? AND cs.local_type_name=? AND cs.year=?
+           AND (
+             (cs.min_section IS NOT NULL AND cs.min_section BETWEEN ? AND ?)
+             OR (cs.min_section IS NULL AND cs.min_score IS NOT NULL AND cs.min_score BETWEEN ? AND ?)
+           )
+         ORDER BY cs.min_section`)
+        .bind(prov, type, year, lo, hi, score - 40, score + 25).all();
+    } else {
+      rows = await env.DB.prepare(
+        `SELECT cs.*, s.f985, s.f211, s.dual_class_name, s.province_name, s.city_name
+         FROM college_score cs LEFT JOIN schools s ON s.school_id=cs.school_id
+         WHERE cs.local_province_id=? AND cs.local_type_name=? AND cs.year=?
+           AND cs.min_section IS NOT NULL
+           AND cs.min_section BETWEEN ? AND ?
+         ORDER BY cs.min_section`)
+        .bind(prov, type, year, lo, hi).all();
+    }
   } else {
     rows = await env.DB.prepare(
       `SELECT cs.*, s.f985, s.f211, s.dual_class_name, s.province_name, s.city_name
@@ -213,9 +228,22 @@ async function recommend(env, q) {
     }
     b.groupCount++;
     if (r.sg_info) b.sgInfoSet.add(r.sg_info);
-    const easier = useRank ? r.min_section > b.easySection : r.min_score < b.easyScore;
+    // 位次模式下，没有位次(如艺术类)的记录排不进比较，只在双方都没有位次时才退化成比分数
+    let easier, harder;
+    if (useRank) {
+      if (r.min_section != null && b.easySection == null) easier = true;
+      else if (r.min_section == null && b.easySection != null) easier = false;
+      else if (r.min_section != null) easier = r.min_section > b.easySection;
+      else easier = r.min_score < b.easyScore;
+      if (r.min_section != null && b.hardSection == null) harder = true;
+      else if (r.min_section == null && b.hardSection != null) harder = false;
+      else if (r.min_section != null) harder = r.min_section < b.hardSection;
+      else harder = r.min_score > b.hardScore;
+    } else {
+      easier = r.min_score < b.easyScore;
+      harder = r.min_score > b.hardScore;
+    }
     if (easier) { b.easyScore = r.min_score; b.easySection = r.min_section; }
-    const harder = useRank ? r.min_section < b.hardSection : r.min_score > b.hardScore;
     if (harder) { b.hardScore = r.min_score; b.hardSection = r.min_section; }
   }
 
@@ -234,25 +262,30 @@ async function recommend(env, q) {
       f985: b.f985, f211: b.f211, dual: b.dual, province: b.province, city: b.city,
     };
     const g = (item.province && item.province === b.local_province_name) ? inG : outG;
-    if (useRank) {
+    // 位次模式下若该批次完全没有位次数据(如艺术类)，退化成按分数比较；前提是用户也填了分数
+    if (useRank && item.min_section != null) {
       const ratio = item.min_section / rank;
       item.delta = rank - item.min_section;
+      item.deltaBasis = 'rank';
       if (ratio < 0.93) g.chong.push(item);
       else if (ratio <= 1.10) g.wen.push(item);
       else g.bao.push(item);
-    } else {
+    } else if (item.min_score != null && score != null) {
       const diff = score - item.min_score;
       item.delta = diff;
+      item.deltaBasis = 'score';
       if (diff < 0) g.chong.push(item);
       else if (diff <= 8) g.wen.push(item);
       else g.bao.push(item);
     }
   }
   const cap = a => a.slice(0, 40);
+  // 位次为空的(分数兜底)条目排序时退化用分数差比较，避免 null 参与数值运算
+  const keyOf = it => it.min_section ?? (it.min_score != null ? -it.min_score : 0);
   const finalize = g => {
     if (useRank) {
-      g.chong.sort((a, b) => b.min_section - a.min_section);
-      g.bao.sort((a, b) => a.min_section - b.min_section);
+      g.chong.sort((a, b) => keyOf(b) - keyOf(a));
+      g.bao.sort((a, b) => keyOf(a) - keyOf(b));
     }
     return { chong: cap(g.chong), wen: cap(g.wen), bao: cap(g.bao) };
   };

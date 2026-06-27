@@ -132,8 +132,10 @@ function card(it) {
   // 同校同批次常有几十个专业组，已按批次合并成一张卡，标注合并了几个专业组
   if (it.groupCount > 1) tags.push(`<span class="tag">含${it.groupCount}个专业组</span>`);
   const loc = [it.province, it.city].filter(Boolean).join('·');
+  // deltaBasis=score 表示该批次没有位次数据(如艺术类)，退化按分数比较，单位是"分"不是"位"
+  const deltaUnit = it.deltaBasis === 'score' ? '分' : '位';
   const delta = it.delta != null
-    ? `<span class="delta ${it.delta >= 0 ? 'up' : 'dn'}">${it.delta >= 0 ? '+' : ''}${it.delta}位</span>` : '';
+    ? `<span class="delta ${it.delta >= 0 ? 'up' : 'dn'}">${it.delta >= 0 ? '+' : ''}${it.delta}${deltaUnit}</span>` : '';
   // 同批次内有多个专业组时分数线不止一个，展示区间；否则展示单一分数
   const scoreText = it.score_range
     ? `${it.score_range[0]}~${it.score_range[1]}分` : `${it.min_score ?? '—'}分`;
