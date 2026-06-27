@@ -248,6 +248,17 @@
         <button class="btn full" id="saveDaysBtn" onclick="saveDays()"><span data-en>Save dates</span><span data-zh>保存日期</span></button>
         <div id="saveDaysMsg"></div>
       </div>
+
+      <!-- 历史订单 -->
+      <div class="card">
+        <h2><span data-en>Order history</span><span data-zh>历史订单</span></h2>
+        <p class="sub"><span data-en>Search by name or phone, or leave blank for recent past orders.</span><span data-zh>按姓名或手机号搜索，留空则显示最近的历史订单。</span></p>
+        <div style="display:flex;gap:8px;">
+          <input id="historyQuery" style="flex:1;" onkeydown="if(event.key==='Enter')loadFeederHistory()">
+          <button class="btn" style="flex:0 0 auto;" onclick="loadFeederHistory()"><span data-en>Search</span><span data-zh>查询</span></button>
+        </div>
+        <div id="historyList" style="margin-top:14px;"></div>
+      </div>
     </div>
   </section>
 </div>
@@ -1008,6 +1019,7 @@ function feederLogout(){
 function showFeederDash(){
   document.getElementById('feederLogin').classList.add('hidden');
   document.getElementById('feederDash').classList.remove('hidden');
+  updateHistoryPlaceholder();
   loadFeederOverview();
 }
 
@@ -1101,6 +1113,32 @@ function renderBookingList(){
   box.innerHTML = html;
 }
 
+/* ----- 喂猫员查看历史订单（留空查最近的过去订单，填关键字则跨日期按姓名/手机号搜索） ----- */
+async function loadFeederHistory(){
+  if (!feeder) return;
+  const box = document.getElementById('historyList');
+  const q = document.getElementById('historyQuery').value.trim();
+  box.innerHTML = '<div class="empty"><span data-en>Loading…</span><span data-zh>查询中…</span></div>';
+  const { data, error } = await sb.rpc('feeder_history', { p_user:feeder.user, p_pass:feeder.pass, p_query: q || null, p_limit: 50 });
+  if (error || !data || !data.ok){ box.innerHTML = '<div class="empty">'+esc(t('err'))+'</div>'; return; }
+  renderFeederHistory(data.bookings || []);
+}
+function renderFeederHistory(list){
+  const box = document.getElementById('historyList');
+  if (!list.length){ box.innerHTML = '<div class="empty">'+esc(t('noBookings'))+'</div>'; return; }
+  box.innerHTML = list.map(b => {
+    const stTxt = b.status==='confirmed' ? t('confirmed') : (b.status==='pending' ? t('pending') : t('rejected'));
+    const stCls = b.status==='confirmed' ? 'ok' : (b.status==='pending' ? 'pending' : 'no');
+    const extra = b.kind==='extra' ? '<span class="tag extra">'+esc(t('extra'))+'</span>' : '';
+    let info = '<div class="m">👤 '+esc(b.customer_name)+' · 📞 '+esc(b.customer_phone)+'</div>';
+    if (b.address) info += '<div class="m">📍 '+esc(b.address)+'</div>';
+    if (b.pet_info) info += '<div class="m">🐈 '+esc(b.pet_info)+'</div>';
+    if (b.notes) info += '<div class="m">📝 '+esc(b.notes)+'</div>';
+    info += photoThumbsHtml(b.photo_urls);
+    return '<div class="slot"><div><div class="t">'+esc(fmtDate(b.d))+' <span class="tag '+stCls+'">'+esc(stTxt)+'</span>'+extra+'</div>'+info+'</div></div>';
+  }).join('');
+}
+
 /* ----- 喂猫员修改/删除订单 ----- */
 let editId = null;
 function openEdit(id){
@@ -1150,9 +1188,13 @@ async function deleteEdit(){
 }
 
 /* ---------------- 语言切换时重绘 ---------------- */
+function updateHistoryPlaceholder(){
+  const inp = document.getElementById('historyQuery');
+  if (inp) inp.placeholder = lang()==='zh' ? '姓名或手机号（可留空）' : 'Name or phone (optional)';
+}
 function rerender(){
   if (role==='customer'){ renderCustomerCal(); updateSelBar(); renderChips(); }
-  else if (feeder){ renderFeederCal(); renderPending(); renderBookingList(); }
+  else if (feeder){ renderFeederCal(); renderPending(); renderBookingList(); updateHistoryPlaceholder(); }
 }
 
 /* ---------------- 初始化 ---------------- */

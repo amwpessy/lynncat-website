@@ -296,6 +296,28 @@ begin
   return json_build_object('ok', true);
 end; $$;
 
+-- 喂猫员查看历史订单：留空查询返回最近的「过去」订单；填了姓名/手机号关键字则不限日期、按匹配搜索全部记录
+create or replace function feeder_history(
+  p_user text, p_pass text, p_query text default null, p_limit int default 50
+) returns json language plpgsql security definer as $$
+begin
+  if not _check_feeder(p_user, p_pass) then return json_build_object('ok', false); end if;
+  return json_build_object('ok', true, 'bookings',
+    (select coalesce(json_agg(row_to_json(b)), '[]'::json) from (
+      select id, d, customer_name, customer_phone, address, pet_info, notes, photo_urls, kind, status, created_at
+      from bookings
+      where case
+        when p_query is not null and p_query <> '' then
+          (customer_name ilike '%'||p_query||'%' or customer_phone ilike '%'||p_query||'%')
+        else
+          d < current_date
+      end
+      order by d desc, created_at desc
+      limit greatest(1, least(p_limit, 200))
+    ) b)
+  );
+end; $$;
+
 -- ---------- 5. 安全：开启 RLS 且不加任何策略，所有访问只能走上面的函数 ----------
 alter table available_days enable row level security;
 alter table bookings       enable row level security;
@@ -312,3 +334,4 @@ grant execute on function decide_request(text, text, uuid, boolean)             
 grant execute on function update_booking(text, text, uuid, text, text, text, text, text, text[]) to anon;
 grant execute on function feeder_create_bookings(text, text, date[], text, text, text, text, text, text[]) to anon;
 grant execute on function delete_booking(text, text, uuid)                              to anon;
+grant execute on function feeder_history(text, text, text, int)                         to anon;
