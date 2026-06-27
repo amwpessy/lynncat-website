@@ -83,9 +83,12 @@ begin
     return json_build_object('ok', false, 'error', 'unavailable');
   end if;
 
-  -- 同一手机号同一天已有未拒绝的预约，视为重复提交，直接返回原单（不再插入新行）
+  -- 只有当整张订单内容（不只是手机号+日期）都完全一致时，才视为重复提交；
+  -- 同一手机号同一天但客户/地址/猫咪信息不同（如一家多人共用一个电话）应各自正常下单。
   select id into v_id from bookings
     where d = p_d and customer_phone = p_phone and status in ('confirmed','pending')
+      and customer_name = p_name and coalesce(address,'') = coalesce(p_address,'')
+      and coalesce(pet_info,'') = coalesce(p_pet,'') and coalesce(notes,'') = coalesce(p_notes,'')
     limit 1;
   if v_id is not null then
     return json_build_object('ok', true, 'booking_id', v_id, 'duplicate', true);
@@ -118,6 +121,8 @@ begin
 
   select id into v_id from bookings
     where d = p_d and customer_phone = p_phone and status in ('confirmed','pending')
+      and customer_name = p_name and coalesce(address,'') = coalesce(p_address,'')
+      and coalesce(pet_info,'') = coalesce(p_pet,'') and coalesce(notes,'') = coalesce(p_notes,'')
     limit 1;
   if v_id is not null then
     return json_build_object('ok', true, 'booking_id', v_id, 'duplicate', true);
@@ -145,9 +150,11 @@ begin
        or v_d > (current_date + interval '2 months')::date then
       v_status := 'unavailable';
     else
-      -- 同一手机号同一天已有未拒绝的预约，视为重复提交，跳过插入
+      -- 只有整张订单内容都完全一致才算重复提交，跳过插入；同手机号不同人/地址/猫咪信息正常下单
       select id into v_dup from bookings
         where d = v_d and customer_phone = p_phone and status in ('confirmed','pending')
+          and customer_name = p_name and coalesce(address,'') = coalesce(p_address,'')
+          and coalesce(pet_info,'') = coalesce(p_pet,'') and coalesce(notes,'') = coalesce(p_notes,'')
         limit 1;
       if v_dup is not null then
         v_status := 'duplicate';
@@ -264,6 +271,8 @@ begin
   foreach v_d in array (select array_agg(distinct x order by x) from unnest(p_dates) x) loop
     select id into v_id from bookings
       where d = v_d and customer_phone = p_phone and status in ('confirmed','pending')
+        and customer_name = p_name and coalesce(address,'') = coalesce(p_address,'')
+        and coalesce(pet_info,'') = coalesce(p_pet,'') and coalesce(notes,'') = coalesce(p_notes,'')
       limit 1;
     if v_id is not null then
       v_status := 'duplicate';
