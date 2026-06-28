@@ -20,6 +20,9 @@ PROVINCES.forEach(([id, name]) => {
 });
 provSel.value = 41; // 默认河南
 
+// 只保留这4类，艺术类/体育类等暂不在选科里展示
+const TYPE_WHITELIST = ['物理类', '历史类', '理科', '文科'];
+
 // 选省后拉取该省可用科类
 async function loadTypes() {
   typeSel.innerHTML = '<option value="">加载中…</option>';
@@ -27,12 +30,17 @@ async function loadTypes() {
     const r = await fetch(`${API}/meta?prov=${provSel.value}`);
     const d = await r.json();
     typeSel.innerHTML = '';
-    const types = (d.types && d.types.length) ? d.types : ['理科', '文科'];
-    types.forEach(t => {
-      const o = document.createElement('option');
-      o.value = t; o.textContent = t;
-      typeSel.appendChild(o);
-    });
+    const all = (d.types && d.types.length) ? d.types : ['理科', '文科'];
+    const types = all.filter(t => TYPE_WHITELIST.includes(t));
+    if (!types.length) {
+      typeSel.innerHTML = '<option value="">该省暂无数据</option>';
+    } else {
+      types.forEach(t => {
+        const o = document.createElement('option');
+        o.value = t; o.textContent = t;
+        typeSel.appendChild(o);
+      });
+    }
     if (d.latestYear) $('hint').dataset.year = d.latestYear;
   } catch (e) {
     typeSel.innerHTML = '<option value="理科">理科</option><option value="文科">文科</option>';
