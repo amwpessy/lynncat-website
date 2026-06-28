@@ -52,15 +52,6 @@
 
   <p class="hint" id="hint">提示：位次比分数更稳定，强烈建议填写「一分一段表」上的位次以获得准确匹配。需向管理员获取授权码后方可查询。</p>
 
-  <!-- 推荐逻辑说明 -->
-  <div class="explain">
-    <b>为什么这样推荐？</b> 按你的位次/分数，与各院校近年的实际录取线对比后分类：
-    <div class="row"><span class="dot chong"></span><span><b>🚀 冲一冲</b>：该校录取位次明显比你靠前(更难)，把握较低，可冲一下</span></div>
-    <div class="row"><span class="dot wen"></span><span><b>🎯 稳一稳</b>：该校录取位次与你接近，把握适中</span></div>
-    <div class="row"><span class="dot bao"></span><span><b>🛡️ 保一保</b>：该校录取位次明显比你靠后(更易)，把握较大，可作保底</span></div>
-    <div class="row"><span class="dot" style="background:var(--muted)"></span><span>同一所学校同一批次常有多个"专业组"，选科要求/分数线各不相同；为避免同校刷屏，已合并成一张卡并显示分数区间，按<b>该批次最容易上的专业组</b>计算冲稳保，点击卡片可查看全部专业组明细</span></div>
-  </div>
-
   <!-- 结果 -->
   <div id="status" class="status"></div>
   <div id="results" hidden>
@@ -77,6 +68,15 @@
       <div class="col wen"><h3>🎯 稳一稳 <span class="cnt" id="cntOutW">0</span></h3><div class="list" id="listOutW"></div></div>
       <div class="col bao"><h3>🛡️ 保一保 <span class="cnt" id="cntOutB">0</span></h3><div class="list" id="listOutB"></div></div>
     </div>
+  </div>
+
+  <!-- 推荐逻辑说明 -->
+  <div class="explain">
+    <b>为什么这样推荐？</b> 按你的位次/分数，与各院校近年的实际录取线对比后分类：
+    <div class="row"><span class="dot chong"></span><span><b>🚀 冲一冲</b>：该校录取位次明显比你靠前(更难)，把握较低，可冲一下</span></div>
+    <div class="row"><span class="dot wen"></span><span><b>🎯 稳一稳</b>：该校录取位次与你接近，把握适中</span></div>
+    <div class="row"><span class="dot bao"></span><span><b>🛡️ 保一保</b>：该校录取位次明显比你靠后(更易)，把握较大，可作保底</span></div>
+    <div class="row"><span class="dot" style="background:var(--muted)"></span><span>同一所学校同一批次常有多个"专业组"，选科要求/分数线各不相同；为避免同校刷屏，已合并成一张卡并显示分数区间，按<b>该批次最容易上的专业组</b>计算冲稳保，点击卡片可查看全部专业组明细</span></div>
   </div>
 
   <footer class="ft">
