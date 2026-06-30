@@ -286,7 +286,7 @@ audioEl.addEventListener('timeupdate',function(){updateTimes();updateProgress();
 audioEl.addEventListener('ended',function(){
   var key=currentStave+'_'+currentSection;completed[key]=true;localStorage.setItem('cc_completed',JSON.stringify(completed));
   var link=sidebarContent.querySelector('.section-link[data-stave="'+currentStave+'"][data-section="'+currentSection+'"]');if(link)link.classList.add('completed');
-  nextSection();
+  nextSection(true);
 });
 
 function updateTimes(){var c=audioEl.currentTime||0;var d=audioEl.duration||0;currentTimeEl.textContent=formatTime(c);totalTimeEl.textContent=formatTime(d)}
@@ -319,10 +319,10 @@ function syncSubtitle(){
   }
 }
 
-function nextSection(){
+function nextSection(autoPlay){
   var stave=D.staves[currentStave];
-  if(currentSection<stave.sections.length-1){loadSection(currentStave,currentSection+1);if(isPlaying)setTimeout(function(){audioEl.play()},300)}
-  else if(currentStave<D.staves.length-1){loadSection(currentStave+1,0);if(isPlaying)setTimeout(function(){audioEl.play()},300)}
+  if(currentSection<stave.sections.length-1){loadSection(currentStave,currentSection+1);if(autoPlay||isPlaying)setTimeout(function(){audioEl.play().catch(function(){})},300)}
+  else if(currentStave<D.staves.length-1){loadSection(currentStave+1,0);if(autoPlay||isPlaying)setTimeout(function(){audioEl.play().catch(function(){})},300)}
   else{audioEl.pause();playBtn.textContent='▶'}
 }
 function prevSection(){
