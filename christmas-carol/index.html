@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>圣诞欢歌 · A Christmas Carol — 双语朗读电子书</title>
+<style>
+/* ===== Reset & Variables ===== */
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --red:#A33A3E;--red-light:#C44D52;--red-dark:#7A2830;
+  --gold:#B8860B;--gold-light:#D4A43A;--gold-pale:#F5E6C8;
+  --green:#2D6A4F;--green-light:#40916C;--green-pale:#D8F3DC;
+  --cream:#FAF7F0;--cream2:#F5F0E8;--cream3:#EDE5D8;
+  --white:#FFFFFF;--white2:#FEFCF8;
+  --text:#2C1810;--text2:#5C4033;--text3:#8B7355;
+  --border:#E0D5C5;--border2:#D4C8B4;
+  --highlight:rgba(184,134,11,.12);
+  --shadow-sm:0 1px 3px rgba(0,0,0,.06);
+  --shadow:0 2px 12px rgba(0,0,0,.07);
+  --shadow-lg:0 8px 32px rgba(0,0,0,.10);
+  --radius:8px;--radius-lg:14px;
+}
+html{font-size:16px;scroll-behavior:smooth}
+body{font-family:'Georgia','Noto Serif SC','STSong','Songti SC','SimSun',serif;background:var(--cream);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+::selection{background:var(--gold-pale);color:var(--red-dark)}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}::-webkit-scrollbar-thumb:hover{background:var(--border2)}
+/* Header */
+.app-header{flex-shrink:0;height:64px;background:linear-gradient(135deg,var(--red-dark) 0%,var(--red) 50%,var(--red-dark) 100%);display:flex;align-items:center;padding:0 28px;gap:20px;position:relative;z-index:100;box-shadow:0 2px 16px rgba(120,40,48,.18)}
+.app-header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,var(--gold-light),var(--green-light),var(--gold-light),transparent)}
+.app-title{display:flex;align-items:center;gap:14px;flex-shrink:0}.app-title .tree{font-size:28px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.2))}.app-title h1{font-size:20px;font-weight:400;color:#FFF;letter-spacing:2px;text-shadow:0 1px 3px rgba(0,0,0,.15)}.app-title .subtitle{font-size:13px;color:rgba(255,255,255,.75);margin-left:4px;font-style:italic;letter-spacing:1px}
+.view-modes{display:flex;gap:0;margin-left:auto;background:rgba(0,0,0,.15);border-radius:8px;padding:3px}
+.view-btn{background:transparent;border:none;color:rgba(255,255,255,.7);padding:6px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-family:inherit;transition:all .2s}.view-btn:hover{color:#FFF;background:rgba(255,255,255,.1)}.view-btn.active{background:#FFF;color:var(--red);font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,.12)}
+/* Layout */
+.main-container{flex:1;display:flex;overflow:hidden;position:relative}
+/* Sidebar */
+.sidebar{width:272px;flex-shrink:0;background:var(--white);border-right:1px solid var(--border);overflow-y:auto;padding:16px 12px;transition:transform .3s ease;box-shadow:var(--shadow-sm)}.sidebar.collapsed{transform:translateX(-272px);margin-right:-272px}
+.sidebar-toggle{position:absolute;left:272px;top:50%;transform:translateY(-50%);width:22px;height:52px;background:var(--white);border:1px solid var(--border);border-left:none;border-radius:0 8px 8px 0;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text3);z-index:10;transition:all .3s;font-size:10px;box-shadow:2px 0 8px rgba(0,0,0,.04)}.sidebar.collapsed+.sidebar-toggle{left:0}.sidebar-toggle:hover{color:var(--red);background:var(--cream2)}
+.sidebar-toc-title{font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:2px;padding:0 8px 12px;margin-bottom:4px;border-bottom:1px solid var(--border)}
+.stave-group{margin-bottom:6px}
+.stave-header{display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;font-size:14px;font-weight:600;color:var(--text);border-radius:var(--radius);transition:all .2s;user-select:none}.stave-header:hover{background:var(--cream2)}.stave-header .arrow{transition:transform .25s;font-size:8px;width:16px;text-align:center;color:var(--text3)}.stave-header.expanded .arrow{transform:rotate(90deg);color:var(--red)}.stave-title-text{flex:1;font-size:13px;line-height:1.3}.stave-title-text .zh{display:block}.stave-title-text .en{display:block;font-size:11px;color:var(--text3);font-weight:400;font-style:italic}.stave-header.expanded .stave-title-text .zh{color:var(--red)}
+.stave-sections{overflow:hidden;max-height:0;transition:max-height .35s ease}.stave-sections.expanded{max-height:700px}
+.section-link{display:flex;align-items:center;gap:8px;padding:7px 14px 7px 28px;cursor:pointer;color:var(--text2);font-size:13px;border-radius:6px;transition:all .15s;user-select:none;position:relative}.section-link::before{content:'';position:absolute;left:14px;top:50%;width:6px;height:6px;border-radius:50%;background:var(--border);transform:translateY(-50%);transition:all .2s}.section-link:hover{background:var(--cream2);color:var(--text)}.section-link:hover::before{background:var(--gold-light)}.section-link.active{background:var(--highlight);color:var(--red);font-weight:600}.section-link.active::before{background:var(--red);width:7px;height:7px;box-shadow:0 0 0 3px rgba(163,58,62,.2)}.section-link .num{width:26px;text-align:right;color:var(--text3);font-size:12px;font-family:'SF Mono','Consolas',monospace}.section-link.active .num{color:var(--red)}.section-link.completed .num::after{content:'✓';color:var(--green);font-size:9px;margin-left:3px;font-weight:bold}
+.stave-icon{width:20px;height:20px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0}.stave-icon.i{background:var(--red);color:#FFF}.stave-icon.ii{background:var(--green);color:#FFF}.stave-icon.iii{background:var(--gold);color:#FFF}.stave-icon.iv{background:#5A4A8A;color:#FFF}.stave-icon.v{background:#C0683A;color:#FFF}
+/* Content */
+.content-area{flex:1;overflow-y:auto;padding:40px 48px 140px 48px;position:relative}
+.content-area::before{content:'';position:absolute;top:0;left:0;right:0;bottom:0;background:radial-gradient(ellipse at 15% 0%,rgba(163,58,62,.04),transparent 40%),radial-gradient(ellipse at 85% 0%,rgba(45,106,79,.04),transparent 40%);pointer-events:none}
+.section-header{text-align:center;margin-bottom:36px;position:relative}.section-header .stave-badge{display:inline-block;padding:4px 18px;border-radius:20px;font-size:12px;letter-spacing:3px;text-transform:uppercase;background:var(--cream3);color:var(--text3);margin-bottom:12px}.section-header .section-num{font-size:30px;color:var(--text);font-weight:600;font-family:Georgia,serif;letter-spacing:1px}.section-header .divider{width:80px;height:2px;margin:14px auto 0;background:linear-gradient(90deg,transparent,var(--red),var(--gold),transparent);border-radius:1px}
+/* Text Cards */
+.text-container{max-width:1160px;margin:0 auto;position:relative}
+.text-grid{display:grid;gap:28px;transition:all .35s}.text-grid.side-by-side{grid-template-columns:1fr 1fr}.text-grid.stacked{grid-template-columns:1fr}.text-grid.zh-only .en-col{display:none}.text-grid.en-only .zh-col{display:none}.text-grid.stacked .text-col{max-width:760px;margin:0 auto;width:100%}
+.text-col{background:var(--white);border-radius:var(--radius-lg);padding:28px 32px;box-shadow:var(--shadow);border:1px solid var(--border);transition:box-shadow .3s}.text-col:hover{box-shadow:var(--shadow-lg)}
+.text-col h3{display:flex;align-items:center;gap:10px;font-size:12px;text-transform:uppercase;letter-spacing:3px;margin-bottom:22px;padding-bottom:14px;border-bottom:2px solid var(--cream3);color:var(--text3)}.text-col h3 .lang-badge{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;font-size:13px;font-weight:700;color:#FFF}.zh-col h3 .lang-badge{background:var(--red)}.en-col h3 .lang-badge{background:var(--green)}
+.text-paragraphs{display:flex;flex-direction:column;gap:14px}
+.text-para{font-size:16px;line-height:2.1;letter-spacing:.3px;padding:8px 12px;border-radius:4px;transition:all .3s;cursor:pointer;border-left:3px solid transparent}.zh-col .text-para{font-size:17px;line-height:2.2}.en-col .text-para{font-size:16px;line-height:1.9;font-family:Georgia,'Times New Roman',serif}.text-para:hover{background:var(--cream2)}.text-para.has-active{background:var(--cream2);border-left-color:var(--gold-light)}
+/* SRT-aligned text spans */
+.text-span{display:inline;padding:1px 0;border-radius:3px;transition:background .15s ease,color .15s ease,box-shadow .15s ease;position:relative}
+.text-span.active{background:var(--gold-pale);color:var(--text);font-weight:600;box-shadow:0 0 0 2px var(--gold-pale),0 1px 4px rgba(184,134,11,.25);padding:1px 3px;margin:0 -1px;border-radius:4px}
+.text-span.active::after{content:'';position:absolute;bottom:-1px;left:3px;right:3px;height:2px;background:var(--gold);border-radius:1px;animation:cursor-blink .8s ease-in-out infinite}
+@keyframes cursor-blink{0%,100%{opacity:1}50%{opacity:.3}}
+.text-span.past{color:var(--text3)}
+/* Player */
+.player-bar{flex-shrink:0;height:76px;background:var(--white);border-top:1px solid var(--border);display:flex;align-items:center;padding:0 24px;gap:20px;position:relative;z-index:100;box-shadow:0 -2px 16px rgba(0,0,0,.06)}
+.play-btn{width:46px;height:46px;border-radius:50%;background:var(--red);border:none;color:#FFF;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .25s;flex-shrink:0;box-shadow:0 3px 12px rgba(163,58,62,.3)}.play-btn:hover{background:var(--red-light);transform:scale(1.06);box-shadow:0 4px 18px rgba(163,58,62,.4)}.play-btn:active{transform:scale(.94)}
+.lang-toggle{display:flex;gap:0;background:var(--cream2);border-radius:8px;padding:3px;flex-shrink:0}.lang-toggle button{background:transparent;border:none;color:var(--text3);padding:7px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-family:inherit;font-weight:500;transition:all .2s}.lang-toggle button:hover{color:var(--text)}.lang-toggle button.active{background:var(--white);color:var(--red);font-weight:700;box-shadow:var(--shadow-sm)}
+.player-info{display:flex;flex-direction:column;gap:2px;min-width:160px;flex-shrink:0}.player-info .now-playing{font-size:13px;color:var(--text);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:240px}.player-info .time-display{font-size:12px;color:var(--text3);font-family:'SF Mono','Consolas',monospace}
+.progress-container{flex:1;display:flex;align-items:center;gap:12px}.progress-bar{flex:1;height:5px;background:var(--cream3);border-radius:3px;cursor:pointer;position:relative;overflow:visible}.progress-fill{height:100%;background:linear-gradient(90deg,var(--red),var(--gold));border-radius:3px;position:relative;transition:width .1s}.progress-bar:hover{height:7px}.progress-bar:hover .progress-thumb{opacity:1}.progress-thumb{position:absolute;top:50%;right:-7px;width:14px;height:14px;background:var(--gold-light);border-radius:50%;transform:translateY(-50%);opacity:0;transition:opacity .2s;box-shadow:0 2px 8px rgba(184,134,11,.4);border:2px solid var(--white)}
+.player-controls{display:flex;gap:8px;flex-shrink:0}.player-controls button{width:36px;height:36px;border-radius:50%;background:var(--cream2);border:1px solid var(--border);color:var(--text2);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}.player-controls button:hover{background:var(--white);color:var(--red);border-color:var(--red)}
+.speed-control{display:flex;gap:3px;flex-shrink:0;background:var(--cream2);border-radius:6px;padding:2px}.speed-control button{width:30px;height:28px;border-radius:4px;background:transparent;border:none;color:var(--text3);font-size:11px;cursor:pointer;font-family:'SF Mono','Consolas',monospace;transition:all .2s}.speed-control button:hover{color:var(--text);background:rgba(0,0,0,.03)}.speed-control button.active{background:var(--red);color:#FFF;font-weight:600;box-shadow:0 2px 6px rgba(163,58,62,.25)}
+/* Snow */
+.snow-container{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:1;overflow:hidden}.snowflake{position:absolute;color:rgba(184,134,11,.25);user-select:none;animation:fall linear infinite}@keyframes fall{to{transform:translateY(100vh) translateX(var(--drift,20px)) rotate(360deg)}}
+/* Loading */
+.loading-screen{position:fixed;inset:0;background:var(--cream);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;gap:20px;transition:opacity .5s}.loading-screen.hidden{opacity:0;pointer-events:none}.loading-screen .tree{font-size:64px;animation:pulse 2s ease-in-out infinite}.loading-screen .text{font-size:15px;color:var(--text2);letter-spacing:3px}@keyframes pulse{0%,100%{opacity:.5;transform:scale(1)}50%{opacity:1;transform:scale(1.08)}}
+/* Welcome */
+.welcome-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;gap:28px;position:relative}.welcome-screen .big-tree{font-size:90px;animation:pulse 3s ease-in-out infinite}.welcome-screen h2{font-size:36px;color:var(--red);font-weight:400;letter-spacing:6px;font-family:Georgia,serif}.welcome-screen h2 span{display:block;font-size:20px;color:var(--text3);margin-top:10px;letter-spacing:2px;font-style:italic;font-weight:400}.welcome-screen .author-line{font-size:15px;color:var(--text3);line-height:1.8;max-width:360px}.welcome-screen .author-line strong{color:var(--text);font-weight:600}.welcome-screen .start-btn{margin-top:8px;padding:14px 52px;background:var(--red);border:none;color:#FFF;border-radius:30px;font-size:15px;cursor:pointer;font-family:inherit;letter-spacing:3px;font-weight:500;transition:all .3s;box-shadow:0 4px 16px rgba(163,58,62,.25)}.welcome-screen .start-btn:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(163,58,62,.35);background:var(--red-light)}.welcome-screen .start-btn:active{transform:translateY(0)}.welcome-screen .deco-bar{display:flex;align-items:center;gap:16px;margin-top:12px}.welcome-screen .deco-bar span{color:var(--text3);font-size:12px;letter-spacing:1px}.welcome-screen .deco-bar .line{width:40px;height:1px;background:var(--border)}
+/* Responsive */
+@media(max-width:768px){.sidebar{position:absolute;left:0;top:0;bottom:0;z-index:50;box-shadow:var(--shadow-lg)}.sidebar.collapsed{transform:translateX(-272px)}.sidebar-toggle{left:272px}.sidebar.collapsed+.sidebar-toggle{left:0}.content-area{padding:24px 16px 140px 16px}.text-grid.side-by-side{grid-template-columns:1fr;gap:20px}.text-col{padding:20px 16px}.app-title h1{font-size:16px}.app-title .subtitle{display:none}.player-info{min-width:100px}.player-info .now-playing{max-width:120px}.speed-control{display:none}.player-bar{padding:0 12px;gap:12px}.text-para{font-size:15px!important;line-height:1.9!important}}
+</style>
+</head>
+<body>
+<div class="loading-screen" id="loadingScreen"><div class="tree">🎄</div><div class="text">加载中...</div></div>
+<div class="snow-container" id="snowContainer"></div>
+<header class="app-header">
+  <div class="app-title"><span class="tree">🎄</span><h1>圣诞欢歌<span class="subtitle">A Christmas Carol</span></h1></div>
+  <div class="view-modes"><button class="view-btn active" data-mode="side-by-side">中英对照</button><button class="view-btn" data-mode="zh-only">仅中文</button><button class="view-btn" data-mode="en-only">仅英文</button><button class="view-btn" data-mode="stacked">上下排列</button></div>
+</header>
+<div class="main-container">
+  <aside class="sidebar" id="sidebar"><div class="sidebar-toc-title">📖 目录</div><div id="sidebarContent"></div></aside>
+  <button class="sidebar-toggle" id="sidebarToggle">◀</button>
+  <main class="content-area" id="contentArea">
+    <div class="welcome-screen" id="welcomeScreen"><div class="big-tree">🎄</div><h2>圣 诞 欢 歌<span>A Christmas Carol</span></h2><div class="author-line"><strong>查尔斯·狄更斯</strong> · Charles Dickens<br>中英文双语朗读电子书</div><button class="start-btn" id="startBtn">开 始 阅 读</button><div class="deco-bar"><span class="line"></span><span>I · II · III · IV · V</span><span class="line"></span></div></div>
+    <div class="text-container" id="textContainer" style="display:none"><div class="section-header" id="sectionHeader"></div><div class="text-grid side-by-side" id="textGrid"></div></div>
+  </main>
+</div>
+<div class="player-bar" id="playerBar" style="display:none">
+  <button class="play-btn" id="playBtn">▶</button>
+  <div class="lang-toggle"><button class="active" data-lang="zh">🇨🇳 中文朗读</button><button data-lang="en">🇬🇧 英文朗读</button></div>
+  <div class="player-info"><div class="now-playing" id="nowPlaying">—</div><div class="time-display"><span id="currentTime">00:00</span> / <span id="totalTime">00:00</span></div></div>
+  <div class="progress-container"><div class="progress-bar" id="progressBar"><div class="progress-fill" id="progressFill" style="width:0%"><div class="progress-thumb" id="progressThumb"></div></div></div></div>
+  <div class="player-controls"><button id="prevBtn">⏮</button><button id="nextBtn">⏭</button></div>
+  <div class="speed-control"><button data-speed="0.75">.75×</button><button class="active" data-speed="1">1×</button><button data-speed="1.25">1.25×</button><button data-speed="1.5">1.5×</button></div>
+</div>
+<script src="audiobook-data.js"></script>
+<script>
+(function(){
+'use strict';
+var D=window.AUDIOBOOK_DATA;if(!D){alert('数据文件加载失败');return}
+var currentStave=0,currentSection=0,currentLang='zh',viewMode='side-by-side',isPlaying=false;
+var audioEl=new Audio();
+var completed=JSON.parse(localStorage.getItem('cc_completed')||'{}');
+function $(id){return document.getElementById(id)}
+var sidebar=$('sidebar'),sidebarToggle=$('sidebarToggle'),sidebarContent=$('sidebarContent');
+var contentArea=$('contentArea'),welcomeScreen=$('welcomeScreen'),textContainer=$('textContainer');
+var sectionHeader=$('sectionHeader'),textGrid=$('textGrid'),playerBar=$('playerBar');
+var playBtn=$('playBtn'),nowPlaying=$('nowPlaying'),currentTimeEl=$('currentTime'),totalTimeEl=$('totalTime');
+var progressBar=$('progressBar'),progressFill=$('progressFill'),progressThumb=$('progressThumb');
+
+function initSnow(){
+  var sc=$('snowContainer');var flakes=['❄','❅','❆','✦','✧','·'];
+  for(var i=0;i<25;i++){
+    var s=document.createElement('div');s.className='snowflake';
+    s.textContent=flakes[Math.floor(Math.random()*flakes.length)];
+    s.style.left=Math.random()*100+'%';s.style.fontSize=(8+Math.random()*12)+'px';
+    s.style.opacity=0.15+Math.random()*0.35;s.style.animationDuration=(10+Math.random()*16)+'s';
+    s.style.animationDelay=(-Math.random()*24)+'s';s.style.setProperty('--drift',(Math.random()*50-25)+'px');
+    sc.appendChild(s);
+  }
+}
+
+function escapeHtml(s){if(!s)return'';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+
+var iconClasses=['i','ii','iii','iv','v'];
+
+function buildSidebar(){
+  var html='';
+  D.staves.forEach(function(stave,si){
+    var tzh=stave.title.zh||'',ten=stave.title.en||'';
+    var roman=['I','II','III','IV','V'][si];
+    html+='<div class="stave-group"><div class="stave-header" data-stave="'+si+'">';
+    html+='<span class="stave-icon '+iconClasses[si]+'">'+roman+'</span><span class="arrow">▶</span>';
+    html+='<span class="stave-title-text"><span class="zh">'+escapeHtml(tzh)+'</span><span class="en">'+escapeHtml(ten)+'</span></span>';
+    html+='</div><div class="stave-sections" id="staveSections_'+si+'">';
+    stave.sections.forEach(function(sec,seci){
+      var key=si+'_'+seci;var cls='section-link'+(completed[key]?' completed':'');
+      html+='<div class="'+cls+'" data-stave="'+si+'" data-section="'+seci+'"><span class="num">'+String(sec.number).padStart(2,'0')+'</span><span>小节 '+String(sec.number).padStart(2,'0')+'</span></div>';
+    });
+    html+='</div></div>';
+  });
+  sidebarContent.innerHTML=html;
+  sidebarContent.querySelectorAll('.stave-header').forEach(function(el){
+    el.addEventListener('click',function(){var si=+this.dataset.stave;var secEl=$('staveSections_'+si);this.classList.toggle('expanded');secEl.classList.toggle('expanded')});
+  });
+  sidebarContent.querySelectorAll('.section-link').forEach(function(el){
+    el.addEventListener('click',function(){loadSection(+this.dataset.stave,+this.dataset.section)});
+  });
+}
+
+function buildSrtHtml(lang,srt){
+  if(!srt||!srt.length)return'<div class="text-para">(无数据)</div>';
+  var html='';var group=[];
+  var sentEnd=/[。！？.!?]$/;var isZh=lang==='zh';
+  for(var i=0;i<srt.length;i++){
+    var t=srt[i].text.trim();if(!t)continue;
+    group.push({idx:i,text:t});
+    var endCue=sentEnd.test(t)||i===srt.length-1||(isZh&&group.length>=3)||(!isZh&&group.length>=4);
+    if(endCue&&group.length>0){
+      html+='<div class="text-para" data-lang="'+lang+'">';
+      for(var k=0;k<group.length;k++){
+        var sep=(k>0&&isZh)?'': (k>0?' ':'');
+        html+=sep+'<span class="text-span" data-srt="'+group[k].idx+'" data-lang="'+lang+'">'+escapeHtml(group[k].text)+'</span>';
+      }
+      html+='</div>';group=[];
+    }
+  }
+  if(group.length>0){
+    html+='<div class="text-para" data-lang="'+lang+'">';
+    for(var k=0;k<group.length;k++){
+      var sep=(k>0&&isZh)?'': (k>0?' ':'');
+      html+=sep+'<span class="text-span" data-srt="'+group[k].idx+'" data-lang="'+lang+'">'+escapeHtml(group[k].text)+'</span>';
+    }
+    html+='</div>';
+  }
+  return html;
+}
+
+function loadSection(si,seci){
+  currentStave=si;currentSection=seci;
+  var stave=D.staves[si];var sec=stave.sections[seci];
+  welcomeScreen.style.display='none';textContainer.style.display='block';playerBar.style.display='flex';
+  sectionHeader.innerHTML='<div class="stave-badge">STAVE '+stave.id.replace('Stave_','')+'</div><div class="section-num">小节 '+String(sec.number).padStart(2,'0')+'</div><div class="divider"></div>';
+  var zhSrt=sec.zh.srt||[];var enSrt=sec.en.srt||[];
+  var zhHtml='<div class="text-col zh-col"><h3><span class="lang-badge">中</span>中文 <span style="font-size:11px;color:var(--text3);font-weight:normal;text-transform:none;letter-spacing:0">'+zhSrt.length+'句</span></h3><div class="text-paragraphs">'+buildSrtHtml('zh',zhSrt)+'</div></div>';
+  var enHtml='<div class="text-col en-col"><h3><span class="lang-badge">EN</span>English <span style="font-size:11px;color:var(--text3);font-weight:normal;text-transform:none;letter-spacing:0">'+enSrt.length+' cues</span></h3><div class="text-paragraphs">'+buildSrtHtml('en',enSrt)+'</div></div>';
+  textGrid.innerHTML=zhHtml+enHtml;textGrid.className='text-grid '+viewMode;
+  sidebarContent.querySelectorAll('.section-link').forEach(function(el){el.classList.toggle('active',+el.dataset.stave===si&&+el.dataset.section===seci)});
+  var staveHeader=sidebarContent.querySelector('.stave-header[data-stave="'+si+'"]');var staveSecs=$('staveSections_'+si);
+  if(staveHeader&&!staveHeader.classList.contains('expanded')){staveHeader.classList.add('expanded');staveSecs.classList.add('expanded')}
+  var activeLink=sidebarContent.querySelector('.section-link.active');if(activeLink)activeLink.scrollIntoView({block:'nearest',behavior:'smooth'});
+  loadAudio(sec);localStorage.setItem('cc_lastpos',si+'_'+seci);contentArea.scrollTop=0;
+}
+
+function loadAudio(sec){
+  var src=currentLang==='zh'?sec.zh.audio:sec.en.audio;
+  audioEl.src=src;audioEl.load();
+  nowPlaying.textContent='Stave '+D.staves[currentStave].id.replace('Stave_','')+' · 小节 '+String(sec.number).padStart(2,'0');
+  updateTimes();
+}
+
+function togglePlay(){if(!audioEl.src)return;if(audioEl.paused){audioEl.play()}else{audioEl.pause()}}
+
+audioEl.addEventListener('play',function(){isPlaying=true;playBtn.textContent='⏸'});
+audioEl.addEventListener('pause',function(){isPlaying=false;playBtn.textContent='▶'});
+audioEl.addEventListener('loadedmetadata',updateTimes);
+audioEl.addEventListener('timeupdate',function(){updateTimes();updateProgress();syncSubtitle()});
+audioEl.addEventListener('ended',function(){
+  var key=currentStave+'_'+currentSection;completed[key]=true;localStorage.setItem('cc_completed',JSON.stringify(completed));
+  var link=sidebarContent.querySelector('.section-link[data-stave="'+currentStave+'"][data-section="'+currentSection+'"]');if(link)link.classList.add('completed');
+  nextSection();
+});
+
+function updateTimes(){var c=audioEl.currentTime||0;var d=audioEl.duration||0;currentTimeEl.textContent=formatTime(c);totalTimeEl.textContent=formatTime(d)}
+function updateProgress(){var c=audioEl.currentTime||0;var d=audioEl.duration||0;var pct=d>0?(c/d*100):0;progressFill.style.width=pct+'%'}
+function formatTime(s){if(!s||isNaN(s))return'00:00';var m=Math.floor(s/60);var sec=Math.floor(s%60);return String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0')}
+
+progressBar.addEventListener('click',function(e){var rect=progressBar.getBoundingClientRect();var pct=(e.clientX-rect.left)/rect.width;if(audioEl.duration)audioEl.currentTime=pct*audioEl.duration});
+
+function syncSubtitle(){
+  var sec=D.staves[currentStave].sections[currentSection];
+  var srt=currentLang==='zh'?sec.zh.srt:sec.en.srt;if(!srt||!srt.length)return;
+  var t=audioEl.currentTime;var idx=-1;
+  for(var i=0;i<srt.length;i++){if(t>=srt[i].start&&t<srt[i].end){idx=i;break}}
+  if(idx<0)return;
+  var activeSpan=textGrid.querySelector('.text-span.active[data-lang="'+currentLang+'"]');
+  var targetSpan=textGrid.querySelector('.text-span[data-srt="'+idx+'"][data-lang="'+currentLang+'"]');
+  if(activeSpan===targetSpan)return;
+  if(activeSpan)activeSpan.classList.remove('active');
+  textGrid.querySelectorAll('.text-span.past[data-lang="'+currentLang+'"]').forEach(function(s){s.classList.remove('past')});
+  if(targetSpan){
+    textGrid.querySelectorAll('.text-span[data-lang="'+currentLang+'"]').forEach(function(s){
+      if(+s.dataset.srt<idx)s.classList.add('past');
+    });
+    targetSpan.classList.add('active');
+    var para=targetSpan.closest('.text-para');
+    if(para)para.classList.add('has-active');
+    textGrid.querySelectorAll('.text-para.has-active').forEach(function(p){if(p!==para)p.classList.remove('has-active')});
+    var rect=targetSpan.getBoundingClientRect();var areaRect=contentArea.getBoundingClientRect();
+    if(rect.top<areaRect.top+80||rect.bottom>areaRect.bottom-80){targetSpan.scrollIntoView({block:'center',behavior:'smooth'})}
+  }
+}
+
+function nextSection(){
+  var stave=D.staves[currentStave];
+  if(currentSection<stave.sections.length-1){loadSection(currentStave,currentSection+1);if(isPlaying)setTimeout(function(){audioEl.play()},300)}
+  else if(currentStave<D.staves.length-1){loadSection(currentStave+1,0);if(isPlaying)setTimeout(function(){audioEl.play()},300)}
+  else{audioEl.pause();playBtn.textContent='▶'}
+}
+function prevSection(){
+  if(currentSection>0)loadSection(currentStave,currentSection-1);
+  else if(currentStave>0){var ps=D.staves[currentStave-1];loadSection(currentStave-1,ps.sections.length-1)}
+}
+
+playBtn.addEventListener('click',togglePlay);
+$('prevBtn').addEventListener('click',prevSection);
+$('nextBtn').addEventListener('click',nextSection);
+
+document.querySelectorAll('.lang-toggle button').forEach(function(btn){
+  btn.addEventListener('click',function(){
+    var lang=this.dataset.lang;if(lang===currentLang)return;
+    currentLang=lang;
+    document.querySelectorAll('.lang-toggle button').forEach(function(b){b.classList.toggle('active',b.dataset.lang===lang)});
+    var sec=D.staves[currentStave].sections[currentSection];var wasPlaying=isPlaying;loadAudio(sec);
+    if(wasPlaying)audioEl.play().catch(function(){});
+  });
+});
+
+document.querySelectorAll('.view-btn').forEach(function(btn){
+  btn.addEventListener('click',function(){viewMode=this.dataset.mode;document.querySelectorAll('.view-btn').forEach(function(b){b.classList.toggle('active',b===btn)});textGrid.className='text-grid '+viewMode});
+});
+
+document.querySelectorAll('.speed-control button').forEach(function(btn){
+  btn.addEventListener('click',function(){var speed=parseFloat(this.dataset.speed);audioEl.playbackRate=speed;document.querySelectorAll('.speed-control button').forEach(function(b){b.classList.toggle('active',b===btn)})});
+});
+
+sidebarToggle.addEventListener('click',function(){sidebar.classList.toggle('collapsed');this.textContent=sidebar.classList.contains('collapsed')?'▶':'◀'});
+
+$('startBtn').addEventListener('click',function(){var last=localStorage.getItem('cc_lastpos');if(last){var parts=last.split('_');loadSection(+parts[0],+parts[1])}else{loadSection(0,0)}});
+
+document.addEventListener('keydown',function(e){
+  if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA')return;
+  if(e.code==='Space'){e.preventDefault();togglePlay()}
+  if(e.code==='ArrowLeft'&&!e.ctrlKey){e.preventDefault();prevSection()}
+  if(e.code==='ArrowRight'&&!e.ctrlKey){e.preventDefault();nextSection()}
+  if(e.code==='KeyM'){sidebar.classList.toggle('collapsed');sidebarToggle.textContent=sidebar.classList.contains('collapsed')?'▶':'◀'}
+});
+
+initSnow();buildSidebar();
+setTimeout(function(){$('loadingScreen').classList.add('hidden');setTimeout(function(){$('loadingScreen').style.display='none'},500)},400);
+})();
+</script>
+</body>
+</html>
