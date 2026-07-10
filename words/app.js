@@ -395,6 +395,19 @@ function getRoundSize() {
   return Math.min(ROUND_SIZE, round.length);
 }
 
+function setStartButtonText(title, detail = "") {
+  const startCopy = els.startButton.querySelector("span");
+  const startDetail = els.startButton.querySelector("small");
+
+  if (startCopy) {
+    startCopy.textContent = title;
+    if (startDetail) startDetail.textContent = detail;
+    return;
+  }
+
+  els.startButton.textContent = detail ? `${title} · ${detail}` : title;
+}
+
 function updateLearningDashboard() {
   const total = wordBank.length;
   const learned = masteredWords.size;
@@ -404,12 +417,12 @@ function updateLearningDashboard() {
 
   if (!total) return;
 
-  const startCopy = els.startButton.querySelector("span");
-  const startDetail = els.startButton.querySelector("small");
   const allMastered = remaining === 0;
   els.startButton.disabled = allMastered;
-  startCopy.textContent = allMastered ? "全部单词已学会" : "开始一组练习";
-  startDetail.textContent = allMastered ? "花园已经盛开" : `剩余 ${remaining} 个待学习单词`;
+  setStartButtonText(
+    allMastered ? "全部单词已学会" : "开始一组练习",
+    allMastered ? "花园已经盛开" : `剩余 ${remaining} 个待学习单词`
+  );
   els.homeStatus.textContent = allMastered
     ? `词库中的 ${total} 个单词都已学会，太棒了！`
     : `词库共 ${total} 个单词，已学会 ${learned} 个，还剩 ${remaining} 个`;
@@ -1253,7 +1266,7 @@ async function init() {
   } catch (error) {
     console.error(error);
     els.startButton.disabled = true;
-    els.startButton.querySelector("span").textContent = "词库读取失败";
+    setStartButtonText("词库读取失败");
     els.homeStatus.textContent = "没有成功读取 words/总单词.txt，请刷新后重试";
   }
 }
