@@ -39,36 +39,57 @@
 
   <main>
     <section class="garden-home" id="homeScreen" aria-labelledby="gardenTitle">
-      <h1 class="garden-title" id="gardenTitle">1000级全景魔法花园</h1>
-
-      <div class="ui-panel">
-        <div class="level-text">
-          <span id="gardenStageSummary">广袤而荒芜的土地...</span>
-          <span id="level-display">等级: <span id="gardenLevelCount">0</span> / <span id="gardenMaxLevel">1000</span></span>
-        </div>
-        <div class="progress-bar-container" aria-label="花园等级进度">
-          <div class="progress-bar" id="gardenProgressFill"></div>
-        </div>
-        <div class="controls">
-          <button class="garden-start-button" id="startButton" type="button" disabled>点击开始一组答题</button>
-          <button class="garden-progress-button" type="button" disabled>
-            已学会 <span id="masteredWordCount">0</span> / <span id="totalWordCount">0</span>
-          </button>
-        </div>
-        <p id="homeStatus" role="status">正在准备单词……</p>
-        <p class="garden-meta">
-          累计生机 <span id="gardenLifetimeCount">0</span>
-          <span id="gardenProgressText">生机 0 / 1000</span>
-        </p>
-      </div>
-
       <div class="garden-card">
+        <div class="garden-copy">
+          <span class="eyebrow">1000 LEVEL WORD GARDEN</span>
+          <h1 class="garden-title" id="gardenTitle">把记住的单词，种成一座魔法花园</h1>
+          <p>每完成一组练习，花园就提升 1 级。这里会从荒地慢慢长出幼芽、花海、树木与魔法生机。</p>
+
+          <div class="garden-stats" aria-label="单词花园成长数据">
+            <div>
+              <span>词库总数</span>
+              <strong id="totalWordCount">0</strong>
+            </div>
+            <div>
+              <span>已学会</span>
+              <strong id="masteredWordCount">0</strong>
+            </div>
+            <div>
+              <span>累计生机</span>
+              <strong id="gardenLifetimeCount">0</strong>
+            </div>
+            <div>
+              <span>花园等级</span>
+              <strong><span id="gardenLevelCount">0</span><small> / <span id="gardenMaxLevel">1000</span></small></strong>
+            </div>
+          </div>
+
+          <div class="garden-level-panel" aria-label="花园成长进度">
+            <div>
+              <span id="gardenStageSummary">广袤而荒芜的土地...</span>
+              <strong id="gardenProgressText">生机 0 / 1000</strong>
+            </div>
+            <div class="garden-progress-track"><div id="gardenProgressFill"></div></div>
+          </div>
+
+          <div class="garden-action">
+            <button class="garden-start-button" id="startButton" type="button" disabled>
+              <span>开始一组练习</span>
+              <small>10 道看图选词</small>
+            </button>
+            <p id="homeStatus" role="status">正在准备单词……</p>
+          </div>
+        </div>
+
         <div class="garden-scene" id="gardenScene" data-stage="0" aria-label="我的单词花园">
+          <div class="garden-stage-label">
+            <span>我的花园</span>
+            <strong id="gardenStageLabel">广袤而荒芜的土地</strong>
+          </div>
           <div class="garden-ground" id="ground" aria-hidden="true">
             <div class="garden-entities" id="gardenEntities"></div>
           </div>
           <div class="garden-boost" id="gardenBoost" aria-hidden="true">完成一组 · 生机 +1</div>
-          <span class="sr-only" id="gardenStageLabel">广袤而荒芜的土地</span>
           <p class="sr-only" id="gardenAnnouncement" aria-live="polite"></p>
         </div>
       </div>
