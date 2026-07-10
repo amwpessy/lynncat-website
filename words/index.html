@@ -7,6 +7,7 @@
   <meta name="description" content="Lynncat 单词花园——用图片联想，轻松记住英语单词。">
   <title>单词花园 · Lynncat</title>
   <link rel="stylesheet" href="styles.css">
+  <script src="words-data.js" defer></script>
   <script src="app.js" defer></script>
 </head>
 <body>
@@ -14,7 +15,7 @@
   <div class="ambient ambient-two" aria-hidden="true"></div>
 
   <header class="topbar">
-    <a class="brand" href="../index.html" aria-label="返回 Lynncat 首页">
+    <a class="brand" href="index.html" aria-label="返回单词花园主页">
       <span class="brand-mark" aria-hidden="true">
         <svg viewBox="0 0 48 48" role="img"><path d="M10.5 19 7 8l11 6.2A20 20 0 0 1 24 13c2.1 0 4.1.4 6 1.1L41 8l-3.5 11A17.7 17.7 0 0 1 42 31.2C42 40.5 34 44 24 44S6 40.5 6 31.2c0-4.7 1.7-8.8 4.5-12.2Z"/><path class="face" d="M16 28.5c1.2 0 2.2-1.1 2.2-2.5s-1-2.5-2.2-2.5-2.2 1.1-2.2 2.5 1 2.5 2.2 2.5Zm16 0c1.2 0 2.2-1.1 2.2-2.5s-1-2.5-2.2-2.5-2.2 1.1-2.2 2.5 1 2.5 2.2 2.5ZM20.5 34c1 1.3 2.2 2 3.5 2s2.5-.7 3.5-2"/></svg>
       </span>
@@ -37,7 +38,43 @@
   </header>
 
   <main>
-    <section class="quiz-shell" id="quizScreen" aria-labelledby="wordTitle">
+    <section class="garden-home" id="homeScreen" aria-labelledby="gardenTitle">
+      <h1 class="garden-title" id="gardenTitle">1000级全景魔法花园</h1>
+
+      <div class="ui-panel">
+        <div class="level-text">
+          <span id="gardenStageSummary">广袤而荒芜的土地...</span>
+          <span id="level-display">等级: <span id="gardenLevelCount">0</span> / <span id="gardenMaxLevel">1000</span></span>
+        </div>
+        <div class="progress-bar-container" aria-label="花园等级进度">
+          <div class="progress-bar" id="gardenProgressFill"></div>
+        </div>
+        <div class="controls">
+          <button class="garden-start-button" id="startButton" type="button" disabled>点击开始一组答题</button>
+          <button class="garden-progress-button" type="button" disabled>
+            已学会 <span id="masteredWordCount">0</span> / <span id="totalWordCount">0</span>
+          </button>
+        </div>
+        <p id="homeStatus" role="status">正在准备单词……</p>
+        <p class="garden-meta">
+          累计生机 <span id="gardenLifetimeCount">0</span>
+          <span id="gardenProgressText">生机 0 / 1000</span>
+        </p>
+      </div>
+
+      <div class="garden-card">
+        <div class="garden-scene" id="gardenScene" data-stage="0" aria-label="我的单词花园">
+          <div class="garden-ground" id="ground" aria-hidden="true">
+            <div class="garden-entities" id="gardenEntities"></div>
+          </div>
+          <div class="garden-boost" id="gardenBoost" aria-hidden="true">完成一组 · 生机 +1</div>
+          <span class="sr-only" id="gardenStageLabel">广袤而荒芜的土地</span>
+          <p class="sr-only" id="gardenAnnouncement" aria-live="polite"></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="quiz-shell" id="quizScreen" aria-labelledby="wordTitle" hidden>
       <div class="progress-row">
         <div class="progress-copy">
           <span class="eyebrow">今日练习</span>
@@ -69,7 +106,7 @@
 
       <div class="choice-grid" id="choiceGrid" role="group" aria-label="图片选项"></div>
 
-      <p class="keyboard-hint"><kbd>1</kbd>–<kbd>4</kbd> 选择图片 <span>·</span> <kbd>Enter</kbd> 继续</p>
+      <p class="keyboard-hint"><kbd>1</kbd>–<kbd>4</kbd> 选择图片 <span>·</span> 选择后自动进入下一题</p>
     </section>
 
     <section class="result-card" id="resultScreen" aria-labelledby="resultTitle" hidden>
@@ -80,6 +117,10 @@
       <span class="eyebrow">今日练习完成</span>
       <h1 id="resultTitle">花园又长大了一点！</h1>
       <p class="result-lead" id="resultLead">你已经完成了今天的看图选词。</p>
+      <div class="result-reward">
+        <span aria-hidden="true">🌱</span>
+        <div><small>本组奖励</small><strong>花园生机 +1</strong></div>
+      </div>
       <div class="result-stats">
         <div><strong id="finalCorrect">8</strong><span>答对</span></div>
         <div><strong id="finalAccuracy">100%</strong><span>正确率</span></div>
@@ -90,7 +131,8 @@
         <div id="reviewWords"></div>
       </div>
       <div class="result-actions">
-        <button class="primary-button" id="restartButton" type="button">再练一遍</button>
+        <button class="primary-button" id="homeButton" type="button">回到我的花园</button>
+        <button class="secondary-button" id="restartButton" type="button">再练一组</button>
         <a class="text-link" href="../index.html">返回 Lynncat</a>
       </div>
     </section>
