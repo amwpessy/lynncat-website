@@ -332,6 +332,8 @@
   <div class="modal">
     <h3><span data-en>Edit order</span><span data-zh>修改订单</span></h3>
     <p class="sub" id="editDateLabel"></p>
+    <label><span data-en>Booking date</span><span data-zh>预约日期</span></label>
+    <input id="eDate" type="date" required>
     <div class="row">
       <div>
         <label><span data-en>Name</span><span data-zh>称呼</span></label>
@@ -1147,7 +1149,8 @@ function openEdit(id){
   editId = id;
   const st = b.status==='confirmed' ? t('confirmed') : (b.status==='pending' ? t('pending') : t('rejected'));
   document.getElementById('editDateLabel').textContent =
-    fmtDate(b.d) + ' · ' + st + (b.kind==='extra' ? ' · '+t('extra') : '');
+    st + (b.kind==='extra' ? ' · '+t('extra') : '');
+  document.getElementById('eDate').value = b.d || '';
   document.getElementById('eName').value  = b.customer_name || '';
   document.getElementById('ePhone').value = b.customer_phone || '';
   document.getElementById('eAddr').value  = b.address || '';
@@ -1164,10 +1167,11 @@ async function saveEdit(){
   const msg = document.getElementById('editMsg');
   const name = document.getElementById('eName').value.trim();
   const phone = document.getElementById('ePhone').value.trim();
-  if (!name || !phone){ showMsg(msg,'err',t('needBook')); return; }
+  const date = document.getElementById('eDate').value;
+  if (!date || !name || !phone){ showMsg(msg,'err',t('needBook')); return; }
   if (editPhotos.some(p => typeof p !== 'string')){ showMsg(msg,'err',t('photoWait')); return; }
   const { data, error } = await sb.rpc('update_booking', {
-    p_user:feeder.user, p_pass:feeder.pass, p_id:editId,
+    p_user:feeder.user, p_pass:feeder.pass, p_id:editId, p_d:date,
     p_name:name, p_phone:phone,
     p_address:document.getElementById('eAddr').value.trim(),
     p_pet:document.getElementById('ePet').value.trim(),
