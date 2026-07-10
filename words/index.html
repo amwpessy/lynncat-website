@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f8f3e8">
+  <meta name="description" content="Lynncat 单词花园——用图片联想，轻松记住英语单词。">
+  <title>单词花园 · Lynncat</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div class="ambient ambient-one" aria-hidden="true"></div>
+  <div class="ambient ambient-two" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <a class="brand" href="../index.html" aria-label="返回 Lynncat 首页">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 48 48" role="img"><path d="M10.5 19 7 8l11 6.2A20 20 0 0 1 24 13c2.1 0 4.1.4 6 1.1L41 8l-3.5 11A17.7 17.7 0 0 1 42 31.2C42 40.5 34 44 24 44S6 40.5 6 31.2c0-4.7 1.7-8.8 4.5-12.2Z"/><path class="face" d="M16 28.5c1.2 0 2.2-1.1 2.2-2.5s-1-2.5-2.2-2.5-2.2 1.1-2.2 2.5 1 2.5 2.2 2.5Zm16 0c1.2 0 2.2-1.1 2.2-2.5s-1-2.5-2.2-2.5-2.2 1.1-2.2 2.5 1 2.5 2.2 2.5ZM20.5 34c1 1.3 2.2 2 3.5 2s2.5-.7 3.5-2"/></svg>
+      </span>
+      <span class="brand-copy">
+        <strong>单词花园</strong>
+        <small>WORD GARDEN</small>
+      </span>
+    </a>
+
+    <div class="topbar-actions">
+      <div class="streak-pill" title="连续学习天数">
+        <span aria-hidden="true">🔥</span>
+        <span><strong id="streakCount">1</strong> 天</span>
+      </div>
+      <button class="icon-button" id="soundToggle" type="button" aria-label="关闭音效" aria-pressed="true">
+        <svg class="sound-on" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4Zm12.5-.5a5 5 0 0 1 0 7M19 6a9 9 0 0 1 0 12"/></svg>
+        <svg class="sound-off" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4Zm12 1 5 5m0-5-5 5"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <section class="quiz-shell" id="quizScreen" aria-labelledby="wordTitle">
+      <div class="progress-row">
+        <div class="progress-copy">
+          <span class="eyebrow">今日练习</span>
+          <span><strong id="currentNumber">1</strong> / <span id="totalNumber">8</span></span>
+        </div>
+        <div class="score" aria-label="当前得分">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2.8 2.8 5.7 6.3.9-4.5 4.4 1 6.2-5.6-3-5.6 3 1-6.2-4.5-4.4 6.3-.9L12 2.8Z"/></svg>
+          <strong id="scoreCount">0</strong>
+        </div>
+      </div>
+      <div class="progress-track" aria-label="练习进度">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+
+      <div class="prompt-block">
+        <p class="prompt">哪个图片表示这个单词？</p>
+        <div class="word-line">
+          <h1 id="wordTitle">apple</h1>
+          <button class="speak-button" id="speakButton" type="button" aria-label="朗读当前单词">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4Zm12.5-.5a5 5 0 0 1 0 7M19 6a9 9 0 0 1 0 12"/></svg>
+          </button>
+        </div>
+        <div class="word-meta">
+          <span id="phonetic">/ˈæpəl/</span>
+          <span class="dot" aria-hidden="true"></span>
+          <span id="partOfSpeech">名词</span>
+        </div>
+      </div>
+
+      <div class="choice-grid" id="choiceGrid" role="group" aria-label="图片选项"></div>
+
+      <p class="keyboard-hint"><kbd>1</kbd>–<kbd>4</kbd> 选择图片 <span>·</span> <kbd>Enter</kbd> 继续</p>
+    </section>
+
+    <section class="result-card" id="resultScreen" aria-labelledby="resultTitle" hidden>
+      <div class="result-art" aria-hidden="true">
+        <span class="ray ray-one"></span><span class="ray ray-two"></span><span class="ray ray-three"></span>
+        <div class="result-cat">🐱</div>
+      </div>
+      <span class="eyebrow">今日练习完成</span>
+      <h1 id="resultTitle">花园又长大了一点！</h1>
+      <p class="result-lead" id="resultLead">你已经完成了今天的看图选词。</p>
+      <div class="result-stats">
+        <div><strong id="finalCorrect">8</strong><span>答对</span></div>
+        <div><strong id="finalAccuracy">100%</strong><span>正确率</span></div>
+        <div><strong id="bestScore">8</strong><span>最佳</span></div>
+      </div>
+      <div class="review-list" id="reviewList" hidden>
+        <p>再看一眼这些单词</p>
+        <div id="reviewWords"></div>
+      </div>
+      <div class="result-actions">
+        <button class="primary-button" id="restartButton" type="button">再练一遍</button>
+        <a class="text-link" href="../index.html">返回 Lynncat</a>
+      </div>
+    </section>
+  </main>
+
+  <div class="feedback" id="feedback" hidden aria-live="polite">
+    <div class="feedback-inner">
+      <div class="feedback-icon" id="feedbackIcon" aria-hidden="true"></div>
+      <div class="feedback-copy">
+        <strong id="feedbackTitle"></strong>
+        <p><span id="feedbackMeaning"></span><span class="example" id="feedbackExample"></span></p>
+      </div>
+      <button class="continue-button" id="continueButton" type="button">继续 <span aria-hidden="true">→</span></button>
+    </div>
+  </div>
+
+  <noscript>请启用 JavaScript 后开始单词练习。</noscript>
+</body>
+</html>
