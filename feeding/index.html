@@ -84,6 +84,7 @@
   .cal-cell.sel { background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#1a0e06; border-color:transparent; font-weight:700; }
   .cal-cell.avail { border-color:rgba(62,207,142,.6); color:var(--green); }
   .cal-cell.full { border-color:rgba(224,96,79,.55); color:var(--red); }
+  .cal-cell.booked { border-color:rgba(245,166,35,.65); color:var(--accent-ink); opacity:.72; }
   .cal-badge { font-size:10px; line-height:1; margin-top:3px; opacity:.95; }
   .cal-dot { position:absolute; top:4px; right:5px; width:8px; height:8px; border-radius:50%; background:var(--accent); box-shadow:0 0 0 2px var(--surface2); }
   .cal-cell.selc { box-shadow: inset 0 0 0 2px var(--accent); background:rgba(245,166,35,.12); }
@@ -371,6 +372,7 @@
   <div class="modal">
     <h3><span data-en>Choose booking dates</span><span data-zh>选择预约日期</span></h3>
     <p class="sub"><span data-en>Tap one or more dates, then confirm.</span><span data-zh>点选一个或多个日期后确认。</span></p>
+    <p class="sub hidden" id="editOtherDatesLabel" style="margin:0 0 12px;color:var(--accent-ink);"></p>
     <div id="editCal"></div>
     <div id="editDatesMsg"></div>
     <div class="row" style="margin-top:18px;">
@@ -425,7 +427,8 @@ const T = {
     feederSumBooked:n=>'✅ 已为 '+n+' 天创建订单', feederSumDup:n=>n+' 天该客户已有预约，未重复创建',
     feederNewTitle:n=>n>0?('代客下单（已选 '+n+' 天）'):'代客下单',
     feederNewBtn:n=>n>0?('创建 '+n+' 天订单'):'创建订单',
-    needDate:'请在日历上选择至少一天', feederPickDate:'点选一天或多天'
+    needDate:'请在日历上选择至少一天', feederPickDate:'点选一天或多天',
+    otherBookedDates:'该客户当前已预约日期', dateBooked:'已预约'
   },
   en: {
     needUser:'Enter username and password', wrong:'Wrong username or password', welcome:'Welcome back',
@@ -448,7 +451,8 @@ const T = {
     feederSumBooked:n=>'✅ Booking created for '+n+' day'+(n>1?'s':''), feederSumDup:n=>n+' day'+(n>1?'s':'')+' already booked for this customer — not duplicated',
     feederNewTitle:n=>n>0?('New booking ('+n+' day'+(n>1?'s':'')+' selected)'):'New booking for a customer',
     feederNewBtn:n=>n>0?('Create '+n+' day'+(n>1?'s':'')+' booking'):'Create booking',
-    needDate:'Please select at least one date on the calendar', feederPickDate:'Tap one or more dates'
+    needDate:'Please select at least one date on the calendar', feederPickDate:'Tap one or more dates',
+    otherBookedDates:'Dates currently booked for this customer', dateBooked:'Booked'
   }
 };
 function t(k){ return T[lang()][k]; }
@@ -1162,6 +1166,8 @@ function renderFeederHistory(list){
 let editId = null;
 let editSelDays = new Set();
 let editPickerDays = new Set();
+let editOtherBookedDays = new Set();
+let editRelatedBookingIds = new Set();
 function renderEditDatesLabel(){
   document.getElementById('editDatesLabel').textContent = editSelDays.size
     ? t('selDatesLabel') + '：' + Array.from(editSelDays).sort().map(fmtDate).join('、')
@@ -1179,11 +1185,42 @@ function toggleEditPickerDay(ds){
   if (editPickerDays.has(ds)) editPickerDays.delete(ds); else editPickerDays.add(ds);
   renderEditDatePicker();
 }
+function setEditOtherBookings(bookings){
+  editOtherBookedDays = new Set();
+  editRelatedBookingIds = new Set();
+  bookings.filter(b => b.id !== editId && (b.status === 'confirmed' || b.status === 'pending')).forEach(b => {
+    editOtherBookedDays.add(b.d);
+    editRelatedBookingIds.add(b.id);
+  });
+}
+function renderEditOtherDatesLabel(){
+  const el = document.getElementById('editOtherDatesLabel');
+  const dates = Array.from(editOtherBookedDays).sort();
+  el.textContent = dates.length ? t('otherBookedDates') + '：' + dates.map(fmtDate).join('、') : '';
+  el.classList.toggle('hidden', !dates.length);
+}
+async function loadEditCustomerBookings(){
+  const edit = feederBookings.find(x => x.id === editId);
+  if (!edit || !feeder) return;
+  const currentId = editId;
+  const { data, error } = await sb.rpc('feeder_customer_bookings', {
+    p_user:feeder.user, p_pass:feeder.pass, p_phone:edit.customer_phone
+  });
+  if (error || !data || !data.ok || editId !== currentId) return;
+  setEditOtherBookings(data.bookings || []);
+  editOtherBookedDays.forEach(d => editPickerDays.add(d));
+  renderEditOtherDatesLabel();
+  renderEditDatePicker();
+}
 function openEditDatePicker(){
-  editPickerDays = new Set(editSelDays);
+  const edit = feederBookings.find(x => x.id === editId);
+  setEditOtherBookings(feederBookings.filter(b => edit && b.customer_phone === edit.customer_phone));
+  editPickerDays = new Set([...editSelDays, ...editOtherBookedDays]);
   clearMsg(document.getElementById('editDatesMsg'));
+  renderEditOtherDatesLabel();
   renderEditDatePicker();
   document.getElementById('editDatesOverlay').classList.remove('hidden');
+  loadEditCustomerBookings();
 }
 function closeEditDatePicker(){ document.getElementById('editDatesOverlay').classList.add('hidden'); }
 function confirmEditDatePicker(){
@@ -1200,6 +1237,8 @@ function openEdit(id){
   document.getElementById('editDateLabel').textContent =
     st + (b.kind==='extra' ? ' · '+t('extra') : '');
   editSelDays = new Set(b.d ? [b.d] : []);
+  editOtherBookedDays.clear();
+  editRelatedBookingIds.clear();
   renderEditDatesLabel();
   document.getElementById('eName').value  = b.customer_name || '';
   document.getElementById('ePhone').value = b.customer_phone || '';
@@ -1226,8 +1265,9 @@ async function saveEdit(){
   if (!dates.length){ showMsg(msg,'err',t('needDate')); return; }
   if (!name || !phone){ showMsg(msg,'err',t('needBook')); return; }
   if (editPhotos.some(p => typeof p !== 'string')){ showMsg(msg,'err',t('photoWait')); return; }
-  const { data, error } = await sb.rpc('update_booking_dates', {
+  const { data, error } = await sb.rpc('update_booking_dates_group', {
     p_user:feeder.user, p_pass:feeder.pass, p_id:editId, p_dates:dates,
+    p_related_ids:Array.from(editRelatedBookingIds),
     p_name:name, p_phone:phone,
     p_address:document.getElementById('eAddr').value.trim(),
     p_pet:document.getElementById('ePet').value.trim(),
