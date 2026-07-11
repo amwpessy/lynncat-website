@@ -257,6 +257,55 @@ begin
   return json_build_object('ok', true);
 end; $$;
 
+-- 喂猫员修改订单，并可将同一订单安排到多个日期：原订单保留为一个日期，其余日期创建同内容订单。
+create or replace function update_booking_dates(
+  p_user text, p_pass text, p_id uuid, p_dates date[],
+  p_name text, p_phone text, p_address text, p_pet text, p_notes text,
+  p_photos text[] default null
+) returns json language plpgsql security definer as $$
+declare
+  v_booking bookings%rowtype;
+  v_dates date[];
+  v_target date;
+  v_d date;
+  v_photos text[];
+  v_added int := 0;
+begin
+  if not _check_feeder(p_user, p_pass) then return json_build_object('ok', false); end if;
+  select * into v_booking from bookings where id = p_id;
+  if not found then return json_build_object('ok', false); end if;
+
+  select array_agg(distinct x order by x) into v_dates from unnest(p_dates) as x;
+  if coalesce(array_length(v_dates, 1), 0) = 0 then return json_build_object('ok', false); end if;
+  v_target := case when v_booking.d = any(v_dates) then v_booking.d else v_dates[1] end;
+  v_photos := coalesce(p_photos, v_booking.photo_urls);
+
+  update bookings set
+    d = v_target,
+    customer_name = p_name,
+    customer_phone = p_phone,
+    address = p_address,
+    pet_info = p_pet,
+    notes = p_notes,
+    photo_urls = v_photos
+  where id = p_id;
+
+  foreach v_d in array v_dates loop
+    if v_d <> v_target and not exists (
+      select 1 from bookings
+       where d = v_d and customer_phone = p_phone and status = v_booking.status
+         and customer_name = p_name and coalesce(address,'') = coalesce(p_address,'')
+         and coalesce(pet_info,'') = coalesce(p_pet,'') and coalesce(notes,'') = coalesce(p_notes,'')
+    ) then
+      insert into bookings(d, customer_name, customer_phone, address, pet_info, notes, photo_urls, kind, status)
+      values (v_d, p_name, p_phone, p_address, p_pet, p_notes, v_photos, v_booking.kind, v_booking.status);
+      v_added := v_added + 1;
+    end if;
+  end loop;
+
+  return json_build_object('ok', true, 'added', v_added);
+end; $$;
+
 -- 喂猫员代客下单（客户不方便自己下单时，喂猫员手动建单；一次可选多天）。
 -- 不受每天3单上限限制，由喂猫员自行判断是否接单；同一客户同一天已有未拒绝的预约则跳过（标记 duplicate），不重复创建。
 create or replace function feeder_create_bookings(
@@ -332,6 +381,7 @@ grant execute on function feeder_overview(text, text)                           
 grant execute on function set_available_days(text, text, date[])                        to anon;
 grant execute on function decide_request(text, text, uuid, boolean)                      to anon;
 grant execute on function update_booking(text, text, uuid, date, text, text, text, text, text, text[]) to anon;
+grant execute on function update_booking_dates(text, text, uuid, date[], text, text, text, text, text, text[]) to anon;
 grant execute on function feeder_create_bookings(text, text, date[], text, text, text, text, text, text[]) to anon;
 grant execute on function delete_booking(text, text, uuid)                              to anon;
 grant execute on function feeder_history(text, text, text, int)                         to anon;

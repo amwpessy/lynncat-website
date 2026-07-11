@@ -332,8 +332,11 @@
   <div class="modal">
     <h3><span data-en>Edit order</span><span data-zh>修改订单</span></h3>
     <p class="sub" id="editDateLabel"></p>
-    <label><span data-en>Booking date</span><span data-zh>预约日期</span></label>
-    <input id="eDate" type="date" required>
+    <label><span data-en>Booking dates</span><span data-zh>预约日期</span></label>
+    <div style="display:flex;align-items:center;gap:10px;margin:0 0 14px;">
+      <p class="sub" id="editDatesLabel" style="margin:0;flex:1;"></p>
+      <button type="button" class="btn ghost sm" onclick="openEditDatePicker()"><span data-en>Edit</span><span data-zh>修改</span></button>
+    </div>
     <div class="row">
       <div>
         <label><span data-en>Name</span><span data-zh>称呼</span></label>
@@ -360,6 +363,20 @@
       <button class="btn" style="flex:1;" onclick="saveEdit()"><span data-en>Save</span><span data-zh>保存</span></button>
     </div>
     <button class="btn red full" style="margin-top:10px;" onclick="deleteEdit()"><span data-en>Delete this order</span><span data-zh>删除该单</span></button>
+  </div>
+</div>
+
+<!-- 修改订单日期（可多选） -->
+<div id="editDatesOverlay" class="overlay hidden" style="z-index:250;">
+  <div class="modal">
+    <h3><span data-en>Choose booking dates</span><span data-zh>选择预约日期</span></h3>
+    <p class="sub"><span data-en>Tap one or more dates, then confirm.</span><span data-zh>点选一个或多个日期后确认。</span></p>
+    <div id="editCal"></div>
+    <div id="editDatesMsg"></div>
+    <div class="row" style="margin-top:18px;">
+      <button class="btn ghost" style="flex:0 0 auto;" onclick="closeEditDatePicker()"><span data-en>Cancel</span><span data-zh>取消</span></button>
+      <button class="btn" style="flex:1;" onclick="confirmEditDatePicker()"><span data-en>Confirm</span><span data-zh>确认</span></button>
+    </div>
   </div>
 </div>
 
@@ -1143,6 +1160,38 @@ function renderFeederHistory(list){
 
 /* ----- 喂猫员修改/删除订单 ----- */
 let editId = null;
+let editSelDays = new Set();
+let editPickerDays = new Set();
+function renderEditDatesLabel(){
+  document.getElementById('editDatesLabel').textContent = editSelDays.size
+    ? t('selDatesLabel') + '：' + Array.from(editSelDays).sort().map(fmtDate).join('、')
+    : t('feederPickDate');
+}
+function renderEditDatePicker(){
+  const box = document.getElementById('editCal');
+  if (!box) return;
+  box.innerHTML = monthGrids((ds, day, inWin) => {
+    if (!inWin) return '<div class="cal-cell muted">'+day+'</div>';
+    return '<div class="cal-cell clickable'+(editPickerDays.has(ds)?' sel':'')+'" onclick="toggleEditPickerDay(\''+ds+'\')">'+day+'</div>';
+  });
+}
+function toggleEditPickerDay(ds){
+  if (editPickerDays.has(ds)) editPickerDays.delete(ds); else editPickerDays.add(ds);
+  renderEditDatePicker();
+}
+function openEditDatePicker(){
+  editPickerDays = new Set(editSelDays);
+  clearMsg(document.getElementById('editDatesMsg'));
+  renderEditDatePicker();
+  document.getElementById('editDatesOverlay').classList.remove('hidden');
+}
+function closeEditDatePicker(){ document.getElementById('editDatesOverlay').classList.add('hidden'); }
+function confirmEditDatePicker(){
+  if (!editPickerDays.size){ showMsg(document.getElementById('editDatesMsg'),'err',t('needDate')); return; }
+  editSelDays = new Set(editPickerDays);
+  renderEditDatesLabel();
+  closeEditDatePicker();
+}
 function openEdit(id){
   const b = feederBookings.find(x => x.id === id);
   if (!b) return;
@@ -1150,7 +1199,8 @@ function openEdit(id){
   const st = b.status==='confirmed' ? t('confirmed') : (b.status==='pending' ? t('pending') : t('rejected'));
   document.getElementById('editDateLabel').textContent =
     st + (b.kind==='extra' ? ' · '+t('extra') : '');
-  document.getElementById('eDate').value = b.d || '';
+  editSelDays = new Set(b.d ? [b.d] : []);
+  renderEditDatesLabel();
   document.getElementById('eName').value  = b.customer_name || '';
   document.getElementById('ePhone').value = b.customer_phone || '';
   document.getElementById('eAddr').value  = b.address || '';
@@ -1161,17 +1211,23 @@ function openEdit(id){
   clearMsg(document.getElementById('editMsg'));
   document.getElementById('editOverlay').classList.remove('hidden');
 }
-function closeEdit(){ document.getElementById('editOverlay').classList.add('hidden'); editId = null; }
+function closeEdit(){
+  document.getElementById('editOverlay').classList.add('hidden');
+  closeEditDatePicker();
+  editId = null;
+  editSelDays.clear();
+}
 async function saveEdit(){
   if (!editId || !feeder) return;
   const msg = document.getElementById('editMsg');
   const name = document.getElementById('eName').value.trim();
   const phone = document.getElementById('ePhone').value.trim();
-  const date = document.getElementById('eDate').value;
-  if (!date || !name || !phone){ showMsg(msg,'err',t('needBook')); return; }
+  const dates = Array.from(editSelDays).sort();
+  if (!dates.length){ showMsg(msg,'err',t('needDate')); return; }
+  if (!name || !phone){ showMsg(msg,'err',t('needBook')); return; }
   if (editPhotos.some(p => typeof p !== 'string')){ showMsg(msg,'err',t('photoWait')); return; }
-  const { data, error } = await sb.rpc('update_booking', {
-    p_user:feeder.user, p_pass:feeder.pass, p_id:editId, p_d:date,
+  const { data, error } = await sb.rpc('update_booking_dates', {
+    p_user:feeder.user, p_pass:feeder.pass, p_id:editId, p_dates:dates,
     p_name:name, p_phone:phone,
     p_address:document.getElementById('eAddr').value.trim(),
     p_pet:document.getElementById('ePet').value.trim(),
