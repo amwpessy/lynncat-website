@@ -12,6 +12,7 @@ const AUDIO_CACHE_LIMIT = 360;
 const GARDEN_VITALITY_KEY = "word-garden-completed-sets-v2";
 const MASTERED_WORDS_KEY = "word-garden-mastered-words-v1";
 const FALLBACK_WORDS = Array.isArray(window.WORD_GARDEN_WORDS) ? window.WORD_GARDEN_WORDS : [];
+const LOCAL_ASSET_WORDS = Array.isArray(window.WORD_GARDEN_ASSETS) ? window.WORD_GARDEN_ASSETS : [];
 const VISUAL_WORDS = {
   apple: { meaning: "苹果", query: "red apple fruit" },
   banana: { meaning: "香蕉", query: "banana fruit" },
@@ -626,6 +627,27 @@ function parseWordList(text) {
   }, []);
 }
 
+function mergeLocalAssetWords(words) {
+  const byWord = new Map(words.map(item => [item.word, item]));
+
+  LOCAL_ASSET_WORDS.forEach(asset => {
+    const word = String(asset.word || "").trim().toLowerCase();
+    const image = String(asset.image || "").trim();
+    if (!word || !image) return;
+
+    const current = byWord.get(word) || { word, level: asset.level || "图片词库" };
+    byWord.set(word, {
+      ...current,
+      level: current.level || asset.level || "图片词库",
+      meaning: asset.meaning || current.meaning || VISUAL_WORDS[word]?.meaning || word,
+      query: current.query || VISUAL_WORDS[word]?.query || word,
+      localImage: image
+    });
+  });
+
+  return Array.from(byWord.values());
+}
+
 async function loadWordBank() {
   let words = [];
 
@@ -638,9 +660,20 @@ async function loadWordBank() {
     words = FALLBACK_WORDS;
   }
 
+  words = mergeLocalAssetWords(words);
+
   const visualWords = words
-    .map(item => ({ ...item, ...VISUAL_WORDS[item.word], emoji: EMOJI_VISUALS[item.word] }))
-    .filter(item => item.meaning && item.query && item.emoji);
+    .map(item => {
+      const visual = VISUAL_WORDS[item.word] || {};
+      return {
+        ...item,
+        ...visual,
+        meaning: item.meaning || visual.meaning,
+        query: item.query || visual.query || item.word,
+        emoji: item.localImage ? "" : EMOJI_VISUALS[item.word]
+      };
+    })
+    .filter(item => item.meaning && item.query && (item.localImage || item.emoji));
 
   if (visualWords.length < CHOICE_COUNT) throw new Error("word list has too few visual words");
   return visualWords;
@@ -796,6 +829,20 @@ function pickBestImage(item, results) {
 
 async function getImageForWord(item) {
   const key = item.word.toLowerCase();
+  if (item.localImage) {
+    return {
+      kind: "local",
+      url: item.localImage,
+      fullUrl: item.localImage,
+      title: `${item.word} 本地配图`,
+      creator: "Word Garden",
+      provider: "local",
+      license: "",
+      licenseUrl: "",
+      landingUrl: "",
+      attribution: "本地图片"
+    };
+  }
   if (item.emoji) {
     return {
       kind: "emoji",
@@ -1025,7 +1072,7 @@ function renderChoice(choice, index) {
 
   const credit = document.createElement("span");
   credit.className = "choice-credit";
-  credit.textContent = choice.image.kind === "emoji" ? "MATCH" : "Openverse";
+  credit.textContent = choice.image.kind === "local" ? "LOCAL" : choice.image.kind === "emoji" ? "MATCH" : "Openverse";
 
   button.append(visual, number, state, credit);
   button.addEventListener("click", () => chooseAnswer(button, choice));
