@@ -11,7 +11,7 @@
   nav { display: flex; align-items: center; justify-content: space-between; padding: 0 0 32px; border-bottom: 1px solid var(--border); margin-bottom: 48px; }
   .nav-logo { font-size: 18px; font-weight: 700; color: var(--accent-ink); text-decoration: none; }
   a { color: var(--accent-ink); }
-  .container { max-width: 700px; margin: 0 auto; }
+  .container { max-width: 760px; margin: 0 auto; }
   .app-header { display: flex; align-items: center; gap: 16px; margin-bottom: 40px; }
   .app-icon { width: 64px; height: 64px; border-radius: 16px; background: linear-gradient(135deg, #6a5210, #1a1406); display: flex; align-items: center; justify-content: center; font-size: 32px; }
   .app-header h1 { font-size: 24px; font-weight: 700; }
@@ -29,10 +29,10 @@
   .lang-section { display: none; }
   .lang-section.active { display: block; }
   footer { border-top: 1px solid var(--border); padding-top: 28px; margin-top: 60px; text-align: center; font-size: 13px; color: var(--muted); }
-:root{--accent-ink:#f5a623;--accent2-ink:#e07020;--nav-bg:rgba(15,15,15,0.92);--tag-bg:rgba(255,255,255,0.06);}
-:root[data-theme='light']{--bg:#f6f6f8;--surface:#ffffff;--surface2:#f0f0f3;--border:#e3e3e8;--text:#1b1b1f;--muted:#6a6a72;--accent-ink:#b35e09;--accent2-ink:#8f4408;--green:#1f9d63;--red:#cf3a28;--nav-bg:rgba(246,246,248,0.9);--tag-bg:rgba(0,0,0,0.05);}
+  :root{--accent-ink:#f5a623;--accent2-ink:#e07020;--nav-bg:rgba(15,15,15,0.92);--tag-bg:rgba(255,255,255,0.06);}
+  :root[data-theme='light']{--bg:#f6f6f8;--surface:#ffffff;--surface2:#f0f0f3;--border:#e3e3e8;--text:#1b1b1f;--muted:#6a6a72;--accent-ink:#b35e09;--accent2-ink:#8f4408;--green:#1f9d63;--red:#cf3a28;--nav-bg:rgba(246,246,248,0.9);--tag-bg:rgba(0,0,0,0.05);}
 </style>
-<script>/* 按北京时间自动切换主题：白天(6-18)浅色，夜间深色 */
+<script>/* Auto theme by Beijing time */
 (function(){function a(){var h;try{h=parseInt(new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Shanghai',hour:'numeric',hour12:false}).format(new Date()),10);}catch(e){h=new Date().getHours();}if(h===24)h=0;document.documentElement.setAttribute('data-theme',(h>=6&&h<18)?'light':'dark');}a();setInterval(a,300000);})();</script>
 </head>
 <body>
@@ -51,37 +51,39 @@
   </div>
 
   <div class="lang-switcher">
-    <button class="lang-btn active" onclick="setLang('en')">English</button>
-    <button class="lang-btn" onclick="setLang('zht')">繁體中文</button>
+    <button class="lang-btn active" onclick="setLang('en', event)">English</button>
+    <button class="lang-btn" onclick="setLang('zht', event)">繁體中文</button>
   </div>
 
-  <!-- English -->
   <div class="lang-section active" id="lang-en">
-    <div class="qa"><h3>What is Lynncat Markets?</h3><p>A clean, real-time price tracker for precious metals (gold, silver, platinum, palladium) and crypto (Bitcoin, Ethereum), for iPhone, iPad, Mac and Apple Watch.</p></div>
-    <div class="qa"><h3>How do I switch currency?</h3><p>Tap the region selector to switch between CNY, HKD and USD. Metals are priced per gram and crypto per coin; USD mode also switches the interface to English.</p></div>
-    <div class="qa"><h3>How do price alerts work?</h3><p>Set a target price and choose above or below. When the price crosses it, you get a local notification. Alerts can be set in CNY or USD.</p></div>
-    <div class="qa"><h3>Where does the data come from?</h3><p>Prices come from third-party public data sources and are for reference only — they do not constitute investment advice.</p></div>
-    <div class="qa"><h3>Does it work on Mac and Apple Watch?</h3><p>Yes. On Mac it lives in your menu bar (with Touch Bar support); on Apple Watch it's a standalone app you can glance at without an iPhone nearby.</p></div>
-    <div class="qa"><h3>Is it free?</h3><p>Completely free — no ads, no tracking, and no personal data collected.</p></div>
-    <div class="qa"><h3>How do I change the language?</h3><p>The app follows your device language, with full support for English, Simplified Chinese and Traditional Chinese.</p></div>
+    <div class="qa"><h3>What can I track in Lynncat Markets?</h3><p>Precious metals, Bitcoin, Ethereum, US stock indexes, selected US stocks, US Treasury data, crude oil, recent economic events, technology news and current news.</p></div>
+    <div class="qa"><h3>What is included in the gold page?</h3><p>Live gold pricing, historical charts, China central bank monthly gold reserve changes, US gold ETF daily holding changes, ratio analysis, and Gold ⇄ Bitcoin conversion.</p></div>
+    <div class="qa"><h3>Does the app support US market data?</h3><p>Yes. The US stocks page includes Dow Jones, Nasdaq and S&amp;P 500 panels, index history charts, stock prices, daily changes and market value information. Compact external displays use Nasdaq data.</p></div>
+    <div class="qa"><h3>Do news and economic events update?</h3><p>The economic events, technology news and current-news pages are designed to refresh from live sources when opened or when you tap update. Speed depends on your network and the source service.</p></div>
+    <div class="qa"><h3>Can I switch language or region?</h3><p>Yes. The app supports English, Simplified Chinese and Traditional Chinese. News pages use bilingual sources so content can switch with the app language where available.</p></div>
+    <div class="qa"><h3>How do price alerts work?</h3><p>Price alert rules are saved locally on your device. Lynncat does not receive your alert levels. Delivery depends on system notification permissions and background refresh behavior.</p></div>
+    <div class="qa"><h3>Does Lynncat Markets support Lock Screen and Dynamic Island?</h3><p>On compatible iPhone models, market information can appear through Lock Screen Live Activities and Dynamic Island. You can enable or stop this display from the app.</p></div>
+    <div class="qa"><h3>What does the Mac version include?</h3><p>The Mac app includes the full market dashboard, menu bar quotes, compact chart displays, optional light theme, price alerts and a standby-style gold trend screen.</p></div>
+    <div class="qa"><h3>Is the message board available?</h3><p>No. The public anonymous message board is disabled in the current App Store release while moderation, reporting and safety controls are prepared.</p></div>
     <div class="contact-box">
       <p style="color:var(--text);font-weight:600;margin-bottom:6px;">Still need help?</p>
-      <p>Email <a href="mailto:amwpessy@gmail.com">amwpessy@gmail.com</a> — we usually reply within a couple of days.</p>
+      <p>Email <a href="mailto:amwpessy@gmail.com">amwpessy@gmail.com</a> with your device model, system version, app version and a short description of the issue.</p>
     </div>
   </div>
 
-  <!-- 繁體中文 -->
   <div class="lang-section" id="lang-zht">
-    <div class="qa"><h3>靈貓行情是什麼？</h3><p>一款簡潔的即時行情工具,涵蓋貴金屬(黃金、白銀、鉑金、鈀金)與加密貨幣(比特幣、以太幣),支援 iPhone、iPad、Mac 與 Apple Watch。</p></div>
-    <div class="qa"><h3>如何切換貨幣？</h3><p>點擊地區選擇器即可在人民幣、港幣、美元之間切換。貴金屬按克、加密按枚計價;美元模式同時將介面切換為英文。</p></div>
-    <div class="qa"><h3>價格提醒如何運作？</h3><p>設定目標價並選擇突破上限或下限,當價格越過時即收到本機通知。提醒可用人民幣或美元設定。</p></div>
-    <div class="qa"><h3>數據來自哪裡？</h3><p>行情來自第三方公開數據來源,僅供參考——不構成任何投資建議。</p></div>
-    <div class="qa"><h3>支援 Mac 與 Apple Watch 嗎？</h3><p>支援。Mac 上常駐選單列(並支援 Touch Bar);Apple Watch 上為獨立 App,毋須 iPhone 在旁即可查看。</p></div>
-    <div class="qa"><h3>是免費的嗎？</h3><p>完全免費——無廣告、不追蹤,亦不收集任何個人資料。</p></div>
-    <div class="qa"><h3>如何切換語言？</h3><p>App 會跟隨你的裝置語言,完整支援英文、簡體中文與繁體中文。</p></div>
+    <div class="qa"><h3>這個 App 可以追蹤哪些內容？</h3><p>你可以查看貴金屬、比特幣、以太坊、美股指數、部分美股、美国国债數據、原油價格、近期重要經濟事件、科技資訊與時事資訊。</p></div>
+    <div class="qa"><h3>黃金頁面包含哪些功能？</h3><p>黃金頁面包含即時價格、歷年走势图、中國央行每月黃金儲備增減、美國黃金 ETF 每日持倉增減、比值分析，以及黃金和比特幣換算。</p></div>
+    <div class="qa"><h3>是否支援美股數據？</h3><p>支援。美股頁面包含道瓊斯、納斯達克、標普 500 指數、指數歷年走势图、美股價格和漲跌幅列表，以及總市值等資訊。外部緊湊顯示使用納斯達克數據。</p></div>
+    <div class="qa"><h3>資訊和經濟事件會更新嗎？</h3><p>近期重要經濟事件、科技資訊和時事資訊頁面會在打開或點擊更新時從即時來源獲取新內容。實際速度取決於網路和資訊源服務。</p></div>
+    <div class="qa"><h3>能否切換語言和地區？</h3><p>可以。App 支援英文、簡體中文與繁體中文。資訊類頁面會使用中英雙語來源，盡量隨 App 語言同步切換。</p></div>
+    <div class="qa"><h3>價格提醒如何運作？</h3><p>價格提醒規則保存在你的裝置本機，Lynncat 不會接收你的提醒價格。提醒是否送達取決於系統通知權限和背景刷新狀態。</p></div>
+    <div class="qa"><h3>是否支援鎖屏和靈動島？</h3><p>在支援的 iPhone 型號上，App 可以透過即時活動在鎖屏和靈動島顯示市場資訊。你可以在 App 內啟用或停止。</p></div>
+    <div class="qa"><h3>Mac 版本包含哪些功能？</h3><p>Mac 版本包含完整市場看板、選單列行情、緊湊走势图、可選淺色主題、價格提醒，以及待機式黃金走勢大屏。</p></div>
+    <div class="qa"><h3>留言板是否可用？</h3><p>目前 App Store 版本已屏蔽公開匿名留言板，後續會在完善審核、舉報和安全機制後再評估開放。</p></div>
     <div class="contact-box">
       <p style="color:var(--text);font-weight:600;margin-bottom:6px;">還需要協助？</p>
-      <p>請來信 <a href="mailto:amwpessy@gmail.com">amwpessy@gmail.com</a>,我們通常會在數日內回覆。</p>
+      <p>請來信 <a href="mailto:amwpessy@gmail.com">amwpessy@gmail.com</a>，並附上裝置型號、系統版本、App 版本和問題描述。</p>
     </div>
   </div>
 
@@ -91,11 +93,11 @@
 </div>
 
 <script>
-function setLang(lang) {
+function setLang(lang, event) {
   document.querySelectorAll('.lang-section').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.lang-btn').forEach(el => el.classList.remove('active'));
   document.getElementById('lang-' + lang).classList.add('active');
-  event.target.classList.add('active');
+  if (event && event.target) event.target.classList.add('active');
 }
 </script>
 </body>
