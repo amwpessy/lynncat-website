@@ -12,6 +12,24 @@
     "image": "assets/xiaoxue/apple.png"
   },
   {
+    "word": "arm",
+    "meaning": "手臂",
+    "level": "小学",
+    "image": "assets/xiaoxue/arm.png"
+  },
+  {
+    "word": "baby",
+    "meaning": "婴儿",
+    "level": "小学",
+    "image": "assets/xiaoxue/baby.png"
+  },
+  {
+    "word": "bag",
+    "meaning": "书包",
+    "level": "小学",
+    "image": "assets/xiaoxue/bag.png"
+  },
+  {
     "word": "banana",
     "meaning": "香蕉",
     "level": "小学",
@@ -30,10 +48,40 @@
     "image": "assets/xiaoxue/bee.png"
   },
   {
+    "word": "bell",
+    "meaning": "铃",
+    "level": "小学",
+    "image": "assets/xiaoxue/bell.png"
+  },
+  {
+    "word": "blackboard",
+    "meaning": "黑板",
+    "level": "小学",
+    "image": "assets/xiaoxue/blackboard.png"
+  },
+  {
+    "word": "book",
+    "meaning": "书",
+    "level": "小学",
+    "image": "assets/xiaoxue/book.png"
+  },
+  {
+    "word": "boy",
+    "meaning": "男孩",
+    "level": "小学",
+    "image": "assets/xiaoxue/boy.png"
+  },
+  {
     "word": "bread",
     "meaning": "面包",
     "level": "小学",
     "image": "assets/xiaoxue/bread.png"
+  },
+  {
+    "word": "brother",
+    "meaning": "兄弟",
+    "level": "小学",
+    "image": "assets/xiaoxue/brother.png"
   },
   {
     "word": "burger",
@@ -78,6 +126,12 @@
     "image": "assets/xiaoxue/cat.png"
   },
   {
+    "word": "chair",
+    "meaning": "椅子",
+    "level": "小学",
+    "image": "assets/xiaoxue/chair.png"
+  },
+  {
     "word": "cheese",
     "meaning": "奶酪",
     "level": "小学",
@@ -100,6 +154,12 @@
     "meaning": "巧克力",
     "level": "小学",
     "image": "assets/xiaoxue/chocolate.png"
+  },
+  {
+    "word": "cook",
+    "meaning": "厨师",
+    "level": "小学",
+    "image": "assets/xiaoxue/cook.png"
   },
   {
     "word": "cookie",
@@ -130,6 +190,18 @@
     "meaning": "鹿",
     "level": "小学",
     "image": "assets/xiaoxue/deer.png"
+  },
+  {
+    "word": "desk",
+    "meaning": "书桌",
+    "level": "小学",
+    "image": "assets/xiaoxue/desk.png"
+  },
+  {
+    "word": "doctor",
+    "meaning": "医生",
+    "level": "小学",
+    "image": "assets/xiaoxue/doctor.png"
   },
   {
     "word": "dog",
@@ -168,16 +240,64 @@
     "image": "assets/xiaoxue/egg.png"
   },
   {
+    "word": "elbow",
+    "meaning": "肘部",
+    "level": "小学",
+    "image": "assets/xiaoxue/elbow.png"
+  },
+  {
     "word": "elephant",
     "meaning": "大象",
     "level": "小学",
     "image": "assets/xiaoxue/elephant.png"
   },
   {
+    "word": "eraser",
+    "meaning": "橡皮",
+    "level": "小学",
+    "image": "assets/xiaoxue/eraser.png"
+  },
+  {
     "word": "eye",
     "meaning": "眼睛",
     "level": "小学",
     "image": "assets/xiaoxue/eye.png"
+  },
+  {
+    "word": "face",
+    "meaning": "脸",
+    "level": "小学",
+    "image": "assets/xiaoxue/face.png"
+  },
+  {
+    "word": "family",
+    "meaning": "家庭",
+    "level": "小学",
+    "image": "assets/xiaoxue/family.png"
+  },
+  {
+    "word": "farmer",
+    "meaning": "农民",
+    "level": "小学",
+    "image": "assets/xiaoxue/farmer.png"
+  },
+  {
+    "word": "father",
+    "meaning": "父亲",
+    "level": "小学",
+    "image": "assets/xiaoxue/father.png"
+  },
+  {
+    "word": "finger",
+    "meaning": "手指",
+    "level": "小学",
+    "image": "assets/xiaoxue/finger.png"
+  },
+  {
+    "word": "fireman",
+    "meaning": "消防员",
+    "level": "小学",
+    "image": "assets/xiaoxue/fireman.png"
   },
   {
     "word": "fish",
@@ -198,6 +318,12 @@
     "image": "assets/xiaoxue/fox.png"
   },
   {
+    "word": "friend",
+    "meaning": "朋友",
+    "level": "小学",
+    "image": "assets/xiaoxue/friend.png"
+  },
+  {
     "word": "frog",
     "meaning": "青蛙",
     "level": "小学",
@@ -210,16 +336,52 @@
     "image": "assets/xiaoxue/giraffe.png"
   },
   {
+    "word": "girl",
+    "meaning": "女孩",
+    "level": "小学",
+    "image": "assets/xiaoxue/girl.png"
+  },
+  {
+    "word": "globe",
+    "meaning": "地球仪",
+    "level": "小学",
+    "image": "assets/xiaoxue/globe.png"
+  },
+  {
+    "word": "glue",
+    "meaning": "胶水",
+    "level": "小学",
+    "image": "assets/xiaoxue/glue.png"
+  },
+  {
     "word": "grape",
     "meaning": "葡萄",
     "level": "小学",
     "image": "assets/xiaoxue/grape.png"
   },
   {
+    "word": "hair",
+    "meaning": "头发",
+    "level": "小学",
+    "image": "assets/xiaoxue/hair.png"
+  },
+  {
     "word": "hand",
     "meaning": "手",
     "level": "小学",
     "image": "assets/xiaoxue/hand.png"
+  },
+  {
+    "word": "head",
+    "meaning": "头",
+    "level": "小学",
+    "image": "assets/xiaoxue/head.png"
+  },
+  {
+    "word": "heart",
+    "meaning": "心",
+    "level": "小学",
+    "image": "assets/xiaoxue/heart.png"
   },
   {
     "word": "horse",
@@ -240,16 +402,34 @@
     "image": "assets/xiaoxue/juice.png"
   },
   {
+    "word": "king",
+    "meaning": "国王",
+    "level": "小学",
+    "image": "assets/xiaoxue/king.png"
+  },
+  {
     "word": "kiwi",
     "meaning": "猕猴桃",
     "level": "小学",
     "image": "assets/xiaoxue/kiwi.png"
   },
   {
+    "word": "knee",
+    "meaning": "膝盖",
+    "level": "小学",
+    "image": "assets/xiaoxue/knee.png"
+  },
+  {
     "word": "ladybug",
     "meaning": "瓢虫",
     "level": "小学",
     "image": "assets/xiaoxue/ladybug.png"
+  },
+  {
+    "word": "leg",
+    "meaning": "腿",
+    "level": "小学",
+    "image": "assets/xiaoxue/leg.png"
   },
   {
     "word": "lemon",
@@ -270,6 +450,12 @@
     "image": "assets/xiaoxue/mango.png"
   },
   {
+    "word": "map",
+    "meaning": "地图",
+    "level": "小学",
+    "image": "assets/xiaoxue/map.png"
+  },
+  {
     "word": "milk",
     "meaning": "牛奶",
     "level": "小学",
@@ -280,6 +466,12 @@
     "meaning": "猴子",
     "level": "小学",
     "image": "assets/xiaoxue/monkey.png"
+  },
+  {
+    "word": "mother",
+    "meaning": "母亲",
+    "level": "小学",
+    "image": "assets/xiaoxue/mother.png"
   },
   {
     "word": "mouth",
@@ -294,6 +486,12 @@
     "image": "assets/xiaoxue/mushroom.png"
   },
   {
+    "word": "neck",
+    "meaning": "脖子",
+    "level": "小学",
+    "image": "assets/xiaoxue/neck.png"
+  },
+  {
     "word": "noodle",
     "meaning": "面条",
     "level": "小学",
@@ -304,6 +502,18 @@
     "meaning": "鼻子",
     "level": "小学",
     "image": "assets/xiaoxue/nose.png"
+  },
+  {
+    "word": "notebook",
+    "meaning": "笔记本",
+    "level": "小学",
+    "image": "assets/xiaoxue/notebook.png"
+  },
+  {
+    "word": "nurse",
+    "meaning": "护士",
+    "level": "小学",
+    "image": "assets/xiaoxue/nurse.png"
   },
   {
     "word": "onion",
@@ -330,6 +540,12 @@
     "image": "assets/xiaoxue/panda.png"
   },
   {
+    "word": "paper",
+    "meaning": "纸",
+    "level": "小学",
+    "image": "assets/xiaoxue/paper.png"
+  },
+  {
     "word": "parrot",
     "meaning": "鹦鹉",
     "level": "小学",
@@ -346,6 +562,18 @@
     "meaning": "梨",
     "level": "小学",
     "image": "assets/xiaoxue/pear.png"
+  },
+  {
+    "word": "pen",
+    "meaning": "钢笔",
+    "level": "小学",
+    "image": "assets/xiaoxue/pen.png"
+  },
+  {
+    "word": "pencil",
+    "meaning": "铅笔",
+    "level": "小学",
+    "image": "assets/xiaoxue/pencil.png"
   },
   {
     "word": "penguin",
@@ -378,10 +606,34 @@
     "image": "assets/xiaoxue/pizza.png"
   },
   {
+    "word": "policeman",
+    "meaning": "警察",
+    "level": "小学",
+    "image": "assets/xiaoxue/policeman.png"
+  },
+  {
     "word": "potato",
     "meaning": "土豆",
     "level": "小学",
     "image": "assets/xiaoxue/potato.png"
+  },
+  {
+    "word": "prince",
+    "meaning": "王子",
+    "level": "小学",
+    "image": "assets/xiaoxue/prince.png"
+  },
+  {
+    "word": "princess",
+    "meaning": "公主",
+    "level": "小学",
+    "image": "assets/xiaoxue/princess.png"
+  },
+  {
+    "word": "queen",
+    "meaning": "女王",
+    "level": "小学",
+    "image": "assets/xiaoxue/queen.png"
   },
   {
     "word": "rabbit",
@@ -396,6 +648,24 @@
     "image": "assets/xiaoxue/rice.png"
   },
   {
+    "word": "ruler",
+    "meaning": "尺子",
+    "level": "小学",
+    "image": "assets/xiaoxue/ruler.png"
+  },
+  {
+    "word": "school",
+    "meaning": "学校",
+    "level": "小学",
+    "image": "assets/xiaoxue/school.png"
+  },
+  {
+    "word": "scissors",
+    "meaning": "剪刀",
+    "level": "小学",
+    "image": "assets/xiaoxue/scissors.png"
+  },
+  {
     "word": "shark",
     "meaning": "鲨鱼",
     "level": "小学",
@@ -406,6 +676,18 @@
     "meaning": "绵羊",
     "level": "小学",
     "image": "assets/xiaoxue/sheep.png"
+  },
+  {
+    "word": "shoulder",
+    "meaning": "肩膀",
+    "level": "小学",
+    "image": "assets/xiaoxue/shoulder.png"
+  },
+  {
+    "word": "sister",
+    "meaning": "姐妹",
+    "level": "小学",
+    "image": "assets/xiaoxue/sister.png"
   },
   {
     "word": "snake",
@@ -438,6 +720,24 @@
     "image": "assets/xiaoxue/tea.png"
   },
   {
+    "word": "teacher",
+    "meaning": "老师",
+    "level": "小学",
+    "image": "assets/xiaoxue/teacher.png"
+  },
+  {
+    "word": "teeth",
+    "meaning": "牙齿",
+    "level": "小学",
+    "image": "assets/xiaoxue/teeth.png"
+  },
+  {
+    "word": "thumb",
+    "meaning": "拇指",
+    "level": "小学",
+    "image": "assets/xiaoxue/thumb.png"
+  },
+  {
     "word": "tiger",
     "meaning": "老虎",
     "level": "小学",
@@ -448,6 +748,12 @@
     "meaning": "西红柿",
     "level": "小学",
     "image": "assets/xiaoxue/tomato.png"
+  },
+  {
+    "word": "tongue",
+    "meaning": "舌头",
+    "level": "小学",
+    "image": "assets/xiaoxue/tongue.png"
   },
   {
     "word": "turtle",
