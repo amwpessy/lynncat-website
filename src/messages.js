@@ -14,9 +14,8 @@ export async function handleMessages(request, env) {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
 
-  await purgeExpired(env.DB);
-
   if (request.method === 'GET') {
+    await purgeExpired(env.DB);
     return handleGet(request, env.DB);
   }
   if (request.method === 'POST') {
@@ -79,22 +78,29 @@ async function handlePost(request, env) {
     return json({ error: 'invalid_json' }, 400);
   }
 
+  if (!hasIdentityConfiguration(env)) {
+    return json({ error: 'identity_configuration_unavailable' }, 503);
+  }
+
   const room = normalizeRoomId(body.roomId || body.room || '');
   const classifiedText = classifyText(body.text || '');
   const nickname = cleanNickname(body.nickname || '');
-  const guestId = cleanGuestId(body.guestId || request.headers.get('CF-Connecting-IP') || 'unknown');
+  const clientId = cleanClientId(body.clientId);
 
+  if (!clientId) return json({ error: 'missing_guest_identity' }, 400);
   if (!room) return json({ error: 'missing_room' }, 400);
   if (!classifiedText.allowed) return json({ error: classifiedText.code }, 400);
 
-  const authorHash = await hashGuestId(guestId, env.AUTHOR_HASH_SALT);
-  const authorKey = await authorKeyFor(guestId, env.AUTHOR_KEY_SECRET);
+  await purgeExpired(env.DB);
+
+  const authorHash = await hashGuestId(clientId, env.AUTHOR_HASH_SALT);
+  const authorKey = await authorKeyFor(clientId, env.AUTHOR_KEY_SECRET);
   const last = await env.DB.prepare(`
     SELECT created_at FROM market_messages
-    WHERE author_hash = ?
+    WHERE author_hash = ? AND room_id = ?
     ORDER BY created_at DESC
     LIMIT 1
-  `).bind(authorHash).first();
+  `).bind(authorHash, room).first();
 
   const now = Date.now();
   if (last && now - Number(last.created_at) < COOLDOWN_MS) {
@@ -148,8 +154,18 @@ function cleanNickname(value) {
   return String(value || '').replace(/\s+/g, ' ').trim().slice(0, MAX_NICKNAME_LENGTH);
 }
 
-function cleanGuestId(value) {
-  return String(value || 'unknown').trim().slice(0, 80) || 'unknown';
+function hasIdentityConfiguration(env) {
+  return isConfiguredSecret(env.AUTHOR_HASH_SALT) && isConfiguredSecret(env.AUTHOR_KEY_SECRET);
+}
+
+function isConfiguredSecret(value) {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function cleanClientId(value) {
+  if (typeof value !== 'string') return '';
+  const clientId = value.trim();
+  return /^[A-Za-z0-9][A-Za-z0-9._:-]{7,79}$/.test(clientId) ? clientId : '';
 }
 
 function json(payload, status = 200) {
