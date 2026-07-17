@@ -39,6 +39,20 @@ test('POST applies a guest cooldown independently to each room', async () => {
   assert.equal(db.inserts.length, 2);
 });
 
+test('POST atomically applies a guest cooldown to concurrent requests in one room', async () => {
+  const db = createFakeD1({ synchronizeCooldownReads: true });
+  const env = createEnv(db);
+  const clientId = '8b497a28-9b48-4a89-8ba3-48ecb0c59dfe';
+
+  const responses = await Promise.all([
+    handleMessages(postMessage({ roomId: 'XAU', text: '关注实际利率', clientId }), env),
+    handleMessages(postMessage({ roomId: 'XAU', text: '关注美元指数', clientId }), env),
+  ]);
+
+  assert.deepEqual(responses.map((response) => response.status).sort(), [201, 429]);
+  assert.equal(db.inserts.length, 1);
+});
+
 test('POST requires a well-formed clientId and never falls back to request headers', async () => {
   for (const clientId of [undefined, ' ', 'bad identity']) {
     const db = createFakeD1();
@@ -90,12 +104,18 @@ function postMessage(body, headers = {}) {
   });
 }
 
-function createFakeD1() {
+function createFakeD1({ synchronizeCooldownReads = false } = {}) {
   const rows = [];
+  let cooldownReadCount = 0;
+  let releaseCooldownReads;
+  const cooldownReadBarrier = new Promise((resolve) => {
+    releaseCooldownReads = resolve;
+  });
   const db = {
     inserts: [],
     writeCount: 0,
     identityLookupCount: 0,
+    conditionalInsertUsed: false,
     prepare(sql) {
       return {
         bind(...values) {
@@ -107,18 +127,35 @@ function createFakeD1() {
               }
               if (/^\s*INSERT/i.test(sql)) {
                 const [id, roomId, nickname, text, authorHash, authorKey, createdAt, expiresAt] = values;
+                if (/WHERE NOT EXISTS/i.test(sql)) {
+                  db.conditionalInsertUsed = true;
+                  const [, , , , , , , , cooldownAuthorHash, cooldownRoomId, cooldownCutoff] = values;
+                  const isCoolingDown = rows.some((row) => (
+                    row.author_hash === cooldownAuthorHash
+                    && row.room_id === cooldownRoomId
+                    && row.created_at > cooldownCutoff
+                  ));
+                  if (isCoolingDown) return { success: true, meta: { changes: 0 } };
+                }
                 const row = { id, room_id: roomId, nickname, text, author_hash: authorHash, author_key: authorKey, created_at: createdAt, expires_at: expiresAt };
                 rows.push(row);
                 db.inserts.push(row);
                 db.writeCount += 1;
-                return { success: true };
+                return { success: true, meta: { changes: 1 } };
               }
               throw new Error(`Unsupported fake D1 write: ${sql}`);
             },
             async first() {
               db.identityLookupCount += 1;
               const [authorHash, roomId] = values;
-              return rows.find((row) => row.author_hash === authorHash && (roomId === undefined || row.room_id === roomId)) || null;
+              if (synchronizeCooldownReads && !db.conditionalInsertUsed && /SELECT\s+created_at\s+FROM/i.test(sql)) {
+                cooldownReadCount += 1;
+                if (cooldownReadCount === 2) releaseCooldownReads();
+                await cooldownReadBarrier;
+              }
+              return rows
+                .filter((row) => row.author_hash === authorHash && (roomId === undefined || row.room_id === roomId))
+                .sort((a, b) => b.created_at - a.created_at)[0] || null;
             },
           };
         },

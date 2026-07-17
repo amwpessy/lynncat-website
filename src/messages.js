@@ -95,25 +95,33 @@ async function handlePost(request, env) {
 
   const authorHash = await hashGuestId(clientId, env.AUTHOR_HASH_SALT);
   const authorKey = await authorKeyFor(clientId, env.AUTHOR_KEY_SECRET);
-  const last = await env.DB.prepare(`
-    SELECT created_at FROM market_messages
-    WHERE author_hash = ? AND room_id = ?
-    ORDER BY created_at DESC
-    LIMIT 1
-  `).bind(authorHash, room).first();
-
   const now = Date.now();
-  if (last && now - Number(last.created_at) < COOLDOWN_MS) {
-    const remainingCooldown = Math.ceil((COOLDOWN_MS - (now - Number(last.created_at))) / 1000);
-    return json({ error: 'cooldown', remainingCooldown }, 429);
-  }
-
   const id = crypto.randomUUID();
   const expiresAt = now + MESSAGE_TTL_MS;
-  await env.DB.prepare(`
-    INSERT INTO market_messages (id, room_id, nickname, text, author_hash, author_key, created_at, expires_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(id, room, nickname || null, classifiedText.text, authorHash, authorKey, now, expiresAt).run();
+  const cooldownCutoff = now - COOLDOWN_MS;
+  const insertResult = await env.DB.prepare(`
+    INSERT INTO market_messages (id, room_id, nickname, text, author_hash, author_key, status, created_at, expires_at)
+    SELECT ?, ?, ?, ?, ?, ?, 'active', ?, ?
+    WHERE NOT EXISTS (
+      SELECT 1 FROM market_messages
+      WHERE author_hash = ? AND room_id = ? AND created_at > ?
+    )
+  `).bind(
+    id, room, nickname || null, classifiedText.text, authorHash, authorKey, now, expiresAt,
+    authorHash, room, cooldownCutoff,
+  ).run();
+
+  if (Number(insertResult.meta?.changes) === 0) {
+    const last = await env.DB.prepare(`
+      SELECT created_at FROM market_messages
+      WHERE author_hash = ? AND room_id = ?
+      ORDER BY created_at DESC
+      LIMIT 1
+    `).bind(authorHash, room).first();
+    const elapsed = last ? now - Number(last.created_at) : COOLDOWN_MS;
+    const remainingCooldown = Math.max(0, Math.ceil((COOLDOWN_MS - elapsed) / 1000));
+    return json({ error: 'cooldown', remainingCooldown }, 429);
+  }
 
   return json({
     message: toPublicMessage({
