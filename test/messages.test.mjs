@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { handleMessages, normalizeRoomId, classifyText, toPublicMessage } from '../src/messages.js';
+import marketWorker from '../src/worker.js';
 
 test('normalizeRoomId keeps a concrete room and rejects malformed input', () => {
   assert.equal(normalizeRoomId(' XAU '), 'XAU');
@@ -24,6 +25,21 @@ test('toPublicMessage never exposes private author fields', () => {
     id: 'm1', roomId: 'XAU', nickname: 'A', text: '观察',
     createdAt: 1, expiresAt: 2, authorKey: 'opaque',
   });
+});
+
+test('public reads bind the requested room and active status only', async () => {
+  const { response, bindings } = await requestMessages('https://unit.test/markets/messages?room=XAU');
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(bindings.slice(0, 3), ['XAU', 'active', 1_000_000]);
+});
+
+test('a third distinct report hides a public message and records an action', async () => {
+  const result = await reportMessage({ messageId: 'm1', reporterIds: ['r1', 'r2', 'r3'] });
+
+  assert.equal(result.messageStatus, 'hidden');
+  assert.equal(result.moderationAction, 'auto_hidden_after_reports');
+  assert.equal(result.batchCount, 1);
 });
 
 test('POST applies a guest cooldown independently to each room', async () => {
@@ -88,11 +104,71 @@ test('POST fails closed when an identity secret is missing or empty', async () =
   }
 });
 
+test('moderation reports require Basic authentication', async () => {
+  const db = createFakeD1();
+  const env = createEnv(db);
+  env.MODERATION_USERNAME = 'moderator';
+  env.MODERATION_PASSWORD = 'correct horse battery staple';
+  env.ASSETS = { fetch: async () => new Response('asset') };
+
+  const rejected = await marketWorker.fetch(
+    new Request('https://unit.test/markets/moderation/api/reports'), env, {},
+  );
+  const accepted = await marketWorker.fetch(
+    new Request('https://unit.test/markets/moderation/api/reports', {
+      headers: { Authorization: basicAuth('moderator', 'correct horse battery staple') },
+    }), env, {},
+  );
+
+  assert.equal(rejected.status, 401);
+  assert.match(rejected.headers.get('WWW-Authenticate'), /^Basic /);
+  assert.equal(accepted.status, 200);
+  assert.deepEqual(await accepted.json(), { reports: [] });
+});
+
+test('a moderator ban blocks future publishing by the matching author', async () => {
+  const db = createFakeD1();
+  const env = createEnv(db);
+  env.MODERATION_USERNAME = 'moderator';
+  env.MODERATION_PASSWORD = 'secret';
+  env.ASSETS = { fetch: async () => new Response('asset') };
+  const clientId = '8b497a28-9b48-4a89-8ba3-48ecb0c59dfe';
+
+  const published = await handleMessages(postMessage({
+    roomId: 'XAU', text: '关注实际利率', clientId,
+  }), env);
+  assert.equal(published.status, 201);
+  const authorKey = db.inserts[0].author_key;
+
+  const response = await marketWorker.fetch(new Request(
+    `https://unit.test/markets/moderation/api/authors/${authorKey}`,
+    {
+      method: 'PUT',
+      headers: {
+        Authorization: basicAuth('moderator', 'secret'),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ action: 'ban', note: 'repeated spam' }),
+    },
+  ), env, {});
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { authorKey, action: 'ban', affectedAuthors: 1 });
+  assert.equal(db.bannedAuthors.has(db.inserts[0].author_hash), true);
+
+  const blocked = await handleMessages(postMessage({
+    roomId: 'EURUSD', text: '关注欧洲央行', clientId,
+  }), env);
+  assert.equal(blocked.status, 403);
+  assert.deepEqual(await blocked.json(), { error: 'author_banned' });
+});
+
 function createEnv(DB) {
   return {
     DB,
     AUTHOR_HASH_SALT: 'hash-salt',
     AUTHOR_KEY_SECRET: 'key-secret',
+    NOW: 1_000_000,
   };
 }
 
@@ -104,26 +180,116 @@ function postMessage(body, headers = {}) {
   });
 }
 
-function createFakeD1({ synchronizeCooldownReads = false } = {}) {
-  const rows = [];
+function basicAuth(username, password) {
+  return `Basic ${btoa(`${username}:${password}`)}`;
+}
+
+async function requestMessages(url) {
+  const db = createFakeD1();
+  const response = await handleMessages(new Request(url), createEnv(db));
+  return { response, bindings: db.bindings };
+}
+
+async function reportMessage({ messageId, reporterIds }) {
+  const db = createFakeD1({ messages: [{ id: messageId, status: 'active' }] });
+  const env = createEnv(db);
+
+  for (const reporterId of reporterIds) {
+    const response = await handleMessages(new Request(`https://unit.test/markets/messages/${messageId}/reports`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reporterId, reason: 'spam' }),
+    }), env);
+    assert.equal(response.status, 201);
+  }
+
+  return {
+    messageStatus: db.messages.find((message) => message.id === messageId)?.status,
+    moderationAction: db.actions.at(-1)?.action,
+    batchCount: db.batchCount,
+  };
+}
+
+function createFakeD1({ synchronizeCooldownReads = false, messages = [], bannedAuthorHashes = [] } = {}) {
+  const rows = messages.map((message) => ({ ...message }));
+  const reports = [];
+  const bannedAuthors = new Map(bannedAuthorHashes.map((authorHash) => [authorHash, { author_hash: authorHash }]));
   let cooldownReadCount = 0;
   let releaseCooldownReads;
   const cooldownReadBarrier = new Promise((resolve) => {
     releaseCooldownReads = resolve;
   });
   const db = {
+    bindings: [],
+    messages: rows,
+    actions: [],
+    reports,
+    bannedAuthors,
+    batchCount: 0,
     inserts: [],
     writeCount: 0,
     identityLookupCount: 0,
     conditionalInsertUsed: false,
+    async batch(statements) {
+      db.batchCount += 1;
+      const results = [];
+      for (const statement of statements) results.push(await statement.run());
+      return results;
+    },
     prepare(sql) {
       return {
         bind(...values) {
+          db.bindings.push(...values);
           return {
             async run() {
               if (/^\s*DELETE/i.test(sql)) {
+                if (/market_messages/i.test(sql)) {
+                  const [now] = values;
+                  for (let index = rows.length - 1; index >= 0; index -= 1) {
+                    if (Number(rows[index].expires_at) < now) rows.splice(index, 1);
+                  }
+                }
+                if (/market_banned_authors/i.test(sql)) bannedAuthors.delete(values[0]);
                 db.writeCount += 1;
                 return { success: true };
+              }
+              if (/INSERT\s+INTO\s+market_banned_authors/i.test(sql)) {
+                const [authorHash, bannedAt, note] = values;
+                bannedAuthors.set(authorHash, { author_hash: authorHash, banned_at: bannedAt, note });
+                db.writeCount += 1;
+                return { success: true, meta: { changes: 1 } };
+              }
+              if (/INSERT\s+INTO\s+market_reports/i.test(sql)) {
+                const [id, messageId, reporterHash, reason, note, createdAt] = values;
+                const duplicate = reports.some((report) => report.message_id === messageId && report.reporter_hash === reporterHash);
+                if (duplicate) return { success: true, meta: { changes: 0 } };
+                reports.push({ id, message_id: messageId, reporter_hash: reporterHash, reason, note, status: 'open', created_at: createdAt });
+                db.writeCount += 1;
+                return { success: true, meta: { changes: 1 } };
+              }
+              if (/INSERT\s+INTO\s+market_moderation_actions/i.test(sql)) {
+                const [id, targetType, targetId, action, note, createdAt] = values;
+                db.actions.push({ id, target_type: targetType, target_id: targetId, action, note, created_at: createdAt });
+                db.writeCount += 1;
+                return { success: true, meta: { changes: 1 } };
+              }
+              if (/UPDATE\s+market_messages\s+SET\s+status\s*=\s*'hidden'/i.test(sql)) {
+                const [hiddenAt, messageId] = values;
+                const message = rows.find((row) => row.id === messageId && row.status === 'active');
+                if (!message) return { success: true, meta: { changes: 0 } };
+                message.status = 'hidden';
+                message.hidden_at = hiddenAt;
+                db.writeCount += 1;
+                return { success: true, meta: { changes: 1 } };
+              }
+              if (/UPDATE\s+market_messages\s+SET\s+status\s*=\s*\?/i.test(sql)) {
+                const status = values[0];
+                const messageId = values.at(-1);
+                const message = rows.find((row) => row.id === messageId);
+                if (!message) return { success: true, meta: { changes: 0 } };
+                message.status = status;
+                db.writeCount += 1;
+                return { success: true, meta: { changes: 1 } };
               }
               if (/^\s*INSERT/i.test(sql)) {
                 const [id, roomId, nickname, text, authorHash, authorKey, createdAt, expiresAt] = values;
@@ -137,7 +303,10 @@ function createFakeD1({ synchronizeCooldownReads = false } = {}) {
                   ));
                   if (isCoolingDown) return { success: true, meta: { changes: 0 } };
                 }
-                const row = { id, room_id: roomId, nickname, text, author_hash: authorHash, author_key: authorKey, created_at: createdAt, expires_at: expiresAt };
+                const row = {
+                  id, room_id: roomId, nickname, text, author_hash: authorHash, author_key: authorKey,
+                  status: 'active', created_at: createdAt, expires_at: expiresAt,
+                };
                 rows.push(row);
                 db.inserts.push(row);
                 db.writeCount += 1;
@@ -147,6 +316,15 @@ function createFakeD1({ synchronizeCooldownReads = false } = {}) {
             },
             async first() {
               db.identityLookupCount += 1;
+              if (/market_banned_authors/i.test(sql)) {
+                return bannedAuthors.has(values[0]) ? { 1: 1 } : null;
+              }
+              if (/SELECT\s+id,\s*status\s+FROM\s+market_messages/i.test(sql)) {
+                return rows.find((row) => row.id === values[0]) || null;
+              }
+              if (/COUNT\(\*\)\s+AS\s+count\s+FROM\s+market_reports/i.test(sql)) {
+                return { count: reports.filter((report) => report.message_id === values[0] && report.status === 'open').length };
+              }
               const [authorHash, roomId] = values;
               if (synchronizeCooldownReads && !db.conditionalInsertUsed && /SELECT\s+created_at\s+FROM/i.test(sql)) {
                 cooldownReadCount += 1;
@@ -156,6 +334,23 @@ function createFakeD1({ synchronizeCooldownReads = false } = {}) {
               return rows
                 .filter((row) => row.author_hash === authorHash && (roomId === undefined || row.room_id === roomId))
                 .sort((a, b) => b.created_at - a.created_at)[0] || null;
+            },
+            async all() {
+              if (/SELECT\s+DISTINCT\s+author_hash\s+FROM\s+market_messages/i.test(sql)) {
+                const hashes = new Set(rows.filter((row) => row.author_key === values[0]).map((row) => row.author_hash));
+                return { results: [...hashes].filter(Boolean).map((author_hash) => ({ author_hash })) };
+              }
+              if (/FROM\s+market_messages/i.test(sql) && /room_id\s*=\s*\?/i.test(sql)) {
+                const [roomId, status, now] = values;
+                return {
+                  results: rows
+                    .filter((row) => row.room_id === roomId && row.status === status && Number(row.expires_at) > now)
+                    .sort((a, b) => b.created_at - a.created_at)
+                    .slice(0, 50),
+                };
+              }
+              if (/FROM\s+market_reports/i.test(sql)) return { results: reports };
+              return { results: [] };
             },
           };
         },
