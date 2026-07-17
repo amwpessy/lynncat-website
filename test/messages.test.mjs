@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { handleMessages, normalizeRoomId, classifyText, toPublicMessage } from '../src/messages.js';
-import marketWorker from '../src/worker.js';
+import marketWorker, { moderatorCredentialsMatch } from '../src/worker.js';
 
 test('normalizeRoomId keeps a concrete room and rejects malformed input', () => {
   assert.equal(normalizeRoomId(' XAU '), 'XAU');
@@ -40,6 +40,24 @@ test('a third distinct report hides a public message and records an action', asy
   assert.equal(result.messageStatus, 'hidden');
   assert.equal(result.moderationAction, 'auto_hidden_after_reports');
   assert.equal(result.batchCount, 1);
+});
+
+test('report responses return the final persisted message status', async () => {
+  const db = createFakeD1({ messages: [{ id: 'm1', status: 'active' }] });
+  const env = createEnv(db);
+
+  for (const reporterId of ['r1', 'r2']) {
+    const response = await handleMessages(reportRequest('m1', reporterId), env);
+    assert.equal(response.status, 201);
+  }
+
+  db.afterBatch = () => {
+    db.messages.find((message) => message.id === 'm1').status = 'removed';
+  };
+  const response = await handleMessages(reportRequest('m1', 'r3'), env);
+
+  assert.equal(response.status, 201);
+  assert.equal((await response.json()).messageStatus, 'removed');
 });
 
 test('POST applies a guest cooldown independently to each room', async () => {
@@ -126,6 +144,66 @@ test('moderation reports require Basic authentication', async () => {
   assert.deepEqual(await accepted.json(), { reports: [] });
 });
 
+test('moderator authentication compares username and password when username mismatches', () => {
+  const comparisons = [];
+  const authorized = moderatorCredentialsMatch(
+    'wrong-user',
+    'correct-password',
+    'moderator',
+    'correct-password',
+    (actual, expected) => {
+      comparisons.push([actual, expected]);
+      return actual === expected;
+    },
+  );
+
+  assert.equal(authorized, false);
+  assert.deepEqual(comparisons, [
+    ['wrong-user', 'moderator'],
+    ['correct-password', 'correct-password'],
+  ]);
+});
+
+test('moderator message updates batch the state mutation with its audit action', async () => {
+  const db = createFakeD1({ messages: [{ id: 'm1', status: 'active' }] });
+  const env = moderatorEnv(db);
+
+  const response = await marketWorker.fetch(new Request(
+    'https://unit.test/markets/moderation/api/messages/m1',
+    {
+      method: 'PUT',
+      headers: moderatorHeaders(),
+      body: JSON.stringify({ status: 'hidden', note: 'reviewed' }),
+    },
+  ), env, {});
+
+  assert.equal(response.status, 200);
+  assert.equal(db.batchCount, 1);
+  assert.equal(db.actions.at(-1)?.action, 'message_hidden');
+});
+
+test('moderator author bans batch every author mutation with the audit action', async () => {
+  const db = createFakeD1({ messages: [
+    { id: 'm1', author_key: 'author-key', author_hash: 'hash-1', status: 'active' },
+    { id: 'm2', author_key: 'author-key', author_hash: 'hash-2', status: 'active' },
+  ] });
+  const env = moderatorEnv(db);
+
+  const response = await marketWorker.fetch(new Request(
+    'https://unit.test/markets/moderation/api/authors/author-key',
+    {
+      method: 'PUT',
+      headers: moderatorHeaders(),
+      body: JSON.stringify({ action: 'ban', note: 'reviewed' }),
+    },
+  ), env, {});
+
+  assert.equal(response.status, 200);
+  assert.equal(db.batchCount, 1);
+  assert.equal(db.bannedAuthors.size, 2);
+  assert.equal(db.actions.at(-1)?.action, 'author_banned');
+});
+
 test('a moderator ban blocks future publishing by the matching author', async () => {
   const db = createFakeD1();
   const env = createEnv(db);
@@ -184,6 +262,22 @@ function basicAuth(username, password) {
   return `Basic ${btoa(`${username}:${password}`)}`;
 }
 
+function moderatorHeaders() {
+  return {
+    Authorization: basicAuth('moderator', 'secret'),
+    'Content-Type': 'application/json',
+  };
+}
+
+function moderatorEnv(db) {
+  return {
+    ...createEnv(db),
+    MODERATION_USERNAME: 'moderator',
+    MODERATION_PASSWORD: 'secret',
+    ASSETS: { fetch: async () => new Response('asset') },
+  };
+}
+
 async function requestMessages(url) {
   const db = createFakeD1();
   const response = await handleMessages(new Request(url), createEnv(db));
@@ -195,11 +289,7 @@ async function reportMessage({ messageId, reporterIds }) {
   const env = createEnv(db);
 
   for (const reporterId of reporterIds) {
-    const response = await handleMessages(new Request(`https://unit.test/markets/messages/${messageId}/reports`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reporterId, reason: 'spam' }),
-    }), env);
+    const response = await handleMessages(reportRequest(messageId, reporterId), env);
     assert.equal(response.status, 201);
   }
 
@@ -208,6 +298,14 @@ async function reportMessage({ messageId, reporterIds }) {
     moderationAction: db.actions.at(-1)?.action,
     batchCount: db.batchCount,
   };
+}
+
+function reportRequest(messageId, reporterId) {
+  return new Request(`https://unit.test/markets/messages/${messageId}/reports`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reporterId, reason: 'spam' }),
+  });
 }
 
 function createFakeD1({ synchronizeCooldownReads = false, messages = [], bannedAuthorHashes = [] } = {}) {
@@ -234,6 +332,7 @@ function createFakeD1({ synchronizeCooldownReads = false, messages = [], bannedA
       db.batchCount += 1;
       const results = [];
       for (const statement of statements) results.push(await statement.run());
+      db.afterBatch?.();
       return results;
     },
     prepare(sql) {

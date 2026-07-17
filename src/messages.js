@@ -164,9 +164,13 @@ async function handleReport(request, env, messageId) {
     hidden = await autoHideAfterReports(env.DB, messageId, now);
   }
 
+  const finalMessage = await env.DB.prepare(
+    'SELECT id, status FROM market_messages WHERE id = ? LIMIT 1',
+  ).bind(messageId).first();
+
   return json({
     report: { messageId, reason, openReports: Number(countRow?.count) || 0 },
-    messageStatus: hidden ? 'hidden' : message.status,
+    messageStatus: finalMessage?.status || (hidden ? 'hidden' : message.status),
   }, Number(reportResult.meta?.changes) > 0 ? 201 : 200);
 }
 

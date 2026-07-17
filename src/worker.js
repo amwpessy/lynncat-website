@@ -39,11 +39,21 @@ export function requireModerator(request, env) {
 
   try {
     const [username, ...passwordParts] = atob(match[1]).split(':');
-    return constantTimeEqual(username, env.MODERATION_USERNAME)
-      && constantTimeEqual(passwordParts.join(':'), env.MODERATION_PASSWORD);
+    return moderatorCredentialsMatch(
+      username,
+      passwordParts.join(':'),
+      env.MODERATION_USERNAME,
+      env.MODERATION_PASSWORD,
+    );
   } catch {
     return false;
   }
+}
+
+export function moderatorCredentialsMatch(username, password, expectedUsername, expectedPassword, compare = constantTimeEqual) {
+  const usernameMatches = compare(username, expectedUsername);
+  const passwordMatches = compare(password, expectedPassword);
+  return usernameMatches && passwordMatches;
 }
 
 export async function handleModeration(request, env) {
@@ -89,10 +99,14 @@ async function updateMessage(db, messageId, request, now) {
     ? `UPDATE market_messages SET status = ?, ${updatedColumn} = ? WHERE id = ?`
     : 'UPDATE market_messages SET status = ? WHERE id = ?';
   const bindings = updatedColumn ? [status, now, messageId] : [status, messageId];
-  const result = await db.prepare(statement).bind(...bindings).run();
+  const update = db.prepare(statement).bind(...bindings);
+  const action = db.prepare(`
+    INSERT INTO market_moderation_actions (id, target_type, target_id, action, note, created_at)
+    SELECT ?, ?, ?, ?, ?, ? WHERE changes() = 1
+  `).bind(crypto.randomUUID(), 'message', messageId, `message_${status}`, cleanNote(body.note), now);
+  const [result] = await db.batch([update, action]);
   if (Number(result.meta?.changes) === 0) return json({ error: 'message_not_found' }, 404);
 
-  await recordAction(db, 'message', messageId, `message_${status}`, cleanNote(body.note), now);
   return json({ messageId, status });
 }
 
@@ -108,27 +122,30 @@ async function updateAuthor(db, authorKey, request, now) {
   if (authorHashes.length === 0) return json({ error: 'author_not_found' }, 404);
 
   const note = cleanNote(body.note);
-  for (const authorHash of authorHashes) {
+  const authorMutations = authorHashes.map((authorHash) => {
     if (action === 'ban') {
-      await db.prepare(`
+      return db.prepare(`
         INSERT INTO market_banned_authors (author_hash, banned_at, note)
         VALUES (?, ?, ?)
         ON CONFLICT(author_hash) DO UPDATE SET banned_at = excluded.banned_at, note = excluded.note
-      `).bind(authorHash, now, note).run();
+      `).bind(authorHash, now, note);
     } else {
-      await db.prepare('DELETE FROM market_banned_authors WHERE author_hash = ?').bind(authorHash).run();
+      return db.prepare('DELETE FROM market_banned_authors WHERE author_hash = ?').bind(authorHash);
     }
-  }
+  });
 
-  await recordAction(db, 'author', authorKey, `author_${action}ned`, note, now);
+  await db.batch([
+    ...authorMutations,
+    moderationActionStatement(db, 'author', authorKey, `author_${action}ned`, note, now),
+  ]);
   return json({ authorKey, action, affectedAuthors: authorHashes.length });
 }
 
-async function recordAction(db, targetType, targetId, action, note, now) {
-  await db.prepare(`
+function moderationActionStatement(db, targetType, targetId, action, note, now) {
+  return db.prepare(`
     INSERT INTO market_moderation_actions (id, target_type, target_id, action, note, created_at)
     VALUES (?, ?, ?, ?, ?, ?)
-  `).bind(crypto.randomUUID(), targetType, targetId, action, note, now).run();
+  `).bind(crypto.randomUUID(), targetType, targetId, action, note, now);
 }
 
 function authenticationRequired() {
