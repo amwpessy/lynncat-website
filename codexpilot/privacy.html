@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="CodexPilot privacy policy. Local-first macOS monitoring for Codex users.">
+<title>Privacy Policy - CodexPilot</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif;background:#f5f5f7;color:#17181c;line-height:1.65}
+  body[data-lang="en"] [data-zh],body[data-lang="zh"] [data-en]{display:none}
+  a{color:inherit}
+  .shell{max-width:980px;margin:0 auto;padding:24px}
+  nav{display:flex;justify-content:space-between;align-items:center;padding:16px 0 34px}
+  .brand{font-weight:800;text-decoration:none;letter-spacing:-.02em}
+  .links{display:flex;gap:18px;align-items:center;color:#686b73;font-size:14px}
+  .links a{text-decoration:none}
+  button{border:1px solid #d7d9df;background:#fff;border-radius:999px;padding:8px 14px;font:inherit;color:#343740;cursor:pointer}
+  .hero{background:linear-gradient(145deg,#fff,#eceff4);border:1px solid #e0e2e8;border-radius:28px;padding:42px;box-shadow:0 24px 70px rgba(20,25,35,.08)}
+  .eyebrow{font-size:13px;font-weight:700;color:#58606c;text-transform:uppercase;letter-spacing:.12em;margin-bottom:14px}
+  h1{font-size:clamp(34px,6vw,58px);line-height:1.03;letter-spacing:-.055em;margin-bottom:16px}
+  .lead{font-size:18px;color:#555b66;max-width:720px}
+  .content{display:grid;gap:18px;margin-top:28px}
+  .section{background:#fff;border:1px solid #e4e5ea;border-radius:18px;padding:24px}
+  h2{font-size:21px;letter-spacing:-.02em;margin-bottom:10px}
+  p{color:#565b65;margin-top:8px}
+  ul{margin:12px 0 0 22px;color:#565b65}
+  li{margin:8px 0}
+  footer{padding:34px 0;color:#747984;font-size:13px}
+  @media(max-width:640px){.shell{padding:18px}.hero{padding:28px;border-radius:22px}.links{gap:12px;flex-wrap:wrap}}
+</style>
+</head>
+<body data-lang="en">
+<main class="shell">
+  <nav>
+    <a class="brand" href="index.html">CodexPilot</a>
+    <div class="links">
+      <a href="index.html"><span data-en>Overview</span><span data-zh>概览</span></a>
+      <a href="support.html"><span data-en>Support</span><span data-zh>支持</span></a>
+      <button onclick="toggleLang()"><span data-en>中文</span><span data-zh>English</span></button>
+    </div>
+  </nav>
+
+  <section class="hero">
+    <div class="eyebrow"><span data-en>Privacy Policy</span><span data-zh>隐私政策</span></div>
+    <h1><span data-en>Local-first by design.</span><span data-zh>以本地优先为设计原则。</span></h1>
+    <p class="lead"><span data-en>CodexPilot is designed for Mac users who want to monitor Codex usage, system health, disk activity, and runtime cache behavior without sending personal monitoring data to a third-party analytics service.</span><span data-zh>CodexPilot 面向在 Mac 上使用 Codex 的用户，用于监控 Codex 额度、系统健康、硬盘读写与运行缓存行为，不会把个人监控数据发送到第三方分析服务。</span></p>
+  </section>
+
+  <section class="content">
+    <article class="section">
+      <h2><span data-en>Data processed on your Mac</span><span data-zh>在 Mac 本地处理的数据</span></h2>
+      <p><span data-en>The app may read system status such as CPU, memory, battery, disk capacity, disk read/write activity, and cache size estimates. It may also read user-authorized Codex local log folders to infer quota-related signals when those logs contain usable information.</span><span data-zh>应用可能读取 CPU、内存、电池、硬盘容量、硬盘读写活动与缓存体积估算等系统状态。若用户授权 Codex 本地日志目录，应用也可能读取这些日志，用于推断可用的额度相关信号。</span></p>
+    </article>
+
+    <article class="section">
+      <h2><span data-en>No tracking or advertising profile</span><span data-zh>不做追踪或广告画像</span></h2>
+      <ul>
+        <li><span data-en>CodexPilot does not include third-party advertising SDKs.</span><span data-zh>CodexPilot 不包含第三方广告 SDK。</span></li>
+        <li><span data-en>CodexPilot does not build a cross-app advertising profile.</span><span data-zh>CodexPilot 不建立跨应用广告画像。</span></li>
+        <li><span data-en>CodexPilot does not sell personal information.</span><span data-zh>CodexPilot 不出售个人信息。</span></li>
+      </ul>
+    </article>
+
+    <article class="section">
+      <h2><span data-en>Codex quota visibility</span><span data-zh>Codex 额度可见性</span></h2>
+      <p><span data-en>Quota information depends on what the installed Codex app exposes locally. If Codex changes its local log format or does not expose a value, CodexPilot may show the field as unavailable instead of fabricating data.</span><span data-zh>额度信息取决于当前安装的 Codex 在本地暴露的数据。如果 Codex 更改本地日志格式，或没有暴露某个字段，CodexPilot 会显示不可用，而不是伪造数据。</span></p>
+    </article>
+
+    <article class="section">
+      <h2><span data-en>Cache cleanup</span><span data-zh>缓存清理</span></h2>
+      <p><span data-en>Cache cleanup is limited to user-visible or user-authorized cache locations used by CodexPilot's cleanup workflow. The app should ask before destructive cleanup actions and should not delete unrelated user documents.</span><span data-zh>缓存清理仅限 CodexPilot 清理流程识别到的用户可见或用户授权缓存位置。应用应在执行破坏性清理前请求确认，不应删除无关用户文档。</span></p>
+    </article>
+
+    <article class="section">
+      <h2><span data-en>Contact</span><span data-zh>联系方式</span></h2>
+      <p><span data-en>For privacy questions, contact </span><span data-zh>如有隐私问题，请联系 </span><a href="mailto:amwpessy@gmail.com">amwpessy@gmail.com</a>.</p>
+    </article>
+  </section>
+
+  <footer>© 2026 Lynncat · CodexPilot</footer>
+</main>
+<script>
+function applyLang(lang){document.body.setAttribute('data-lang',lang);document.documentElement.lang=lang==='zh'?'zh-Hans':'en';try{localStorage.setItem('codexpilot-lang',lang)}catch(e){}}
+function toggleLang(){applyLang(document.body.getAttribute('data-lang')==='en'?'zh':'en')}
+try{applyLang(localStorage.getItem('codexpilot-lang')||'en')}catch(e){applyLang('en')}
+</script>
+</body>
+</html>

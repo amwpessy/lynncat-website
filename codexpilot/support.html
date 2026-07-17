@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="CodexPilot support page for macOS Codex users.">
+<title>Support - CodexPilot</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif;background:#08090c;color:#f6f7fb;line-height:1.65}
+  body[data-lang="en"] [data-zh],body[data-lang="zh"] [data-en]{display:none}
+  a{color:inherit}
+  .shell{max-width:1040px;margin:0 auto;padding:24px}
+  nav{display:flex;justify-content:space-between;align-items:center;padding:16px 0 34px}
+  .brand{font-weight:800;text-decoration:none;letter-spacing:-.02em}
+  .links{display:flex;gap:18px;align-items:center;color:#a3a8b4;font-size:14px}
+  .links a{text-decoration:none}
+  button{border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);border-radius:999px;padding:8px 14px;font:inherit;color:#f6f7fb;cursor:pointer}
+  .hero{border:1px solid rgba(255,255,255,.13);border-radius:30px;padding:42px;background:radial-gradient(circle at 80% 0%,rgba(255,43,43,.25),transparent 34%),linear-gradient(145deg,#161922,#0b0d12);box-shadow:0 28px 90px rgba(0,0,0,.35)}
+  .eyebrow{font-size:13px;font-weight:800;color:#ff4b36;text-transform:uppercase;letter-spacing:.14em;margin-bottom:14px}
+  h1{font-size:clamp(34px,6vw,58px);line-height:1.03;letter-spacing:-.055em;margin-bottom:16px}
+  .lead{font-size:18px;color:#bcc2ce;max-width:760px}
+  .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:28px}
+  .card{background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.11);border-radius:20px;padding:24px}
+  h2{font-size:20px;letter-spacing:-.02em;margin-bottom:10px}
+  p{color:#b7bdc9;margin-top:8px}
+  .contact{margin-top:18px;background:#fff;color:#111319;border-radius:22px;padding:26px}
+  .contact p{color:#4f5662}
+  .pill{display:inline-block;margin-top:16px;padding:10px 14px;border-radius:999px;background:#ff2b2b;color:#fff;text-decoration:none;font-weight:800}
+  footer{padding:34px 0;color:#858b98;font-size:13px}
+  @media(max-width:760px){.shell{padding:18px}.hero{padding:28px;border-radius:24px}.grid{grid-template-columns:1fr}.links{gap:12px;flex-wrap:wrap}}
+</style>
+</head>
+<body data-lang="en">
+<main class="shell">
+  <nav>
+    <a class="brand" href="index.html">CodexPilot</a>
+    <div class="links">
+      <a href="index.html"><span data-en>Overview</span><span data-zh>概览</span></a>
+      <a href="privacy.html"><span data-en>Privacy</span><span data-zh>隐私</span></a>
+      <button onclick="toggleLang()"><span data-en>中文</span><span data-zh>English</span></button>
+    </div>
+  </nav>
+
+  <section class="hero">
+    <div class="eyebrow"><span data-en>Support</span><span data-zh>支持</span></div>
+    <h1><span data-en>Help for the Codex cockpit.</span><span data-zh>Codex 驾驶舱使用支持。</span></h1>
+    <p class="lead"><span data-en>CodexPilot is built for Mac users who keep Codex running for real work and need visibility into quota, disk read/write pressure, cache growth, and overall Mac health.</span><span data-zh>CodexPilot 专为在 Mac 上长期使用 Codex 的用户设计，用于持续观察额度变化、硬盘读写压力、缓存增长和整机健康状态。</span></p>
+  </section>
+
+  <section class="grid">
+    <article class="card">
+      <h2><span data-en>Why is quota unavailable?</span><span data-zh>为什么额度显示不可用？</span></h2>
+      <p><span data-en>Quota depends on local Codex data. Open Codex, make sure the account is signed in, then authorize the relevant local log folder in CodexPilot if prompted.</span><span data-zh>额度依赖 Codex 本地数据。请先打开 Codex 并确认账号已登录；如果 CodexPilot 提示授权日志目录，请授权对应目录。</span></p>
+    </article>
+
+    <article class="card">
+      <h2><span data-en>What does disk activity mean?</span><span data-zh>硬盘读写代表什么？</span></h2>
+      <p><span data-en>The app tracks read/write movement after launch so heavy Codex sessions can be correlated with disk pressure and cache growth.</span><span data-zh>应用会从启动后开始统计读写变化，帮助把高强度 Codex 会话与硬盘压力、缓存增长联系起来观察。</span></p>
+    </article>
+
+    <article class="card">
+      <h2><span data-en>What does cache cleanup remove?</span><span data-zh>缓存清理会删除什么？</span></h2>
+      <p><span data-en>Cleanup targets cache-like runtime files identified by the app. Review the prompt before confirming cleanup, especially if you use custom Codex paths.</span><span data-zh>清理功能面向应用识别出的运行缓存类文件。执行前请查看确认提示，尤其是你使用自定义 Codex 路径时。</span></p>
+    </article>
+
+    <article class="card">
+      <h2><span data-en>Normal and Sport modes</span><span data-zh>Normal 与 Sport 模式</span></h2>
+      <p><span data-en>Normal mode uses a calmer refresh rhythm. Sport mode refreshes faster for active debugging or high-load Codex sessions.</span><span data-zh>Normal 模式采用更平稳的刷新节奏；Sport 模式刷新更快，适合正在调试或高负载使用 Codex 时查看。</span></p>
+    </article>
+  </section>
+
+  <section class="contact">
+    <h2><span data-en>Contact support</span><span data-zh>联系支持</span></h2>
+    <p><span data-en>Include your macOS version, CodexPilot version, Codex version, and a short description of what cannot be read or cleaned.</span><span data-zh>请附上 macOS 版本、CodexPilot 版本、Codex 版本，以及无法读取或清理的具体表现。</span></p>
+    <a class="pill" href="mailto:amwpessy@gmail.com">amwpessy@gmail.com</a>
+  </section>
+
+  <footer>© 2026 Lynncat · CodexPilot</footer>
+</main>
+<script>
+function applyLang(lang){document.body.setAttribute('data-lang',lang);document.documentElement.lang=lang==='zh'?'zh-Hans':'en';try{localStorage.setItem('codexpilot-lang',lang)}catch(e){}}
+function toggleLang(){applyLang(document.body.getAttribute('data-lang')==='en'?'zh':'en')}
+try{applyLang(localStorage.getItem('codexpilot-lang')||'en')}catch(e){applyLang('en')}
+</script>
+</body>
+</html>

@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="CodexPilot is a native macOS cockpit for Codex users. Track Codex quota, disk I/O, cache growth, and Mac health locally.">
+<title>CodexPilot — Codex Quota & Mac Cockpit</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:#f4f7fb;
+    --surface:#ffffff;
+    --surface2:#e9eef6;
+    --text:#111827;
+    --muted:#64748b;
+    --border:#d9e2ee;
+    --accent:#2563eb;
+    --accent2:#0f172a;
+    --green:#14b86a;
+    --orange:#f97316;
+    --purple:#8b5cf6;
+    --shadow:0 22px 70px rgba(15,23,42,.10);
+    --radius:18px;
+  }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height: 1.6; }
+  body[data-lang='en'] [data-zh]{ display:none; }
+  body[data-lang='zh'] [data-en]{ display:none; }
+  a { color: var(--accent); }
+  nav { display:flex; align-items:center; justify-content:space-between; padding:18px 40px; border-bottom:1px solid rgba(217,226,238,.78); background:rgba(244,247,251,.86); backdrop-filter:blur(18px); position:sticky; top:0; z-index:20; }
+  .nav-logo { color:var(--accent2); font-weight:800; text-decoration:none; letter-spacing:-.3px; }
+  .nav-right { display:flex; align-items:center; gap:16px; }
+  .nav-back { color:var(--muted); text-decoration:none; font-size:14px; }
+  .lang-toggle { border:1px solid var(--border); background:var(--surface); color:var(--muted); border-radius:999px; padding:7px 14px; cursor:pointer; font:inherit; font-size:13px; }
+  .hero { max-width:1120px; margin:0 auto; padding:78px 24px 56px; display:grid; grid-template-columns:minmax(0,1fr) minmax(360px,470px); gap:44px; align-items:center; }
+  .eyebrow { display:inline-flex; align-items:center; gap:8px; color:var(--accent); background:rgba(37,99,235,.09); border:1px solid rgba(37,99,235,.16); border-radius:999px; padding:7px 12px; font-size:13px; font-weight:700; margin-bottom:18px; }
+  h1 { font-size:clamp(38px,6vw,70px); line-height:1.02; letter-spacing:-2.2px; margin-bottom:20px; }
+  .hero p { color:var(--muted); font-size:18px; max-width:620px; margin-bottom:28px; }
+  .cta-row { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:18px; }
+  .btn { display:inline-flex; align-items:center; gap:8px; border-radius:999px; padding:13px 22px; font-weight:800; text-decoration:none; border:1px solid transparent; }
+  .btn-primary { background:var(--accent2); color:white; box-shadow:0 14px 34px rgba(15,23,42,.18); }
+  .btn-secondary { background:var(--surface); color:var(--accent2); border-color:var(--border); }
+  .fine { color:var(--muted); font-size:13px; }
+  .cockpit { background:linear-gradient(180deg,#172033,#0b1020); border:1px solid rgba(255,255,255,.12); color:white; border-radius:30px; padding:20px; box-shadow:var(--shadow); }
+  .cockpit-bar { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; color:#94a3b8; font-size:12px; }
+  .lights { display:flex; gap:7px; }
+  .light { width:10px; height:10px; border-radius:50%; background:#ef4444; }
+  .light:nth-child(2){ background:#facc15; } .light:nth-child(3){ background:#22c55e; }
+  .gauges { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
+  .gauge { background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.10); border-radius:16px; padding:15px; min-height:112px; }
+  .gauge .label { color:#94a3b8; font-size:12px; font-weight:700; margin-bottom:8px; }
+  .gauge .value { font-size:27px; font-weight:900; letter-spacing:-.8px; margin-bottom:9px; }
+  .track { height:8px; border-radius:999px; background:rgba(255,255,255,.12); overflow:hidden; }
+  .fill { height:100%; border-radius:999px; background:linear-gradient(90deg,#38bdf8,#2563eb); }
+  .fill.green { background:linear-gradient(90deg,#2dd4bf,#22c55e); }
+  .fill.orange { background:linear-gradient(90deg,#fbbf24,#f97316); }
+  .fill.purple { background:linear-gradient(90deg,#a78bfa,#8b5cf6); }
+  .section { max-width:1120px; margin:0 auto; padding:46px 24px; }
+  .section-head { max-width:720px; margin-bottom:24px; }
+  .kicker { color:var(--accent); font-size:13px; font-weight:800; letter-spacing:1.4px; text-transform:uppercase; margin-bottom:8px; }
+  h2 { font-size:clamp(28px,4vw,42px); line-height:1.1; letter-spacing:-1px; margin-bottom:10px; }
+  .section-head p { color:var(--muted); font-size:16px; }
+  .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:24px; box-shadow:0 12px 34px rgba(15,23,42,.06); }
+  .card .icon { width:46px; height:46px; border-radius:14px; display:flex; align-items:center; justify-content:center; background:var(--surface2); font-size:24px; margin-bottom:14px; }
+  .card h3 { font-size:18px; margin-bottom:8px; }
+  .card p { color:var(--muted); font-size:14px; }
+  .split { display:grid; grid-template-columns:1fr 1fr; gap:18px; align-items:stretch; }
+  .panel { background:var(--surface); border:1px solid var(--border); border-radius:24px; padding:28px; box-shadow:var(--shadow); }
+  .metric { display:flex; justify-content:space-between; gap:14px; padding:14px 0; border-bottom:1px solid var(--border); }
+  .metric:last-child { border-bottom:none; }
+  .metric strong { font-size:15px; }
+  .metric span { color:var(--muted); font-size:13px; text-align:right; }
+  .privacy { background:#0f172a; color:white; border-radius:28px; padding:32px; display:grid; grid-template-columns:1.05fr .95fr; gap:24px; align-items:center; }
+  .privacy p { color:#cbd5e1; }
+  .pill-list { display:flex; flex-wrap:wrap; gap:10px; }
+  .pill { background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.12); color:#dbeafe; border-radius:999px; padding:9px 13px; font-size:13px; font-weight:700; }
+  footer { border-top:1px solid var(--border); text-align:center; padding:38px 24px; color:var(--muted); font-size:13px; }
+  .footer-links { display:flex; justify-content:center; flex-wrap:wrap; gap:18px; margin-top:10px; }
+  .footer-links a { color:var(--muted); text-decoration:none; }
+  @media (max-width:900px){ .hero,.split,.privacy{grid-template-columns:1fr;} .grid{grid-template-columns:1fr 1fr;} }
+  @media (max-width:620px){ nav{padding:15px 20px;} .nav-back{display:none;} .hero{padding-top:48px;} .grid{grid-template-columns:1fr;} .gauges{grid-template-columns:1fr;} }
+</style>
+</head>
+<body data-lang="en">
+<nav>
+  <a class="nav-logo" href="../index.html">🐱 Lynncat</a>
+  <div class="nav-right">
+    <a class="nav-back" href="../index.html"><span data-en>← All Apps</span><span data-zh>← 全部作品</span></a>
+    <button class="lang-toggle" onclick="toggleLang()"><span data-en>简体中文</span><span data-zh>English</span></button>
+  </div>
+</nav>
+
+<main>
+  <section class="hero">
+    <div>
+      <div class="eyebrow"><span>⌁</span><span data-en>Built for Codex users on Mac</span><span data-zh>专为 Mac 上的 Codex 用户设计</span></div>
+      <h1><span data-en>Codex quota, disk I/O, and cache cleanup in one Mac cockpit.</span><span data-zh>Codex 额度、硬盘读写与缓存清理，一个 Mac 驾驶舱集中查看。</span></h1>
+      <p><span data-en>CodexPilot keeps Codex remaining quota, local disk activity, cache growth, and Mac health visible from a native dashboard, menu bar, and supported Touch Bar Macs.</span><span data-zh>CodexPilot 将 Codex 剩余额度、本地硬盘活动、缓存增长和 Mac 状态集中展示在原生主界面、菜单栏和支持的 Touch Bar 上。</span></p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="support.html"><span data-en>Support & FAQ</span><span data-zh>支持与常见问题</span></a>
+        <a class="btn btn-secondary" href="#features"><span data-en>See features</span><span data-zh>查看功能</span></a>
+      </div>
+      <div class="fine"><span data-en>Local-first · No cloud account · Independent utility, not affiliated with OpenAI</span><span data-zh>本地优先 · 无需云端账号 · 独立工具，与 OpenAI 无隶属关系</span></div>
+    </div>
+
+    <div class="cockpit" aria-label="CodexPilot dashboard preview">
+      <div class="cockpit-bar"><div class="lights"><span class="light"></span><span class="light"></span><span class="light"></span></div><span>CodexPilot Sport Cockpit</span></div>
+      <div class="gauges">
+        <div class="gauge"><div class="label">Codex Quota</div><div class="value">70%</div><div class="track"><div class="fill purple" style="width:70%"></div></div></div>
+        <div class="gauge"><div class="label">Disk I/O</div><div class="value">R 18M/s</div><div class="track"><div class="fill green" style="width:38%"></div></div></div>
+        <div class="gauge"><div class="label">Cache</div><div class="value">2.4 GB</div><div class="track"><div class="fill orange" style="width:58%"></div></div></div>
+        <div class="gauge"><div class="label">Mac Health</div><div class="value">Live</div><div class="track"><div class="fill" style="width:82%"></div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="features">
+    <div class="section-head">
+      <div class="kicker"><span data-en>What it watches</span><span data-zh>它会监控什么</span></div>
+      <h2><span data-en>Signals Codex power users need close at hand.</span><span data-zh>Codex 重度用户需要随时看见的关键状态。</span></h2>
+      <p><span data-en>CodexPilot focuses on the practical questions that show up during long Codex sessions: quota, disk behavior, cache growth, and Mac performance.</span><span data-zh>长时间运行 Codex 时，CodexPilot 重点关注几个实际问题：额度、硬盘行为、缓存增长和 Mac 性能。</span></p>
+    </div>
+    <div class="grid">
+      <div class="card"><div class="icon">▣</div><h3><span data-en>Quota tracking</span><span data-zh>额度跟踪</span></h3><p><span data-en>Reads local Codex session events when quota signals are available, then surfaces remaining quota in the dashboard, menu bar, and Touch Bar.</span><span data-zh>在本地 Codex session 事件可用时读取额度信号，并在主界面、菜单栏和 Touch Bar 中显示剩余额度。</span></p></div>
+      <div class="card"><div class="icon">⇄</div><h3><span data-en>Disk read/write activity</span><span data-zh>硬盘读写活动</span></h3><p><span data-en>Shows live disk read/write rates and since-launch totals, helping you notice frequent local disk activity while Codex is working.</span><span data-zh>显示实时硬盘读写速率和本次启动后的累计读写量，帮助你观察 Codex 工作时的本地硬盘活动。</span></p></div>
+      <div class="card"><div class="icon">⌫</div><h3><span data-en>Cache cleanup</span><span data-zh>缓存清理</span></h3><p><span data-en>Estimates common user cache locations and provides a dedicated clean button for cache generated during local development and Codex runs.</span><span data-zh>估算常见用户缓存目录，并提供独立清理按钮，用于清理本地开发和 Codex 运行产生的缓存。</span></p></div>
+      <div class="card"><div class="icon">⌁</div><h3><span data-en>Normal and Sport modes</span><span data-zh>Normal 与 Sport 模式</span></h3><p><span data-en>Use a calm light dashboard for routine monitoring, or switch to a one-second Sport cockpit with gauge-style status cards.</span><span data-zh>日常使用浅色 Normal 仪表盘；需要高频观察时，切换到 1 秒刷新的 Sport 码表模式。</span></p></div>
+      <div class="card"><div class="icon">▤</div><h3><span data-en>Menu bar and Touch Bar</span><span data-zh>菜单栏与 Touch Bar</span></h3><p><span data-en>Rotating colored progress indicators keep CPU, memory, disk, battery, and Codex status visible without opening the full window.</span><span data-zh>彩色进度条轮播 CPU、内存、硬盘、电池和 Codex 状态，不打开主窗口也能看到关键指标。</span></p></div>
+      <div class="card"><div class="icon">⌘</div><h3><span data-en>Mac health cockpit</span><span data-zh>Mac 状态中枢</span></h3><p><span data-en>Monitor CPU, memory, battery, disk usage, disk growth, cache growth, and quota in a native macOS interface.</span><span data-zh>在原生 macOS 界面中查看 CPU、内存、电池、硬盘使用率、硬盘增长、缓存增长和额度状态。</span></p></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="split">
+      <div class="panel">
+        <div class="kicker"><span data-en>Codex workflow</span><span data-zh>Codex 工作流</span></div>
+        <h2><span data-en>Made for the moments when Codex runs hard.</span><span data-zh>专为 Codex 高强度运行时刻设计。</span></h2>
+        <p style="color:var(--muted);margin-bottom:18px;"><span data-en>When a Codex task grows long, the app lets you watch quota and local system pressure together instead of checking each source separately.</span><span data-zh>当 Codex 任务运行时间变长时，你可以同时观察额度和本地系统压力，而不必分散查看多个来源。</span></p>
+        <div class="metric"><strong><span data-en>Quota</span><span data-zh>额度</span></strong><span><span data-en>Remaining quota when local events are present</span><span data-zh>本地事件存在时显示剩余额度</span></span></div>
+        <div class="metric"><strong><span data-en>Disk I/O</span><span data-zh>硬盘读写</span></strong><span><span data-en>Live read/write rates and totals</span><span data-zh>实时速率与累计读写</span></span></div>
+        <div class="metric"><strong><span data-en>Cache</span><span data-zh>缓存</span></strong><span><span data-en>Estimate and clean common cache folders</span><span data-zh>估算并清理常见缓存目录</span></span></div>
+      </div>
+      <div class="panel">
+        <div class="kicker"><span data-en>Important note</span><span data-zh>重要说明</span></div>
+        <h2><span data-en>Quota depends on local Codex events.</span><span data-zh>额度显示取决于本地 Codex 事件。</span></h2>
+        <p style="color:var(--muted);"><span data-en>CodexPilot reads quota-related signals from local Codex session logs when those events are available. If the installed Codex version does not write quota information locally, the app shows quota as not reported.</span><span data-zh>CodexPilot 会在本地 Codex session 日志存在额度事件时读取额度相关信号。如果当前 Codex 版本没有把额度信息写入本地日志，应用会显示额度未报告。</span></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="privacy">
+      <div>
+        <div class="kicker" style="color:#93c5fd;"><span data-en>Local-first privacy</span><span data-zh>本地优先隐私</span></div>
+        <h2><span data-en>No account. No uploaded Codex logs.</span><span data-zh>无需账号。不上传 Codex 日志。</span></h2>
+        <p><span data-en>CodexPilot reads system metrics, disk counters, cache folders, and local Codex session logs on your Mac. It does not upload monitoring data to a server.</span><span data-zh>CodexPilot 在你的 Mac 本地读取系统指标、硬盘计数器、缓存目录和 Codex session 日志，不会把监控数据上传到服务器。</span></p>
+      </div>
+      <div class="pill-list">
+        <span class="pill">No tracking</span>
+        <span class="pill">No analytics SDK</span>
+        <span class="pill">No cloud account</span>
+        <span class="pill">Local cache cleaning</span>
+        <span class="pill">Sandbox-ready</span>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>© 2026 Lynncat · <a href="mailto:amwpessy@gmail.com">amwpessy@gmail.com</a></p>
+  <div class="footer-links">
+    <a href="privacy.html"><span data-en>Privacy Policy</span><span data-zh>隐私政策</span></a>
+    <a href="support.html"><span data-en>Support</span><span data-zh>支持</span></a>
+    <a href="../index.html"><span data-en>All Apps</span><span data-zh>全部作品</span></a>
+  </div>
+</footer>
+
+<script>
+(function(){
+  function apply(lang){
+    document.body.setAttribute('data-lang', lang);
+    document.documentElement.lang = lang === 'zh' ? 'zh-Hans' : 'en';
+    try { localStorage.setItem('lynncat-lang', lang); } catch(e){}
+  }
+  window.toggleLang = function(){ apply(document.body.getAttribute('data-lang') === 'en' ? 'zh' : 'en'); };
+  var saved = 'en';
+  try { saved = localStorage.getItem('lynncat-lang') || 'en'; } catch(e){}
+  apply(saved === 'zh' ? 'zh' : 'en');
+})();
+</script>
+</body>
+</html>
