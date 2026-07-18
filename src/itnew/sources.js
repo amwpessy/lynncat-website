@@ -7,6 +7,7 @@ function source(config) {
     licenseName: null,
     licenseUrl: null,
     attributionTemplate: null,
+    fullTextEligibility: null,
     ...config,
   });
 }
@@ -33,7 +34,7 @@ export const SOURCE_REGISTRY = Object.freeze([
     feedUrl: 'https://fedoramagazine.org/feed/',
     homepageUrl: 'https://fedoramagazine.org/',
     language: 'en',
-    rightsMode: 'licensed_full',
+    fullTextEligibility: 'article_verification_required',
     licenseName: 'CC BY-SA 4.0',
     licenseUrl: 'https://creativecommons.org/licenses/by-sa/4.0/',
     attributionTemplate: '{author}, Fedora Magazine, {url}',
@@ -44,7 +45,7 @@ export const SOURCE_REGISTRY = Object.freeze([
     feedUrl: 'https://hacks.mozilla.org/feed/',
     homepageUrl: 'https://hacks.mozilla.org/',
     language: 'en',
-    rightsMode: 'licensed_full',
+    fullTextEligibility: 'article_verification_required',
     licenseName: 'Article-specific Creative Commons license',
     attributionTemplate: '{author}, Mozilla, {url}',
   }),

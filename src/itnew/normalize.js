@@ -63,7 +63,11 @@ function parsedDate(value) {
   return Number.isFinite(timestamp) ? timestamp : null;
 }
 
-function parseHackerNews(input) {
+export function hackerNewsHydrationUrl(id) {
+  return `https://hacker-news.firebaseio.com/v0/item/${id}.json`;
+}
+
+export function parseHackerNews(input) {
   let parsed;
   try {
     parsed = typeof input === 'string' ? JSON.parse(input) : input;
@@ -72,16 +76,23 @@ function parseHackerNews(input) {
   }
   const items = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.items) ? parsed.items : parsed ? [parsed] : [];
   if (!Array.isArray(items)) return [];
-  return items.filter((item) => item && typeof item === 'object' && item.title).map((item) => ({
-    title: String(item.title),
-    url: item.url || `https://news.ycombinator.com/item?id=${item.id}`,
-    id: String(item.id ?? ''),
-    summary: item.text || '',
-    content: '',
-    publishedAt: Number.isFinite(item.time) ? item.time * 1000 : null,
-    author: item.by || '',
-    imageUrl: null,
-  }));
+  return items.flatMap((item) => {
+    if (Number.isSafeInteger(item) && item > 0) {
+      // Task 3 owns network I/O and must hydrate this reference before normalization.
+      return [{ id: item, hydrationUrl: hackerNewsHydrationUrl(item) }];
+    }
+    if (!item || typeof item !== 'object' || !item.title || !Number.isSafeInteger(item.id) || item.id <= 0) return [];
+    return [{
+      title: String(item.title),
+      url: item.url || `https://news.ycombinator.com/item?id=${item.id}`,
+      id: String(item.id),
+      summary: item.text || '',
+      content: '',
+      publishedAt: Number.isFinite(item.time) ? item.time * 1000 : null,
+      author: item.by || '',
+      imageUrl: null,
+    }];
+  });
 }
 
 export function parseFeed(input, source = {}) {
@@ -215,10 +226,139 @@ function deduplicate(items) {
   return accepted.map(({ item }) => item);
 }
 
+function increment(counts, key, amount = 1) {
+  const next = (counts.get(key) || 0) + amount;
+  if (next) counts.set(key, next);
+  else counts.delete(key);
+}
+
+// A single language is a bipartite source-to-category b-matching. Edmonds-Karp
+// gives an exact residual slot count while keeping this module dependency-free.
+function feasibleLanguageSlots(items, sourceCounts, categoryCounts, stopAt = Infinity) {
+  if (stopAt <= 0) return 0;
+  const sources = [...new Set(items.map((item) => item.sourceId))]
+    .filter((id) => (sourceCounts.get(id) || 0) < 5);
+  const categories = [...new Set(items.map((item) => item.category))]
+    .filter((id) => (categoryCounts.get(id) || 0) < 8);
+  if (!sources.length || !categories.length) return 0;
+
+  const sourceIndex = new Map(sources.map((id, index) => [id, index + 1]));
+  const categoryOffset = sources.length + 1;
+  const categoryIndex = new Map(categories.map((id, index) => [id, categoryOffset + index]));
+  const sink = categoryOffset + categories.length;
+  const size = sink + 1;
+  const capacity = Array.from({ length: size }, () => new Int16Array(size));
+
+  for (const id of sources) capacity[0][sourceIndex.get(id)] = 5 - (sourceCounts.get(id) || 0);
+  for (const id of categories) capacity[categoryIndex.get(id)][sink] = 8 - (categoryCounts.get(id) || 0);
+  for (const item of items) {
+    const from = sourceIndex.get(item.sourceId);
+    const to = categoryIndex.get(item.category);
+    if (from !== undefined && to !== undefined) capacity[from][to] += 1;
+  }
+
+  let flow = 0;
+  while (flow < stopAt) {
+    const parent = new Int16Array(size).fill(-1);
+    parent[0] = 0;
+    const queue = [0];
+    for (let cursor = 0; cursor < queue.length && parent[sink] === -1; cursor += 1) {
+      const from = queue[cursor];
+      for (let to = 0; to < size; to += 1) {
+        if (parent[to] === -1 && capacity[from][to] > 0) {
+          parent[to] = from;
+          queue.push(to);
+        }
+      }
+    }
+    if (parent[sink] === -1) break;
+    let amount = stopAt - flow;
+    for (let node = sink; node !== 0; node = parent[node]) amount = Math.min(amount, capacity[parent[node]][node]);
+    for (let node = sink; node !== 0; node = parent[node]) {
+      capacity[parent[node]][node] -= amount;
+      capacity[node][parent[node]] += amount;
+    }
+    flow += amount;
+  }
+  return flow;
+}
+
+function fillLanguage(items, quota, sourceCounts, categoryCounts) {
+  const chosen = [];
+  for (let index = 0; index < items.length && chosen.length < quota; index += 1) {
+    const item = items[index];
+    if ((sourceCounts.get(item.sourceId) || 0) >= 5 || (categoryCounts.get(item.category) || 0) >= 8) continue;
+    increment(sourceCounts, item.sourceId);
+    increment(categoryCounts, item.category);
+    const needed = quota - chosen.length - 1;
+    if (feasibleLanguageSlots(items.slice(index + 1), sourceCounts, categoryCounts, needed) >= needed) chosen.push(item);
+    else {
+      increment(sourceCounts, item.sourceId, -1);
+      increment(categoryCounts, item.category, -1);
+    }
+  }
+  return chosen.length === quota ? chosen : null;
+}
+
+const BALANCE_SEARCH_STATE_LIMIT = 25_000;
+
+function balancedForOrder(candidates, firstLanguage, firstQuota, secondLanguage, secondQuota) {
+  const first = candidates.filter((item) => item.language === firstLanguage);
+  const second = candidates.filter((item) => item.language === secondLanguage);
+  const sourceCounts = new Map();
+  const categoryCounts = new Map();
+  if (feasibleLanguageSlots(first, sourceCounts, categoryCounts, firstQuota) < firstQuota
+    || feasibleLanguageSlots(second, sourceCounts, categoryCounts, secondQuota) < secondQuota) return null;
+
+  let visited = 0;
+  const searchFirst = (start, chosen) => {
+    visited += 1;
+    if (visited > BALANCE_SEARCH_STATE_LIMIT) return null;
+    const needed = firstQuota - chosen.length;
+    if (!needed) {
+      const secondChosen = fillLanguage(second, secondQuota, sourceCounts, categoryCounts);
+      return secondChosen ? [...chosen, ...secondChosen] : null;
+    }
+    if (feasibleLanguageSlots(first.slice(start), sourceCounts, categoryCounts, needed) < needed
+      || feasibleLanguageSlots(second, sourceCounts, categoryCounts, secondQuota) < secondQuota) return null;
+
+    for (let index = start; index < first.length; index += 1) {
+      const item = first[index];
+      if ((sourceCounts.get(item.sourceId) || 0) >= 5 || (categoryCounts.get(item.category) || 0) >= 8) continue;
+      increment(sourceCounts, item.sourceId);
+      increment(categoryCounts, item.category);
+      const remainingNeeded = needed - 1;
+      const viable = feasibleLanguageSlots(first.slice(index + 1), sourceCounts, categoryCounts, remainingNeeded) >= remainingNeeded
+        && feasibleLanguageSlots(second, sourceCounts, categoryCounts, secondQuota) >= secondQuota;
+      const result = viable ? searchFirst(index + 1, [...chosen, item]) : null;
+      increment(sourceCounts, item.sourceId, -1);
+      increment(categoryCounts, item.category, -1);
+      if (result) return result;
+      if (visited > BALANCE_SEARCH_STATE_LIMIT) return null;
+    }
+    return null;
+  };
+  return searchFirst(0, []);
+}
+
+function exactBalancedSelection(candidates, target) {
+  const quotas = { zh: Math.ceil(target / 2), en: Math.floor(target / 2) };
+  const alternatives = [
+    balancedForOrder(candidates, 'zh', quotas.zh, 'en', quotas.en),
+    balancedForOrder(candidates, 'en', quotas.en, 'zh', quotas.zh),
+  ].filter(Boolean);
+  if (!alternatives.length) return null;
+  return alternatives.sort((left, right) => (
+    right.reduce((sum, item) => sum + item.score, 0) - left.reduce((sum, item) => sum + item.score, 0)
+  ))[0].sort((left, right) => right.score - left.score);
+}
+
 export function selectBalancedCandidates(items, limit) {
   const target = Math.max(0, Math.floor(Number(limit) || 0));
   if (!target) return [];
   const candidates = deduplicate(Array.isArray(items) ? items : []);
+  const balanced = exactBalancedSelection(candidates, target);
+  if (balanced) return balanced;
   const selected = [];
   const selectedIds = new Set();
   const sourceCounts = new Map();

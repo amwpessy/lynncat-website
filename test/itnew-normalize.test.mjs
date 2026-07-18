@@ -29,10 +29,13 @@ test('source registry contains the confirmed sources, adapters, and disabled def
     'fedora-magazine', 'mozilla-hacks',
   ]);
   assert.ok(SOURCE_REGISTRY.every(({ enabledByDefault }) => enabledByDefault === false));
+  assert.ok(SOURCE_REGISTRY.every(({ rightsMode }) => rightsMode === 'summary_link'));
   assert.equal(SOURCE_REGISTRY.find(({ id }) => id === 'hacker-news').adapter, 'hn_json');
   assert.ok(SOURCE_REGISTRY.filter(({ id }) => id !== 'hacker-news').every(({ adapter }) => adapter === 'feed'));
-  assert.equal(SOURCE_REGISTRY.find(({ id }) => id === 'fedora-magazine').rightsMode, 'licensed_full');
-  assert.equal(SOURCE_REGISTRY.find(({ id }) => id === 'mozilla-hacks').rightsMode, 'licensed_full');
+  assert.deepEqual(
+    SOURCE_REGISTRY.filter(({ fullTextEligibility }) => fullTextEligibility === 'article_verification_required').map(({ id }) => id),
+    ['fedora-magazine', 'mozilla-hacks'],
+  );
 });
 
 test('canonicalizeUrl removes tracking, normalizes the host, and sorts remaining parameters', () => {
@@ -119,6 +122,13 @@ test('parseFeed adapts Hacker News JSON without fetching article URLs', () => {
   assert.equal(parseFeed(JSON.stringify({ id: 43, title: 'Single story', by: 'ada' }), source)[0].url, 'https://news.ycombinator.com/item?id=43');
 });
 
+test('Hacker News adapter turns topstories IDs into deterministic Task 3 hydration references', () => {
+  assert.deepEqual(parseFeed(JSON.stringify([123, 456, 0, -1, 1.5, '789', null]), { adapter: 'hn_json' }), [
+    { id: 123, hydrationUrl: 'https://hacker-news.firebaseio.com/v0/item/123.json' },
+    { id: 456, hydrationUrl: 'https://hacker-news.firebaseio.com/v0/item/456.json' },
+  ]);
+});
+
 test('normalizeEntry trusts configured language and classifies bilingual keywords', () => {
   assert.equal(normalizeEntry({ title: '新型 AI 芯片发布', url: 'https://x.test/1' }, zhSource, now).language, 'zh');
   assert.equal(normalizeEntry({ title: 'Critical browser security update', url: 'https://x.test/2' }, enSource, now).category, 'security');
@@ -178,6 +188,27 @@ test('selectBalancedCandidates reserves shared-source capacity for the scarcer l
     ...make(10, 'ealt', (index) => ({ language: 'en', sourceId: `en-${index % 2}`, category: ['hardware', 'frontier'][index % 2], score: 75 })),
   ];
   assert.deepEqual(countBy(selectBalancedCandidates(pool, 30), 'language'), { en: 15, zh: 15 });
+});
+
+test('selectBalancedCandidates finds a feasible 15/15 split under competing category and source caps', () => {
+  const titleBases = { zhigh: 0x6100, zalt: 0x6200, eblocked: 0x6300, eok: 0x6400, edecoy: 0x6500 };
+  const make = (count, prefix, fields) => Array.from({ length: count }, (_, index) => ({
+    id: `${prefix}-${index}`,
+    title: String.fromCodePoint(titleBases[prefix] + index).repeat(10),
+    ...fields(index),
+  }));
+  const pool = [
+    ...make(8, 'zhigh', (index) => ({ language: 'zh', sourceId: index < 5 ? 'shared' : 'zh-high', category: 'AI', score: 100 - index })),
+    ...make(15, 'zalt', (index) => ({ language: 'zh', sourceId: `zh-alt-${index % 3}`, category: ['internet', 'development', 'hardware'][index % 3], score: 80 - index })),
+    ...make(8, 'eblocked', (index) => ({ language: 'en', sourceId: `en-ai-${index % 2}`, category: 'AI', score: 95 - index })),
+    ...make(8, 'eok', (index) => ({ language: 'en', sourceId: `en-ok-${index % 2}`, category: 'chips', score: 90 - index })),
+    ...make(10, 'edecoy', (index) => ({ language: 'en', sourceId: 'shared', category: index < 5 ? 'security' : 'frontier', score: 85 - index })),
+  ];
+  const selected = selectBalancedCandidates(pool, 30);
+  assert.equal(selected.length, 30);
+  assert.deepEqual(countBy(selected, 'language'), { zh: 15, en: 15 });
+  assert.ok(Object.values(countBy(selected, 'sourceId')).every((count) => count <= 5));
+  assert.ok(Object.values(countBy(selected, 'category')).every((count) => count <= 8));
 });
 
 test('selectBalancedCandidates clusters near-duplicate titles and retains the highest score', () => {
