@@ -228,8 +228,12 @@ export function createFakeR2({ failPut = false } = {}) {
   return {
     puts,
     async put(key, value, options) {
-      puts.push({ key, value, options });
-      if (failPut) throw new Error('simulated R2 put failure');
+      const put = { key, value, options };
+      puts.push(put);
+      const shouldFail = typeof failPut === 'function'
+        ? failPut(put, puts.length - 1)
+        : failPut;
+      if (shouldFail) throw new Error('simulated R2 put failure');
       return { key };
     },
   };

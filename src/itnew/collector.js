@@ -144,7 +144,7 @@ async function fetchSource(source, { fetchImpl, timeoutMs, makeUuid, now }) {
       lastErrorAt: now,
       lastError: errorText(fetchError),
     });
-    await recordSourceRun(source.db, {
+    const run = {
       id: makeUuid(),
       sourceId: source.id,
       batchId: null,
@@ -154,8 +154,8 @@ async function fetchSource(source, { fetchImpl, timeoutMs, makeUuid, now }) {
       durationMs: Math.max(0, completedAt - startedAt),
       candidateCount: 0,
       error: errorText(fetchError),
-    });
-    return { ok: false, source, entries: [], warnings, error: fetchError };
+    };
+    return { ok: false, source, entries: [], warnings, error: fetchError, run };
   }
 
   const health = { lastSuccessAt: now, lastError: null };
@@ -164,7 +164,7 @@ async function fetchSource(source, { fetchImpl, timeoutMs, makeUuid, now }) {
   if (etag !== null) health.etag = etag;
   if (lastModified !== null) health.lastModified = lastModified;
   await updateSourceHealth(source.db, source.id, health);
-  await recordSourceRun(source.db, {
+  const run = {
     id: makeUuid(),
     sourceId: source.id,
     batchId: null,
@@ -174,24 +174,29 @@ async function fetchSource(source, { fetchImpl, timeoutMs, makeUuid, now }) {
     durationMs: Math.max(0, completedAt - startedAt),
     candidateCount: entries.length,
     error: null,
-  });
-  return { ok: true, source, entries, warnings };
+  };
+  return { ok: true, source, entries, warnings, run };
 }
 
 function licenseSnapshot(source) {
   return {
+    articleAllowed: true,
     name: source.license_name ?? null,
     url: source.license_url ?? null,
     attributionTemplate: source.attribution_template ?? null,
   };
 }
 
-async function stageCandidate(candidate, images, warnings) {
+async function stageCandidate(candidate, candidateId, images, warnings) {
   const canStage = candidate.source.rights_mode === 'licensed_full'
     && candidate.articlePermissionVerified === true
     && String(candidate.content || '').trim().length > 0;
   if (!canStage) {
-    return { stagedBodyKey: null, rightsModeSnapshot: 'summary_link', licenseSnapshot: null };
+    return {
+      stagedBodyKey: null,
+      rightsModeSnapshot: 'summary_link',
+      licenseSnapshot: { articleAllowed: false },
+    };
   }
 
   const stagedBodyKey = `staged/${await sha256(candidate.content)}.html`;
@@ -204,9 +209,19 @@ async function stageCandidate(candidate, images, warnings) {
       rightsModeSnapshot: 'licensed_full',
       licenseSnapshot: licenseSnapshot(candidate.source),
     };
-  } catch (error) {
-    warnings.push(`r2_put_failed:${candidate.sourceId}:${errorText(error)}`);
-    return { stagedBodyKey: null, rightsModeSnapshot: 'summary_link', licenseSnapshot: null };
+  } catch {
+    warnings.push(`r2_put_failed:${candidateId}`);
+    return {
+      stagedBodyKey: null,
+      rightsModeSnapshot: 'summary_link',
+      licenseSnapshot: { articleAllowed: false },
+    };
+  }
+}
+
+async function recordFetchedRuns(db, fetched, batchId) {
+  for (const { run } of fetched) {
+    await recordSourceRun(db, { ...run, batchId });
   }
 }
 
@@ -232,6 +247,7 @@ export async function collectNextBatch(env, options = {}) {
   })));
   const failed = fetched.filter(({ ok }) => !ok);
   if (enabled.length > 0 && failed.length === enabled.length) {
+    await recordFetchedRuns(db, fetched, null);
     return { status: 'all_sources_failed', candidateCount: 0 };
   }
 
@@ -272,6 +288,7 @@ export async function collectNextBatch(env, options = {}) {
   const selected = selectBalancedCandidates(eligible, BATCH_LIMIT);
 
   if (selected.length === 0) {
+    await recordFetchedRuns(db, fetched, null);
     const lateBlocking = await getBlockingBatch(db);
     if (lateBlocking) return { status: 'batch_in_progress', batchId: lateBlocking.id };
     return { status: 'no_new_candidates', candidateCount: 0, warnings };
@@ -294,9 +311,10 @@ export async function collectNextBatch(env, options = {}) {
   const batchId = makeUuid();
   const candidates = [];
   for (const item of selected) {
-    const staged = await stageCandidate(item, env.ITNEW_IMAGES, warnings);
+    const candidateId = makeUuid();
+    const staged = await stageCandidate(item, candidateId, env.ITNEW_IMAGES, warnings);
     candidates.push({
-      id: makeUuid(),
+      id: candidateId,
       batchId,
       sourceId: item.sourceId,
       canonicalUrl: item.canonicalUrl,
@@ -326,6 +344,7 @@ export async function collectNextBatch(env, options = {}) {
       warnings,
     }, candidates);
   } catch (error) {
+    await recordFetchedRuns(db, fetched, null);
     if (error?.code === 'batch_in_progress') {
       const current = await getBlockingBatch(db);
       return { status: 'batch_in_progress', batchId: current?.id ?? null };
@@ -333,5 +352,6 @@ export async function collectNextBatch(env, options = {}) {
     throw error;
   }
 
+  await recordFetchedRuns(db, fetched, batchId);
   return { status: 'created', batchId, candidateCount: candidates.length, warnings };
 }
