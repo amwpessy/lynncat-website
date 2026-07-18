@@ -70,6 +70,7 @@ CREATE TABLE IF NOT EXISTS itnew_articles (
   language TEXT NOT NULL CHECK (language IN ('zh', 'en')),
   category TEXT NOT NULL CHECK (category IN ('AI', 'chips', 'internet', 'development', 'security', 'robotics', 'hardware', 'frontier')),
   rights_mode TEXT NOT NULL CHECK (rights_mode IN ('licensed_full', 'summary_link')),
+  article_permission_verified INTEGER NOT NULL DEFAULT 0 CHECK (article_permission_verified IN (0, 1)),
   license_name TEXT,
   license_url TEXT,
   attribution_text TEXT,
@@ -89,7 +90,7 @@ CREATE TABLE IF NOT EXISTS itnew_article_sections (
   id TEXT PRIMARY KEY,
   article_id TEXT NOT NULL REFERENCES itnew_articles(id),
   section_index INTEGER NOT NULL,
-  html TEXT NOT NULL,
+  html TEXT NOT NULL CHECK (length(CAST(html AS BLOB)) <= 409600),
   UNIQUE(article_id, section_index)
 );
 
@@ -166,4 +167,32 @@ CREATE TRIGGER IF NOT EXISTS itnew_articles_fts_delete
 AFTER DELETE ON itnew_articles BEGIN
   INSERT INTO itnew_articles_fts(itnew_articles_fts, rowid, title, summary)
   VALUES ('delete', old.rowid, old.title, old.summary);
+END;
+
+CREATE TRIGGER IF NOT EXISTS itnew_articles_require_full_text_permission_insert
+BEFORE INSERT ON itnew_articles
+WHEN NEW.rights_mode = 'licensed_full'
+  AND (
+    NEW.article_permission_verified <> 1
+    OR NOT EXISTS (
+      SELECT 1 FROM itnew_sources
+      WHERE id = NEW.source_id AND rights_mode = 'licensed_full'
+    )
+  )
+BEGIN
+  SELECT RAISE(ABORT, 'licensed_full_requires_source_and_article_permission');
+END;
+
+CREATE TRIGGER IF NOT EXISTS itnew_articles_require_full_text_permission_update
+BEFORE UPDATE OF rights_mode, article_permission_verified, source_id ON itnew_articles
+WHEN NEW.rights_mode = 'licensed_full'
+  AND (
+    NEW.article_permission_verified <> 1
+    OR NOT EXISTS (
+      SELECT 1 FROM itnew_sources
+      WHERE id = NEW.source_id AND rights_mode = 'licensed_full'
+    )
+  )
+BEGIN
+  SELECT RAISE(ABORT, 'licensed_full_requires_source_and_article_permission');
 END;
