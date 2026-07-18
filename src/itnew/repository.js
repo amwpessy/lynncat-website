@@ -175,20 +175,7 @@ function candidateInsert(db, candidate) {
   );
 }
 
-export async function createBatchWithCandidates(db, batch, candidates) {
-  const statements = [
-    batchInsert(db, batch, candidates.length),
-    ...candidates.map((candidate) => candidateInsert(db, candidate)),
-  ];
-  try {
-    return await db.batch(statements);
-  } catch (error) {
-    if (isOpenBatchConflict(error)) throw batchConflict(error);
-    throw error;
-  }
-}
-
-export async function recordSourceRun(db, run) {
+function sourceRunInsert(db, run) {
   return db.prepare(`
     /* itnew:source_run_insert */
     INSERT INTO itnew_source_runs (
@@ -205,7 +192,25 @@ export async function recordSourceRun(db, run) {
     run.durationMs ?? null,
     run.candidateCount ?? 0,
     run.error ?? null,
-  ).run();
+  );
+}
+
+export async function createBatchWithCandidates(db, batch, candidates, sourceRuns = []) {
+  const statements = [
+    batchInsert(db, batch, candidates.length),
+    ...candidates.map((candidate) => candidateInsert(db, candidate)),
+    ...sourceRuns.map((run) => sourceRunInsert(db, run)),
+  ];
+  try {
+    return await db.batch(statements);
+  } catch (error) {
+    if (isOpenBatchConflict(error)) throw batchConflict(error);
+    throw error;
+  }
+}
+
+export async function recordSourceRun(db, run) {
+  return sourceRunInsert(db, run).run();
 }
 
 export async function updateSourceHealth(db, sourceId, health) {

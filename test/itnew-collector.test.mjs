@@ -166,6 +166,21 @@ function candidate(id = 'candidate-1', batchId = 'batch-1', overrides = {}) {
   };
 }
 
+function sourceRun(id = 'run-1', batchId = 'batch-1', overrides = {}) {
+  return {
+    id,
+    sourceId: 'source-1',
+    batchId,
+    startedAt: now - 100,
+    completedAt: now,
+    status: 'success',
+    durationMs: 100,
+    candidateCount: 1,
+    error: null,
+    ...overrides,
+  };
+}
+
 test('source sync inserts registry rows disabled and summary-link on first run', async () => {
   const db = createFakeD1();
   await syncSourceRegistry(db, [
@@ -284,6 +299,43 @@ test('batch creation inserts the batch and every candidate in one atomic D1 batc
   assert.equal(db.candidates.length, 2);
 });
 
+test('batch creation atomically persists candidates and linked source runs', async () => {
+  const db = createFakeD1();
+  const candidates = [candidate('candidate-1')];
+  const runs = [
+    sourceRun('run-success'),
+    sourceRun('run-error', 'batch-1', { status: 'error', candidateCount: 0, error: 'offline' }),
+  ];
+
+  await createBatchWithCandidates(db, batch('batch-1'), candidates, runs);
+
+  assert.deepEqual(db.history.batchCalls[0].map(({ operation }) => operation), [
+    'batch_insert', 'candidate_insert', 'source_run_insert', 'source_run_insert',
+  ]);
+  assert.equal(db.batches.length, 1);
+  assert.equal(db.candidates.length, 1);
+  assert.equal(db.sourceRuns.length, 2);
+  assert.ok(db.sourceRuns.every(({ batch_id }) => batch_id === 'batch-1'));
+});
+
+test('a source-run failure rolls back the batch, candidates and every source run', async () => {
+  const db = createFakeD1({ failBatchOperation: 'source_run_insert' });
+
+  await assert.rejects(
+    createBatchWithCandidates(
+      db,
+      batch('batch-1'),
+      [candidate('candidate-1')],
+      [sourceRun('run-1')],
+    ),
+    /simulated D1 batch failure: source_run_insert/,
+  );
+
+  assert.equal(db.batches.length, 0);
+  assert.equal(db.candidates.length, 0);
+  assert.equal(db.sourceRuns.length, 0);
+});
+
 test('concurrent batch creates leave one open batch and expose a stable repository conflict', async () => {
   const db = createFakeD1();
   const results = await Promise.allSettled([
@@ -392,6 +444,9 @@ test('one timed-out source and one successful source still create a batch and re
   assert.equal(db.sourceRuns.length, 2);
   assert.deepEqual(new Set(db.sourceRuns.map(({ status }) => status)), new Set(['success', 'error']));
   assert.ok(db.sourceRuns.every(({ batch_id }) => batch_id === result.batchId));
+  assert.deepEqual(db.history.batchCalls.at(-1).map(({ operation }) => operation), [
+    'batch_insert', 'candidate_insert', 'candidate_insert', 'source_run_insert', 'source_run_insert',
+  ]);
   assert.ok(db.sources.find(({ id }) => id === 'techcrunch').last_success_at);
   assert.match(db.sources.find(({ id }) => id === '36kr').last_error, /aborted by timeout/);
 });

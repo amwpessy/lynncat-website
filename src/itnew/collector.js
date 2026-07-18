@@ -335,6 +335,7 @@ export async function collectNextBatch(env, options = {}) {
   }
 
   try {
+    const linkedSourceRuns = fetched.map(({ run }) => ({ ...run, batchId }));
     await createBatchWithCandidates(db, {
       id: batchId,
       status: 'open',
@@ -342,16 +343,15 @@ export async function collectNextBatch(env, options = {}) {
       candidateCount: candidates.length,
       collectedAt: now,
       warnings,
-    }, candidates);
+    }, candidates, linkedSourceRuns);
   } catch (error) {
-    await recordFetchedRuns(db, fetched, null);
     if (error?.code === 'batch_in_progress') {
+      await recordFetchedRuns(db, fetched, null);
       const current = await getBlockingBatch(db);
       return { status: 'batch_in_progress', batchId: current?.id ?? null };
     }
     throw error;
   }
 
-  await recordFetchedRuns(db, fetched, batchId);
   return { status: 'created', batchId, candidateCount: candidates.length, warnings };
 }

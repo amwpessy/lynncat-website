@@ -45,13 +45,16 @@ class FakeD1Statement {
 }
 
 export class FakeD1 {
-  constructor({ sources = [], batches = [], candidates = [], sourceRuns = [] } = {}) {
+  constructor({
+    sources = [], batches = [], candidates = [], sourceRuns = [], failBatchOperation = null,
+  } = {}) {
     this.state = {
       sources: copyRows(sources),
       batches: copyRows(batches),
       candidates: copyRows(candidates),
       sourceRuns: copyRows(sourceRuns),
     };
+    this.failBatchOperation = failBatchOperation;
     this.history = {
       prepared: [],
       bindings: [],
@@ -82,7 +85,13 @@ export class FakeD1 {
       candidates: copyRows(this.candidates),
       sourceRuns: copyRows(this.sourceRuns),
     };
-    const results = statements.map((statement) => this._execute(statement, 'run', transaction));
+    const results = statements.map((statement) => {
+      const result = this._execute(statement, 'run', transaction);
+      if (statement.operation === this.failBatchOperation) {
+        throw new Error(`simulated D1 batch failure: ${statement.operation}`);
+      }
+      return result;
+    });
     this.state = transaction;
     return results;
   }
