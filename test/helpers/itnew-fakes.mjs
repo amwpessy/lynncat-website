@@ -222,3 +222,28 @@ function executeOperation(state, operation, bindings) {
 export function createFakeD1(seed) {
   return new FakeD1(seed);
 }
+
+export function createFakeR2({ failPut = false } = {}) {
+  const puts = [];
+  return {
+    puts,
+    async put(key, value, options) {
+      puts.push({ key, value, options });
+      if (failPut) throw new Error('simulated R2 put failure');
+      return { key };
+    },
+  };
+}
+
+export function createFetchHarness(routes = {}) {
+  const calls = [];
+  const fetchImpl = async (url, init = {}) => {
+    const href = String(url);
+    calls.push({ url: href, init });
+    const route = routes[href] ?? routes.default;
+    if (!route) throw new Error(`No fake fetch route for ${href}`);
+    return typeof route === 'function' ? route(href, init, calls) : route;
+  };
+  fetchImpl.calls = calls;
+  return fetchImpl;
+}

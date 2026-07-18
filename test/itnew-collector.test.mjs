@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createFakeD1 } from './helpers/itnew-fakes.mjs';
+import { collectNextBatch } from '../src/itnew/collector.js';
+import { createFakeD1, createFakeR2, createFetchHarness } from './helpers/itnew-fakes.mjs';
 import {
   closeBatchIfResolved,
   createBatchWithCandidates,
@@ -14,6 +15,100 @@ import {
 } from '../src/itnew/repository.js';
 
 const now = Date.parse('2026-07-19T00:00:00Z');
+
+const sourceFixtures = {
+  '36kr': { feed_url: 'https://36kr.com/feed', language: 'zh' },
+  'infoq-cn': { feed_url: 'https://www.infoq.cn/feed', language: 'zh' },
+  oschina: { feed_url: 'https://www.oschina.net/news/rss', language: 'zh' },
+  solidot: { feed_url: 'https://www.solidot.org/index.rss', language: 'zh' },
+  techcrunch: { feed_url: 'https://techcrunch.com/feed/', language: 'en' },
+  'the-verge': { feed_url: 'https://www.theverge.com/rss/index.xml', language: 'en' },
+  'ars-technica': { feed_url: 'https://feeds.arstechnica.com/arstechnica/index', language: 'en' },
+  wired: { feed_url: 'https://www.wired.com/feed/rss', language: 'en' },
+  'hacker-news': {
+    feed_url: 'https://hacker-news.firebaseio.com/v0/topstories.json',
+    language: 'en',
+  },
+};
+
+function enabledSource(id, overrides = {}) {
+  const fixture = sourceFixtures[id];
+  return {
+    id,
+    name: id,
+    feed_url: fixture.feed_url,
+    homepage_url: `https://${id}.test/`,
+    language: fixture.language,
+    rights_mode: 'summary_link',
+    license_name: null,
+    license_url: null,
+    attribution_template: null,
+    priority_weight: 25,
+    enabled: 1,
+    etag: null,
+    last_modified: null,
+    last_success_at: null,
+    last_error_at: null,
+    last_error: null,
+    ...overrides,
+  };
+}
+
+function xmlEscape(value) {
+  return String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+}
+
+function rss(entries) {
+  return `<rss><channel>${entries.map((entry, index) => `
+    <item>
+      <title>${xmlEscape(entry.title)}</title>
+      <link>${xmlEscape(entry.url)}</link>
+      <description>${xmlEscape(entry.summary ?? `Summary ${index}`)}</description>
+      <content:encoded><![CDATA[${entry.content ?? ''}]]></content:encoded>
+      <pubDate>${new Date(entry.publishedAt ?? now - 60_000).toUTCString()}</pubDate>
+    </item>`).join('')}</channel></rss>`;
+}
+
+function response(body = '', { status = 200, headers = {} } = {}) {
+  const normalized = new Map(Object.entries(headers).map(([key, value]) => [key.toLowerCase(), value]));
+  return {
+    status,
+    ok: status >= 200 && status < 300,
+    headers: { get: (name) => normalized.get(String(name).toLowerCase()) ?? null },
+    async text() { return body; },
+  };
+}
+
+function uuidSequence(prefix = 'id') {
+  let next = 0;
+  return () => `${prefix}-${++next}`;
+}
+
+function collectorEnv(db, images = createFakeR2()) {
+  return { ITNEW_DB: db, ITNEW_IMAGES: images };
+}
+
+function feedEntries(sourceId, count, { category = 'development', start = 0 } = {}) {
+  const keyword = {
+    development: 'Developer', security: 'Security', AI: 'AI', chips: 'Chip',
+    robotics: 'Robot', internet: 'Browser', hardware: 'Hardware', frontier: 'Frontier',
+  }[category];
+  const distinctTopics = [
+    'databases reach orbit',
+    'robots explore the ocean',
+    'quantum networks cross cities',
+    'tiny satellites map forests',
+    'new compilers accelerate science',
+    'wearable sensors protect athletes',
+  ];
+  return Array.from({ length: count }, (_, index) => ({
+    title: `${keyword} ${sourceId} ${distinctTopics[(start + index) % distinctTopics.length]} ${start + index}`,
+    url: `https://${sourceId}.test/story/${start + index}`,
+    summary: `${sourceId} summary ${start + index}`,
+    content: `<p>${sourceId} body ${start + index}</p>`,
+    publishedAt: now - index * 1000,
+  }));
+}
 
 function registrySource(overrides = {}) {
   return {
@@ -243,4 +338,278 @@ test('batch closes only after pending and processing-error candidates are resolv
   assert.equal(await closeBatchIfResolved(db, 'batch-1', now + 3000), true);
   assert.equal(db.batches[0].status, 'closed');
   assert.equal(db.batches[0].closed_at, now + 3000);
+});
+
+test('collector rejects missing bindings without exposing binding names', async () => {
+  await assert.rejects(collectNextBatch({}, { now }), (error) => {
+    assert.equal(error.message, 'IT news collector is not configured');
+    assert.doesNotMatch(error.message, /ITNEW_/);
+    return true;
+  });
+});
+
+test('blocking open, pending and processing-error work gates before any fetch', async () => {
+  const states = [
+    {
+      batches: [{ id: 'open', status: 'open', collected_at: now }],
+      candidates: [],
+    },
+    {
+      batches: [{ id: 'pending-batch', status: 'closed', collected_at: now }],
+      candidates: [{ id: 'pending', batch_id: 'pending-batch', status: 'pending' }],
+    },
+    {
+      batches: [{ id: 'error-batch', status: 'closed', collected_at: now }],
+      candidates: [{ id: 'error', batch_id: 'error-batch', status: 'processing_error' }],
+    },
+  ];
+
+  for (const state of states) {
+    const db = createFakeD1({ sources: [enabledSource('techcrunch')], ...state });
+    const fetchImpl = createFetchHarness();
+    const result = await collectNextBatch(collectorEnv(db), { now, fetchImpl, uuid: uuidSequence() });
+    assert.deepEqual(result, { status: 'batch_in_progress', batchId: state.batches[0].id });
+    assert.equal(fetchImpl.calls.length, 0);
+  }
+});
+
+test('one timed-out source and one successful source still create a batch and record both outcomes', async () => {
+  const db = createFakeD1({ sources: [enabledSource('36kr'), enabledSource('techcrunch')] });
+  const fetchImpl = createFetchHarness({
+    [sourceFixtures['36kr'].feed_url]: (_url, { signal }) => new Promise((_, reject) => {
+      signal.addEventListener('abort', () => reject(new Error('upstream aborted by timeout')), { once: true });
+    }),
+    [sourceFixtures.techcrunch.feed_url]: response(rss(feedEntries('techcrunch', 2))),
+  });
+
+  const result = await collectNextBatch(collectorEnv(db), {
+    now, fetchImpl, timeoutMs: 1, uuid: uuidSequence(),
+  });
+
+  assert.equal(result.status, 'created');
+  assert.equal(result.candidateCount, 2);
+  assert.equal(db.batches.length, 1);
+  assert.equal(db.sourceRuns.length, 2);
+  assert.deepEqual(new Set(db.sourceRuns.map(({ status }) => status)), new Set(['success', 'error']));
+  assert.ok(db.sources.find(({ id }) => id === 'techcrunch').last_success_at);
+  assert.match(db.sources.find(({ id }) => id === '36kr').last_error, /aborted by timeout/);
+});
+
+test('all enabled sources failing returns all_sources_failed without a batch', async () => {
+  const db = createFakeD1({ sources: [enabledSource('36kr'), enabledSource('techcrunch')] });
+  const fetchImpl = createFetchHarness({ default: () => { throw new Error('offline'); } });
+
+  const result = await collectNextBatch(collectorEnv(db), { now, fetchImpl, uuid: uuidSequence() });
+
+  assert.deepEqual(result, { status: 'all_sources_failed', candidateCount: 0 });
+  assert.equal(db.batches.length, 0);
+  assert.equal(db.sourceRuns.length, 2);
+  assert.ok(db.sourceRuns.every(({ status }) => status === 'error'));
+});
+
+test('collector selects exactly 30 while obeying language, source and category caps', async () => {
+  const definitions = [
+    ['36kr', 'security'], ['infoq-cn', 'AI'], ['oschina', 'chips'], ['solidot', 'development'],
+    ['techcrunch', 'security'], ['the-verge', 'AI'], ['ars-technica', 'chips'], ['wired', 'development'],
+  ];
+  const db = createFakeD1({ sources: definitions.map(([id]) => enabledSource(id)) });
+  const routes = Object.fromEntries(definitions.map(([id, category]) => [
+    sourceFixtures[id].feed_url,
+    response(rss(feedEntries(id, 6, { category }))),
+  ]));
+
+  const result = await collectNextBatch(collectorEnv(db), {
+    now, fetchImpl: createFetchHarness(routes), uuid: uuidSequence(),
+  });
+
+  assert.equal(result.candidateCount, 30);
+  assert.equal(db.candidates.length, 30);
+  assert.deepEqual(Object.fromEntries(['zh', 'en'].map((language) => [
+    language, db.candidates.filter((candidate) => candidate.language === language).length,
+  ])), { zh: 15, en: 15 });
+  for (const field of ['source_id', 'category']) {
+    const counts = new Map();
+    for (const item of db.candidates) counts.set(item[field], (counts.get(item[field]) || 0) + 1);
+    assert.ok([...counts.values()].every((count) => count <= (field === 'source_id' ? 5 : 8)));
+  }
+});
+
+test('fewer than 30 candidates creates a smaller batch with an insufficient warning', async () => {
+  const db = createFakeD1({ sources: [enabledSource('techcrunch')] });
+  const fetchImpl = createFetchHarness({
+    [sourceFixtures.techcrunch.feed_url]: response(rss(feedEntries('techcrunch', 3))),
+  });
+
+  const result = await collectNextBatch(collectorEnv(db), { now, fetchImpl, uuid: uuidSequence() });
+
+  assert.equal(result.status, 'created');
+  assert.equal(result.candidateCount, 3);
+  assert.ok(result.warnings.includes('insufficient_candidates'));
+  assert.equal(db.candidates.length, 3);
+});
+
+test('stored canonical and fingerprint duplicates plus near-title duplicates are excluded', async () => {
+  const source = enabledSource('techcrunch');
+  const db = createFakeD1({ sources: [source] });
+  const firstFetch = createFetchHarness({
+    [source.feed_url]: response(rss([{
+      title: 'Original fingerprint title', url: 'https://techcrunch.test/original',
+      summary: 'Shared summary', content: '<p>Shared full body</p>',
+    }])),
+  });
+  await collectNextBatch(collectorEnv(db), { now, fetchImpl: firstFetch, uuid: uuidSequence('first') });
+  db.batches[0].status = 'closed';
+  db.candidates[0].status = 'approved';
+
+  const secondFetch = createFetchHarness({
+    [source.feed_url]: response(rss([
+      { title: 'Different canonical title', url: 'https://techcrunch.test/original', content: '<p>Different</p>' },
+      { title: 'Renamed fingerprint item', url: 'https://techcrunch.test/renamed', summary: 'Other', content: '<p>Shared full body</p>' },
+      { title: 'A remarkable developer platform launch', url: 'https://techcrunch.test/near-1', content: '<p>Near one</p>' },
+      { title: 'A remarkable developer platform launch!', url: 'https://techcrunch.test/near-2', content: '<p>Near two</p>' },
+      { title: 'Unique security bulletin', url: 'https://techcrunch.test/unique', content: '<p>Unique</p>' },
+    ])),
+  });
+  const result = await collectNextBatch(collectorEnv(db), {
+    now: now + 1000, fetchImpl: secondFetch, uuid: uuidSequence('second'),
+  });
+
+  assert.equal(result.candidateCount, 2);
+  const secondBatch = db.batches.find(({ id }) => id === result.batchId);
+  const titles = db.candidates.filter(({ batch_id }) => batch_id === secondBatch.id).map(({ title }) => title);
+  assert.equal(titles.filter((title) => title.startsWith('A remarkable')).length, 1);
+  assert.ok(titles.includes('Unique security bulletin'));
+});
+
+test('HN hydrates no more than 60 numeric IDs with concurrency capped at 10', async () => {
+  const db = createFakeD1({ sources: [enabledSource('hacker-news')] });
+  let active = 0;
+  let maximumActive = 0;
+  let itemRequests = 0;
+  const topUrl = sourceFixtures['hacker-news'].feed_url;
+  const fetchImpl = createFetchHarness({
+    [topUrl]: response(JSON.stringify(Array.from({ length: 80 }, (_, index) => index + 1))),
+    default: async (url) => {
+      itemRequests += 1;
+      active += 1;
+      maximumActive = Math.max(maximumActive, active);
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      active -= 1;
+      const id = Number(url.match(/(\d+)\.json$/)[1]);
+      return response(JSON.stringify({ id, title: `Developer HN ${id}`, url: `https://hn.test/${id}`, time: now / 1000 }));
+    },
+  });
+
+  await collectNextBatch(collectorEnv(db), { now, fetchImpl, uuid: uuidSequence() });
+
+  assert.equal(itemRequests, 60);
+  assert.ok(maximumActive > 1);
+  assert.ok(maximumActive <= 10);
+});
+
+test('conditional validators are sent and refreshed while 304 is a successful empty source', async () => {
+  const source = enabledSource('techcrunch', {
+    etag: 'old-tag', last_modified: 'Sat, 18 Jul 2026 00:00:00 GMT',
+  });
+  const db = createFakeD1({ sources: [source] });
+  const fetchImpl = createFetchHarness({
+    [source.feed_url]: response('', {
+      status: 304,
+      headers: { etag: 'new-tag', 'last-modified': 'Sun, 19 Jul 2026 00:00:00 GMT' },
+    }),
+  });
+
+  const result = await collectNextBatch(collectorEnv(db), { now, fetchImpl, uuid: uuidSequence() });
+
+  assert.equal(result.status, 'no_new_candidates');
+  const requestHeaders = fetchImpl.calls[0].init.headers;
+  assert.equal(requestHeaders['If-None-Match'], 'old-tag');
+  assert.equal(requestHeaders['If-Modified-Since'], 'Sat, 18 Jul 2026 00:00:00 GMT');
+  assert.equal(db.sources[0].etag, 'new-tag');
+  assert.equal(db.sources[0].last_modified, 'Sun, 19 Jul 2026 00:00:00 GMT');
+  assert.equal(db.sourceRuns[0].status, 'success');
+});
+
+test('full-text R2 staging requires promoted source rights, explicit article permission and content', async () => {
+  const source = enabledSource('hacker-news', {
+    rights_mode: 'licensed_full', license_name: 'Test License', license_url: 'https://license.test/',
+  });
+  const db = createFakeD1({ sources: [source] });
+  const images = createFakeR2();
+  const topUrl = source.feed_url;
+  const items = {
+    1: { id: 1, title: 'Developer allowed', url: 'https://hn.test/1', time: now / 1000, articlePermissionVerified: true, content: '<p>Allowed body</p>' },
+    2: { id: 2, title: 'Developer unverified', url: 'https://hn.test/2', time: now / 1000, articlePermissionVerified: false, content: '<p>Unverified body</p>' },
+    3: { id: 3, title: 'Developer empty', url: 'https://hn.test/3', time: now / 1000, articlePermissionVerified: true, content: '' },
+  };
+  const fetchImpl = createFetchHarness({
+    [topUrl]: response('[1,2,3]'),
+    default: (url) => response(JSON.stringify(items[Number(url.match(/(\d+)\.json$/)[1])])),
+  });
+
+  const result = await collectNextBatch(collectorEnv(db, images), { now, fetchImpl, uuid: uuidSequence() });
+
+  assert.equal(result.candidateCount, 3);
+  assert.equal(images.puts.length, 1);
+  assert.match(images.puts[0].key, /^staged\/[a-f0-9]{64}\.html$/);
+  const rights = Object.fromEntries(db.candidates.map(({ title, rights_mode_snapshot }) => [title, rights_mode_snapshot]));
+  assert.equal(rights['Developer allowed'], 'licensed_full');
+  assert.equal(rights['Developer unverified'], 'summary_link');
+  assert.equal(rights['Developer empty'], 'summary_link');
+  assert.equal(db.candidates.filter(({ staged_body_key }) => staged_body_key).length, 1);
+});
+
+test('R2 put failure downgrades only that candidate and records a warning', async () => {
+  const source = enabledSource('hacker-news', { rights_mode: 'licensed_full' });
+  const db = createFakeD1({ sources: [source] });
+  const images = createFakeR2({ failPut: true });
+  const fetchImpl = createFetchHarness({
+    [source.feed_url]: response('[1]'),
+    default: response(JSON.stringify({
+      id: 1, title: 'Developer licensed', url: 'https://hn.test/1', time: now / 1000,
+      articlePermissionVerified: true, content: '<p>Licensed body</p>',
+    })),
+  });
+
+  const result = await collectNextBatch(collectorEnv(db, images), { now, fetchImpl, uuid: uuidSequence() });
+
+  assert.ok(result.warnings.some((warning) => warning.startsWith('r2_put_failed:')));
+  assert.equal(db.candidates[0].staged_body_key, null);
+  assert.equal(db.candidates[0].rights_mode_snapshot, 'summary_link');
+});
+
+test('two concurrent collections leave one created batch and one batch_in_progress result', async () => {
+  const source = enabledSource('techcrunch');
+  const db = createFakeD1({ sources: [source] });
+  const fetchImpl = createFetchHarness({
+    [source.feed_url]: response(rss(feedEntries('techcrunch', 1))),
+  });
+  const uuid = uuidSequence('concurrent');
+
+  const results = await Promise.all([
+    collectNextBatch(collectorEnv(db), { now, fetchImpl, uuid }),
+    collectNextBatch(collectorEnv(db), { now, fetchImpl, uuid }),
+  ]);
+
+  assert.deepEqual(results.map(({ status }) => status).sort(), ['batch_in_progress', 'created']);
+  assert.equal(db.batches.filter(({ status }) => status === 'open').length, 1);
+});
+
+test('language balance fallback is observable when both pools have 15 but caps prevent 15/15', async () => {
+  const definitions = [
+    ['36kr', 'security'], ['infoq-cn', 'security'], ['oschina', 'security'],
+    ['techcrunch', 'development'], ['the-verge', 'AI'], ['ars-technica', 'chips'],
+  ];
+  const db = createFakeD1({ sources: definitions.map(([id]) => enabledSource(id)) });
+  const fetchImpl = createFetchHarness(Object.fromEntries(definitions.map(([id, category]) => [
+    sourceFixtures[id].feed_url, response(rss(feedEntries(id, 5, { category }))),
+  ])));
+
+  const result = await collectNextBatch(collectorEnv(db), { now, fetchImpl, uuid: uuidSequence() });
+
+  assert.ok(result.warnings.includes('language_balance_fallback'));
+  const languages = db.candidates.reduce((counts, candidate) => ({
+    ...counts, [candidate.language]: (counts[candidate.language] || 0) + 1,
+  }), {});
+  assert.notDeepEqual(languages, { zh: 15, en: 15 });
 });
