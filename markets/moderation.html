@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<title>交流内容审核 — Lynncat Markets</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  :root { color-scheme: dark; --bg:#0f1012; --panel:#181a1e; --border:#2c2f35; --text:#f4f4f5; --muted:#9699a2; --accent:#f5a623; --danger:#ed6a5a; --ok:#54b986; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:14px; }
+  button, input { font:inherit; }
+  .shell { width:min(1180px,calc(100% - 36px)); margin:0 auto; padding:28px 0 56px; }
+  header { display:flex; align-items:center; justify-content:space-between; gap:18px; padding-bottom:20px; border-bottom:1px solid var(--border); }
+  h1 { margin:0; font-size:22px; letter-spacing:0; }
+  .sub { margin:5px 0 0; color:var(--muted); }
+  .toolbar { display:flex; align-items:center; gap:12px; }
+  .count { color:var(--muted); white-space:nowrap; }
+  button { min-height:34px; padding:7px 11px; border:1px solid var(--border); border-radius:6px; background:#22252a; color:var(--text); cursor:pointer; }
+  button:hover { border-color:#555b65; }
+  button.primary { border-color:#a96a10; background:#8b5208; }
+  button.danger { color:#ffaca1; }
+  button.ok { color:#8edcb5; }
+  button:disabled { opacity:.5; cursor:wait; }
+  .status { min-height:22px; margin:14px 0; color:var(--muted); }
+  .status.error { color:#ff9c91; }
+  .empty { padding:54px 18px; border-top:1px solid var(--border); color:var(--muted); text-align:center; }
+  .queue { width:100%; border-collapse:collapse; table-layout:fixed; }
+  th { padding:10px 9px; color:var(--muted); font-size:12px; font-weight:600; text-align:left; border-bottom:1px solid var(--border); }
+  td { padding:12px 9px; vertical-align:top; border-bottom:1px solid var(--border); overflow-wrap:anywhere; }
+  .room { width:92px; color:var(--accent); font-weight:700; }
+  .message { width:auto; }
+  .reason { width:150px; }
+  .time { width:150px; color:var(--muted); }
+  .actions { width:315px; }
+  .message-text { margin-bottom:6px; line-height:1.45; }
+  .meta { color:var(--muted); font-size:12px; }
+  .reason-code { display:inline-block; margin-bottom:4px; color:#ddd; }
+  .note { width:100%; height:32px; margin-bottom:7px; padding:6px 8px; border:1px solid var(--border); border-radius:5px; background:#111215; color:var(--text); }
+  .action-row { display:flex; flex-wrap:wrap; gap:6px; }
+  @media (max-width:900px) {
+    header { align-items:flex-start; flex-direction:column; }
+    .queue, .queue tbody, .queue tr, .queue td { display:block; width:100%; }
+    .queue thead { display:none; }
+    .queue tr { padding:14px 0; border-bottom:1px solid var(--border); }
+    .queue td { padding:5px 0; border:0; }
+  }
+</style>
+</head>
+<body>
+<main class="shell">
+  <header>
+    <div>
+      <h1>交流内容审核</h1>
+      <p class="sub">仅供 Lynncat Markets 管理员使用</p>
+    </div>
+    <div class="toolbar">
+      <span class="count" id="queue-count">待处理 0 条</span>
+      <button class="primary" id="refresh" type="button">刷新</button>
+    </div>
+  </header>
+
+  <p class="status" id="status" aria-live="polite"></p>
+  <table class="queue" id="queue" hidden>
+    <thead><tr><th class="room">房间</th><th class="message">内容</th><th class="reason">举报</th><th class="time">时间</th><th class="actions">处理</th></tr></thead>
+    <tbody id="queue-body"></tbody>
+  </table>
+  <div class="empty" id="empty">正在读取待处理举报...</div>
+</main>
+
+<script>
+const queue = document.getElementById('queue');
+const queueBody = document.getElementById('queue-body');
+const empty = document.getElementById('empty');
+const statusLine = document.getElementById('status');
+const queueCount = document.getElementById('queue-count');
+const refreshButton = document.getElementById('refresh');
+
+function setStatus(text, isError = false) {
+  statusLine.textContent = text;
+  statusLine.classList.toggle('error', isError);
+}
+
+function groupedReports(reports) {
+  const groups = new Map();
+  for (const report of reports) {
+    const key = report.message_id;
+    if (!groups.has(key)) groups.set(key, { ...report, reasons: [], reportCount: 0 });
+    const group = groups.get(key);
+    group.reportCount += 1;
+    group.reasons.push(report.reason);
+  }
+  return [...groups.values()];
+}
+
+function element(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+function actionButton(label, className, action) {
+  const button = element('button', className, label);
+  button.type = 'button';
+  button.addEventListener('click', action);
+  return button;
+}
+
+function renderReport(report) {
+  const row = document.createElement('tr');
+  const room = element('td', 'room', report.room_id || '未知');
+  const message = element('td', 'message');
+  message.append(element('div', 'message-text', report.text || '原内容已不存在'));
+  message.append(element('div', 'meta', `昵称：${report.nickname || '匿名用户'} · 状态：${report.message_status || 'unknown'}`));
+
+  const reason = element('td', 'reason');
+  reason.append(element('span', 'reason-code', [...new Set(report.reasons)].join('、')));
+  reason.append(element('div', 'meta', `${report.reportCount} 次举报`));
+
+  const time = element('td', 'time', new Date(Number(report.created_at)).toLocaleString('zh-CN'));
+  const actions = element('td', 'actions');
+  const note = element('input', 'note');
+  note.id = `note-${report.message_id}`;
+  note.placeholder = '审核备注（可选）';
+  note.maxLength = 500;
+  const rowActions = element('div', 'action-row');
+  rowActions.append(
+    actionButton('隐藏', 'danger', () => updateMessage(report.message_id, 'hidden')),
+    actionButton('恢复公开', 'ok', () => updateMessage(report.message_id, 'active')),
+    actionButton('移除', 'danger', () => updateMessage(report.message_id, 'removed')),
+    actionButton('全局禁言', 'danger', () => updateAuthor(report.author_key, 'ban')),
+    actionButton('解除禁言', 'ok', () => updateAuthor(report.author_key, 'unban')),
+  );
+  actions.append(note, rowActions);
+  row.append(room, message, reason, time, actions);
+  return row;
+}
+
+async function apiRequest(url, options) {
+  const response = await fetch(url, options);
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(body.error || `HTTP ${response.status}`);
+  return body;
+}
+
+async function loadReports() {
+  refreshButton.disabled = true;
+  setStatus('正在刷新...');
+  try {
+    const body = await apiRequest('/markets/moderation/api/reports?status=open');
+    const reports = groupedReports(body.reports || []);
+    queueBody.replaceChildren(...reports.map(renderReport));
+    queue.hidden = reports.length === 0;
+    empty.hidden = reports.length !== 0;
+    empty.textContent = '当前没有待处理举报';
+    queueCount.textContent = `待处理 ${reports.length} 条`;
+    setStatus(`更新于 ${new Date().toLocaleTimeString('zh-CN')}`);
+  } catch (error) {
+    setStatus(`读取失败：${error.message}`, true);
+    empty.hidden = false;
+    empty.textContent = '无法读取审核队列，请检查服务配置。';
+  } finally {
+    refreshButton.disabled = false;
+  }
+}
+
+async function updateMessage(id, messageStatus) {
+  try {
+    const note = document.getElementById(`note-${id}`)?.value.trim() || '';
+    await apiRequest(`/markets/moderation/api/messages/${encodeURIComponent(id)}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: messageStatus, note }),
+    });
+    await loadReports();
+  } catch (error) {
+    setStatus(`处理失败：${error.message}`, true);
+  }
+}
+
+async function updateAuthor(authorKey, action) {
+  if (!authorKey) return setStatus('无法识别该作者', true);
+  try {
+    await apiRequest(`/markets/moderation/api/authors/${encodeURIComponent(authorKey)}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action }),
+    });
+    await loadReports();
+  } catch (error) {
+    setStatus(`处理失败：${error.message}`, true);
+  }
+}
+
+refreshButton.addEventListener('click', loadReports);
+loadReports();
+</script>
+</body>
+</html>
