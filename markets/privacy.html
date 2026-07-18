@@ -50,8 +50,8 @@
   </div>
 
   <div class="lang-switcher">
-    <button class="lang-btn active" onclick="setLang('en')">English</button>
-    <button class="lang-btn" onclick="setLang('zht')">繁體中文</button>
+    <button class="lang-btn active" onclick="setLang('en', event)">English</button>
+    <button class="lang-btn" onclick="setLang('zht', event)">繁體中文</button>
   </div>
 
   <!-- English -->
@@ -82,7 +82,10 @@
     <p>These requests are used to load app content and generally include only technical request information and market/news identifiers, such as asset symbols or feed URLs. Data handling by third-party data providers is governed by their own privacy policies.</p>
 
     <h2>Messages and User-Generated Content</h2>
-    <p>The current App Store version has the public message board feature disabled. The app does not provide a public posting or chat feature in this release.</p>
+    <p>Market-specific discussion tickers allow guests to read and submit user-generated content without creating an account. When you participate, Lynncat processes the nickname you choose, your submitted text, the selected market room, posting and expiry timestamps, and an opaque author key derived from your app-generated guest identity.</p>
+    <p>The service stores a salted hashed guest identifier for cooldown enforcement and abuse prevention. If a post is reported, the report reason, optional note, message status and necessary moderation history are also stored. Raw guest identifiers, moderator credentials and internal audit-only data are not returned to ordinary app users.</p>
+    <p>Posts expire from public display one hour after publication. Server records may be retained only as needed for abuse prevention, reports, legal compliance and moderation integrity. Local author blocks remain on your device and are not uploaded as a social graph.</p>
+    <p>This feature does not access your contacts, precise location, advertising identifier or data from other apps, and it is not used for advertising or cross-app tracking. See the <a href="community.html">Community Rules</a> for reporting and blocking details.</p>
 
     <h2>Data Sharing</h2>
     <p>We do not sell personal information. We do not share personal information for advertising or tracking purposes.</p>
@@ -129,7 +132,10 @@
     <p>這些請求用於載入 App 內容，通常僅包含技術性請求資訊及行情/資訊識別內容，例如資產代碼或 RSS 來源網址。第三方資料提供者如何處理資料，受其各自隱私政策約束。</p>
 
     <h2>留言與使用者產生內容</h2>
-    <p>目前 App Store 版本已停用公開留言板功能。本版本不提供公開發文或聊天功能。</p>
+    <p>分品種市場交流滾動條讓訪客在無需註冊帳號的情況下閱讀及提交使用者產生內容。當您參與交流時，Lynncat 會處理您選擇的暱稱、提交文字、所選市場房間、發佈與到期時間，以及由 App 產生之訪客標識衍生的不透明作者識別碼。</p>
+    <p>服務會保存加鹽哈希訪客標識，用於執行發言冷卻和防止濫用。若內容被舉報，亦會保存舉報原因、可選備註、內容狀態及必要的審核記錄。原始訪客標識、管理員憑證和僅供審計的內部資料不會返回給一般 App 使用者。</p>
+    <p>內容會在發佈一小時後從公開顯示區過期。服務端記錄僅會在防止濫用、處理舉報、符合法律要求及維持審核完整性所需範圍內保留。本機屏蔽名單只保存在您的裝置上，不會作為社交關係上傳。</p>
+    <p>此功能不會存取您的通訊錄、精確位置、廣告識別碼或其他 App 資料，也不會用於廣告或跨 App 追蹤。舉報與屏蔽方式請參閱<a href="community.html">《社區規則》</a>。</p>
 
     <h2>資料分享</h2>
     <p>我們不出售個人資訊，也不會為廣告或追蹤目的分享個人資訊。</p>
@@ -154,11 +160,11 @@
 </div>
 
 <script>
-function setLang(lang) {
+function setLang(lang, event) {
   document.querySelectorAll('.lang-section').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.lang-btn').forEach(el => el.classList.remove('active'));
   document.getElementById('lang-' + lang).classList.add('active');
-  event.target.classList.add('active');
+  if (event && event.target) event.target.classList.add('active');
 }
 </script>
 </body>
