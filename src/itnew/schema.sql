@@ -196,3 +196,14 @@ WHEN NEW.rights_mode = 'licensed_full'
 BEGIN
   SELECT RAISE(ABORT, 'licensed_full_requires_source_and_article_permission');
 END;
+
+CREATE TRIGGER IF NOT EXISTS itnew_sources_prevent_full_text_rights_downgrade
+BEFORE UPDATE OF rights_mode ON itnew_sources
+WHEN NEW.rights_mode <> 'licensed_full'
+  AND EXISTS (
+    SELECT 1 FROM itnew_articles
+    WHERE source_id = OLD.id AND rights_mode = 'licensed_full'
+  )
+BEGIN
+  SELECT RAISE(ABORT, 'itnew_source_has_licensed_full_articles');
+END;

@@ -27,11 +27,11 @@ test('schema contains isolated tables, an open-batch guard and article FTS', asy
   assert.match(sql, /CHECK \(rights_mode IN \('licensed_full', 'summary_link'\)\)/);
 });
 
-async function runSchema(statements) {
+async function runSchema(statements, { bail = true } = {}) {
   const schema = await readFile(new URL('../src/itnew/schema.sql', import.meta.url), 'utf8');
   return spawnSync('sqlite3', [':memory:'], {
     encoding: 'utf8',
-    input: `.bail on\nPRAGMA foreign_keys = ON;\n${schema}\n${statements.join('\n')}\n`,
+    input: `${bail ? '.bail on\n' : ''}PRAGMA foreign_keys = ON;\n${schema}\n${statements.join('\n')}\n`,
   });
 }
 
@@ -111,4 +111,24 @@ test('schema requires source and article permission for full-text articles', asy
     "UPDATE itnew_articles SET rights_mode = 'licensed_full', article_permission_verified = 1 WHERE id = 'article-1';",
   ]);
   assert.notEqual(updateRejected.status, 0);
+});
+
+test('schema prevents downgrading a source linked to full-text articles', async () => {
+  const downgradeRejected = await runSchema([
+    sourceSql('licensed_full'),
+    articleSql({ rightsMode: 'licensed_full', permissionVerified: 1 }),
+    "UPDATE itnew_sources SET rights_mode = 'summary_link' WHERE id = 'source-1';",
+    "SELECT rights_mode FROM itnew_sources WHERE id = 'source-1';",
+  ], { bail: false });
+  assert.notEqual(downgradeRejected.status, 0);
+  assert.match(downgradeRejected.stderr, /itnew_source_has_licensed_full_articles/);
+  assert.equal(downgradeRejected.stdout.trim(), 'licensed_full');
+
+  const downgradeAllowed = await runSchema([
+    sourceSql('licensed_full'),
+    "UPDATE itnew_sources SET rights_mode = 'summary_link' WHERE id = 'source-1';",
+    "SELECT rights_mode FROM itnew_sources WHERE id = 'source-1';",
+  ]);
+  assert.equal(downgradeAllowed.status, 0, downgradeAllowed.stderr);
+  assert.equal(downgradeAllowed.stdout.trim(), 'summary_link');
 });
