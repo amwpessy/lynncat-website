@@ -8,7 +8,7 @@
 - 站内文章详情：`/itnew/article/<slug>`
 - 管理员入口：`/itnew/admin/`
 - 管理员初始账号：`admin`
-- 管理员初始密码：`qc666666`
+- 管理员初始密码：使用用户已确认的值，部署时仅通过 Cloudflare Secret 交互输入，不写入仓库
 - 采集频率：每小时检查一次
 - 批次大小：目标 30 条
 - 批次门禁：上一批存在待审核内容时，不生成下一批
@@ -226,7 +226,7 @@ D1 当前单行字符串/BLOB/行大小上限为 2 MB，因此清理后的正文
 
 ## 登录与安全
 
-- `ITNEW_ADMIN_USERNAME` 与 `ITNEW_ADMIN_PASSWORD` 使用 Cloudflare Secret；生产初始值分别为 `admin` 和 `qc666666`，不得写入仓库或前端响应。
+- `ITNEW_ADMIN_USERNAME` 与 `ITNEW_ADMIN_PASSWORD` 使用 Cloudflare Secret；生产初始账号为 `admin`，初始密码使用用户已确认的值并仅在部署时交互输入，不得写入仓库或前端响应。
 - 登录成功后签发 HMAC 签名的 HttpOnly Cookie，有效期 8 小时，启用 `Secure`、`SameSite=Strict`，路径限制为 `/itnew/admin`。
 - 会话包含随机 CSRF 令牌；所有变更请求验证会话、CSRF 和同源 Origin。
 - IP 使用带独立 Secret pepper 的摘要，不保存明文；15 分钟内最多失败 5 次。
