@@ -4,6 +4,7 @@ import { handleMessages } from './messages.js';
 
 const MESSAGE_STATUSES = new Set(['active', 'hidden', 'removed']);
 const AUTHOR_ACTIONS = new Set(['ban', 'unban']);
+const REPORT_STATUSES = new Set(['open', 'resolved', 'dismissed']);
 
 export default {
   async fetch(request, env, ctx) {
@@ -61,7 +62,9 @@ export async function handleModeration(request, env) {
 
   const url = new URL(request.url);
   if (request.method === 'GET' && url.pathname === '/markets/moderation/api/reports') {
-    return listReports(env.DB);
+    const status = url.searchParams.get('status') || 'open';
+    if (!REPORT_STATUSES.has(status)) return json({ error: 'invalid_report_status' }, 400);
+    return listReports(env.DB, status);
   }
 
   const messageMatch = url.pathname.match(/^\/markets\/moderation\/api\/messages\/([^/]+)$/);
@@ -77,15 +80,16 @@ export async function handleModeration(request, env) {
   return json({ error: 'not_found' }, 404);
 }
 
-async function listReports(db) {
+async function listReports(db, status) {
   const result = await db.prepare(`
     SELECT r.id, r.message_id, r.reporter_hash, r.reason, r.note, r.status, r.created_at,
       m.room_id, m.nickname, m.text, m.author_key, m.author_hash, m.status AS message_status
     FROM market_reports r
     LEFT JOIN market_messages m ON m.id = r.message_id
+    WHERE r.status = ?
     ORDER BY r.created_at DESC
     LIMIT 200
-  `).bind().all();
+  `).bind(status).all();
   return json({ reports: result.results || [] });
 }
 

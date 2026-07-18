@@ -144,6 +144,19 @@ test('moderation reports require Basic authentication', async () => {
   assert.deepEqual(await accepted.json(), { reports: [] });
 });
 
+test('moderation reports honor the requested report status', async () => {
+  const db = createFakeD1();
+  const env = moderatorEnv(db);
+
+  const response = await marketWorker.fetch(new Request(
+    'https://unit.test/markets/moderation/api/reports?status=open',
+    { headers: moderatorHeaders() },
+  ), env, {});
+
+  assert.equal(response.status, 200);
+  assert.equal(db.bindings.at(-1), 'open');
+});
+
 test('moderator authentication compares username and password when username mismatches', () => {
   const comparisons = [];
   const authorized = moderatorCredentialsMatch(
