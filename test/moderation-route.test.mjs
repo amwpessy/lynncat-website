@@ -37,3 +37,11 @@ test('moderation console is protected and community rules stay public', async ()
   assert.equal(community.status, 200);
   assert.match(html, /社区规则|Community Rules/);
 });
+
+test('internal worker files are never served as public assets', async () => {
+  const response = await marketWorker.fetch(
+    new Request('https://unit.test/src/community-schema.sql'), environment(), {},
+  );
+
+  assert.equal(response.status, 404);
+});

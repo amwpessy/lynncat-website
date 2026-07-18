@@ -5,10 +5,16 @@ import { handleMessages } from './messages.js';
 const MESSAGE_STATUSES = new Set(['active', 'hidden', 'removed']);
 const AUTHOR_ACTIONS = new Set(['ban', 'unban']);
 const REPORT_STATUSES = new Set(['open', 'resolved', 'dismissed']);
+const PRIVATE_ASSET_PREFIXES = ['/src/', '/test/', '/dist/', '/.git/', '/.claude/', '/.openai/', '/.wrangler/'];
+const PRIVATE_ASSET_PATHS = new Set([
+  '/.DS_Store', '/.dev.vars', '/.assetsignore', '/.gitignore', '/README.md', '/wrangler.toml',
+]);
 
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+
+    if (isPrivateAssetPath(url.pathname)) return new Response('Not found', { status: 404 });
 
     if (url.pathname === '/xxxc/sina') return handleSina(request);
     if (url.pathname === '/news/fetch') return handleNewsFetch(request, env);
@@ -31,6 +37,12 @@ export default {
     ctx.waitUntil(runNewsFetch(env));
   },
 };
+
+export function isPrivateAssetPath(pathname) {
+  return PRIVATE_ASSET_PATHS.has(pathname)
+    || pathname.endsWith('/.DS_Store')
+    || PRIVATE_ASSET_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+}
 
 export function requireModerator(request, env) {
   if (!isConfiguredSecret(env.MODERATION_USERNAME) || !isConfiguredSecret(env.MODERATION_PASSWORD)) return false;
