@@ -4,3 +4,15 @@ gkzy/crawler
 .wrangler
 .git
 node_modules
+.assetsignore
+.gitignore
+.claude
+.openai
+.dev.vars
+.DS_Store
+**/.DS_Store
+README.md
+wrangler.toml
+src
+test
+dist
