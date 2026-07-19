@@ -60,7 +60,9 @@ export async function exchangeAppleAuthorizationCode(authorizationCode, clientId
     body: body.toString(),
   });
   const result = await responseJson(response);
-  if (!response.ok || !isConfiguredString(result?.refresh_token)) {
+  if (!response.ok
+    || !isConfiguredString(result?.refresh_token)
+    || !isConfiguredString(result?.id_token)) {
     throw marketError('apple_token_exchange_failed', 502);
   }
   return result;
@@ -99,17 +101,30 @@ export async function encryptRefreshToken(refreshToken, env) {
 }
 
 async function importAppleKey(kid, env) {
-  const jwks = env?.APPLE_JWKS || await fetchAppleKeys(env);
-  const jwk = Array.isArray(jwks?.keys) ? jwks.keys.find((candidate) => candidate.kid === kid) : null;
+  let jwks = env?.APPLE_JWKS;
+  let usedCachedFetch = false;
+  if (!jwks) {
+    usedCachedFetch = Boolean(cachedAppleKeys && cachedAppleKeysUntil > nowFor(env));
+    jwks = await fetchAppleKeys(env);
+  }
+  let jwk = findAppleKey(jwks, kid);
+  if (!jwk && usedCachedFetch) {
+    jwks = await fetchAppleKeys(env, true);
+    jwk = findAppleKey(jwks, kid);
+  }
   if (!jwk || jwk.kty !== 'EC' || jwk.crv !== 'P-256') throw new Error('unknown Apple key');
   return cryptoFor(env).subtle.importKey(
     'jwk', jwk, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify'],
   );
 }
 
-async function fetchAppleKeys(env) {
+function findAppleKey(jwks, kid) {
+  return Array.isArray(jwks?.keys) ? jwks.keys.find((candidate) => candidate.kid === kid) : null;
+}
+
+async function fetchAppleKeys(env, forceRefresh = false) {
   const now = nowFor(env);
-  if (cachedAppleKeys && cachedAppleKeysUntil > now) return cachedAppleKeys;
+  if (!forceRefresh && cachedAppleKeys && cachedAppleKeysUntil > now) return cachedAppleKeys;
   const response = await fetchFor(env)(APPLE_KEYS_URL);
   const result = await responseJson(response);
   if (!response.ok || !Array.isArray(result?.keys)) throw new Error('Apple keys unavailable');

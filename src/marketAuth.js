@@ -27,9 +27,14 @@ export async function handleMarketAuth(request, env) {
     const exchangeAuthorizationCode = env?.EXCHANGE_APPLE_AUTHORIZATION_CODE || exchangeAppleAuthorizationCode;
     const sealRefreshToken = env?.ENCRYPT_REFRESH_TOKEN || encryptRefreshToken;
     const payload = await verifyIdentityToken(identityToken, nonce, env);
+    const tokens = await exchangeAuthorizationCode(authorizationCode, payload.aud, env);
+    if (!cleanCredential(tokens?.id_token)) throw marketError('invalid_apple_token', 401);
+    const exchangedPayload = await verifyIdentityToken(tokens.id_token, nonce, env);
+    if (exchangedPayload.sub !== payload.sub || exchangedPayload.aud !== payload.aud) {
+      throw marketError('invalid_apple_token', 401);
+    }
     const appleSubjectHash = await secretHash(env.APPLE_SUBJECT_HASH_SALT, payload.sub, env);
     const installationHash = await secretHash(env.INSTALLATION_HASH_SALT, installationId, env);
-    const tokens = await exchangeAuthorizationCode(authorizationCode, payload.aud, env);
     const encryptedRefreshToken = await sealRefreshToken(tokens.refresh_token, env);
     const now = nowFor(env);
     const repository = repositoryFor(env);

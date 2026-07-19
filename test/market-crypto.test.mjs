@@ -17,6 +17,24 @@ test('verifyAppleIdentityToken accepts a valid Apple ES256 identity token', asyn
   assert.equal(payload.sub, 'apple-user-1');
 });
 
+test('an unknown kid in cached fetched JWKS triggers exactly one fresh key fetch', async () => {
+  const cached = await appleTokenFixture({ kid: 'cached-apple-key' });
+  const rotated = await appleTokenFixture({ kid: 'rotated-apple-key', sub: 'rotated-apple-user' });
+  const fetchedKeySets = [cached.env.APPLE_JWKS, rotated.env.APPLE_JWKS];
+  let fetchCount = 0;
+  const env = {
+    NOW: () => NOW,
+    APPLE_CLIENT_IDS: 'com.lynncat.ios,com.lynncat.macos,com.lynncat.watchos',
+    FETCH: async () => Response.json(fetchedKeySets[Math.min(fetchCount++, fetchedKeySets.length - 1)]),
+  };
+
+  await verifyAppleIdentityToken(cached.token, 'nonce-123', env);
+  const payload = await verifyAppleIdentityToken(rotated.token, 'nonce-123', env);
+
+  assert.equal(payload.sub, 'rotated-apple-user');
+  assert.equal(fetchCount, 2);
+});
+
 for (const [label, mutate] of [
   ['signature', async (fixture) => {
     const other = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
@@ -44,13 +62,17 @@ test('Apple token exchange signs a client secret for an allowed audience', async
   let submitted;
   fixture.env.FETCH = async (url, init) => {
     submitted = { url, init, body: new URLSearchParams(init.body) };
-    return Response.json({ refresh_token: 'apple-refresh-token' });
+    return Response.json({
+      refresh_token: 'apple-refresh-token',
+      id_token: 'exchanged-id-token',
+    });
   };
 
   const tokens = await exchangeAppleAuthorizationCode('authorization-code', 'com.lynncat.ios', fixture.env);
   const claims = decodePart(submitted.body.get('client_secret').split('.')[1]);
 
   assert.equal(tokens.refresh_token, 'apple-refresh-token');
+  assert.equal(tokens.id_token, 'exchanged-id-token');
   assert.equal(submitted.url, 'https://appleid.apple.com/auth/token');
   assert.equal(submitted.body.get('grant_type'), 'authorization_code');
   assert.equal(submitted.body.get('code'), 'authorization-code');
@@ -58,6 +80,16 @@ test('Apple token exchange signs a client secret for an allowed audience', async
   assert.deepEqual(
     { iss: claims.iss, aud: claims.aud, sub: claims.sub },
     { iss: 'TEAM123', aud: 'https://appleid.apple.com', sub: 'com.lynncat.ios' },
+  );
+});
+
+test('Apple token exchange rejects a response without an identity token', async () => {
+  const fixture = await appleClientFixture();
+  fixture.env.FETCH = async () => Response.json({ refresh_token: 'apple-refresh-token' });
+
+  await assert.rejects(
+    exchangeAppleAuthorizationCode('authorization-code', 'com.lynncat.ios', fixture.env),
+    (error) => error.code === 'apple_token_exchange_failed' && error.status === 502,
   );
 });
 
@@ -88,17 +120,17 @@ test('refresh-token encryption uses AES-GCM and never returns plaintext', async 
   assert.doesNotMatch(encrypted, /apple-refresh-token/);
 });
 
-async function appleTokenFixture() {
+async function appleTokenFixture(options = {}) {
   const keyPair = await crypto.subtle.generateKey(
     { name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify'],
   );
-  const header = { alg: 'ES256', kid: 'apple-key-1', typ: 'JWT' };
+  const header = { alg: 'ES256', kid: options.kid ?? 'apple-key-1', typ: 'JWT' };
   const payload = {
     iss: 'https://appleid.apple.com',
     aud: 'com.lynncat.ios',
     exp: Math.floor(NOW / 1000) + 300,
     nonce: 'nonce-123',
-    sub: 'apple-user-1',
+    sub: options.sub ?? 'apple-user-1',
   };
   const publicJwk = await crypto.subtle.exportKey('jwk', keyPair.publicKey);
   return {

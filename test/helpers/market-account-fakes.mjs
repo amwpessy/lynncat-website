@@ -33,7 +33,10 @@ export function createAccountEnv(options = {}) {
       nonce,
       sub: options.appleSubject ?? 'apple-user-1',
     }),
-    EXCHANGE_APPLE_AUTHORIZATION_CODE: async () => ({ refresh_token: 'raw-refresh-token' }),
+    EXCHANGE_APPLE_AUTHORIZATION_CODE: async () => ({
+      refresh_token: 'raw-refresh-token',
+      id_token: 'exchanged-id-token',
+    }),
     ENCRYPT_REFRESH_TOKEN: async () => 'sealed-refresh-token',
   };
 

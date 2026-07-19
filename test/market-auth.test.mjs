@@ -17,6 +17,58 @@ test('same Apple subject reuses one account on two platforms', async () => {
   assert.equal(env.repo.devices.size, 2);
 });
 
+test('authorization exchange verifies a matching identity with the same nonce before writes', async () => {
+  const env = createAccountEnv({ appleSubject: 'apple-user-1' });
+  const verifications = [];
+  env.VERIFY_APPLE_IDENTITY_TOKEN = async (token, nonce) => {
+    verifications.push([token, nonce]);
+    return {
+      iss: 'https://appleid.apple.com',
+      aud: 'com.lynncat.ios',
+      exp: Math.floor(env.NOW() / 1000) + 300,
+      nonce,
+      sub: 'apple-user-1',
+    };
+  };
+
+  const response = await handleMarketAuth(appleCredentialRequest(), env);
+
+  assert.equal(response.status, 201);
+  assert.deepEqual(verifications, [
+    ['identity-token', 'nonce-12345678'],
+    ['exchanged-id-token', 'nonce-12345678'],
+  ]);
+  assert.equal(env.repo.users.size, 1);
+  assert.equal(env.repo.sessions.size, 1);
+});
+
+for (const [claim, exchangedIdentity] of [
+  ['subject', { sub: 'different-apple-user', aud: 'com.lynncat.ios' }],
+  ['audience', { sub: 'apple-user-1', aud: 'com.lynncat.macos' }],
+]) {
+  test(`authorization exchange rejects a mismatched ${claim} with zero persistent mutations`, async () => {
+    const env = createAccountEnv({ appleSubject: 'apple-user-1' });
+    env.VERIFY_APPLE_IDENTITY_TOKEN = async (token, nonce) => ({
+      iss: 'https://appleid.apple.com',
+      aud: token === 'exchanged-id-token' ? exchangedIdentity.aud : 'com.lynncat.ios',
+      exp: Math.floor(env.NOW() / 1000) + 300,
+      nonce,
+      sub: token === 'exchanged-id-token' ? exchangedIdentity.sub : 'apple-user-1',
+    });
+
+    const response = await handleMarketAuth(appleCredentialRequest(), env);
+
+    assert.equal(response.status, 401);
+    assert.deepEqual(await response.json(), { error: 'invalid_apple_token' });
+    assert.deepEqual({
+      users: env.repo.users.size,
+      credentials: env.repo.credentials.size,
+      devices: env.repo.devices.size,
+      sessions: env.repo.sessions.size,
+    }, { users: 0, credentials: 0, devices: 0, sessions: 0 });
+  });
+}
+
 test('Apple authentication stores only protected identifiers, credential and session values', async () => {
   const env = createAccountEnv({ appleSubject: 'apple-private-subject' });
   const response = await handleMarketAuth(appleCredentialRequest('watchos', 'private-installation'), env);
