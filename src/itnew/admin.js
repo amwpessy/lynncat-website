@@ -105,13 +105,14 @@ async function reviewBulkService({ request, env, context, session }) {
         details: {}, createdAt: now,
       }));
     }
+    const summaryAuditId = makeId(context);
     statements.push(conditionalSummaryAuditStatement(db, {
-      id: makeId(context), adminId: session.sub, action: 'bulk_review', targetType: 'batch',
+      id: summaryAuditId, adminId: session.sub, action: 'bulk_review', targetType: 'batch',
       targetId: body.batchId, batchId: body.batchId, result: 'rejected',
       details: { decision: body.decision, candidateIds: sortedCandidates.map(({ id }) => id) },
       createdAt: now,
     }, candidateAuditIds));
-    statements.push(closeBatchStatement(db, body.batchId, now));
+    statements.push(conditionalCloseBatchStatement(db, body.batchId, now, summaryAuditId));
     const results = await db.batch(statements);
     if (changesFrom(results[0]) !== sortedCandidates.length) {
       throw new AdminApiError('candidate_conflict', 409);
@@ -520,6 +521,23 @@ function closeBatchStatement(db, batchId, now) {
   `).bind(now, batchId);
 }
 
+function conditionalCloseBatchStatement(db, batchId, now, summaryAuditId) {
+  return db.prepare(`
+    /* itnew:admin_conditional_batch_close */
+    UPDATE itnew_batches
+    SET status = 'closed', closed_at = ?1
+    WHERE id = ?2 AND status = 'open'
+      AND EXISTS (
+        SELECT 1 FROM itnew_audit_log
+        WHERE id = ?3 AND action = 'bulk_review' AND target_id = ?2
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM itnew_candidates
+        WHERE batch_id = ?2 AND status IN ('pending', 'processing_error')
+      )
+  `).bind(now, batchId, summaryAuditId);
+}
+
 async function reviewCounts(db, batchId) {
   const row = await db.prepare(`
     /* itnew:admin_review_counts */
@@ -547,7 +565,11 @@ const defaultAuth = {
 const defaultServices = {
   login: loginService,
   logout: ({ request, env, context }) => handleLogout(request, env, requestNow(context)),
-  session: ({ session }) => jsonResponse({ authenticated: true, adminId: session.sub }),
+  session: ({ session }) => jsonResponse({
+    authenticated: true,
+    adminId: session.sub,
+    csrf: session.csrf,
+  }),
   reviewBulk: reviewBulkService,
   retryCandidate: retryCandidateService,
   collect: collectService,

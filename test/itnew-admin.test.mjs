@@ -241,6 +241,18 @@ class FakeAdminDb {
         if (row && !unresolved) Object.assign(row, { status: 'closed', closed_at: closedAt });
         return changes(row && !unresolved ? 1 : 0);
       }
+      case 'admin_conditional_batch_close': {
+        const [closedAt, batchId, summaryAuditId] = bindings;
+        const row = state.batches.find(({ id, status }) => id === batchId && status === 'open');
+        const hasSummary = state.audits.some(({ id, action, target_id }) => id === summaryAuditId
+          && action === 'bulk_review' && target_id === batchId);
+        const unresolved = state.candidates.some(({ batch_id, status }) => batch_id === batchId
+          && ['pending', 'processing_error'].includes(status));
+        if (row && hasSummary && !unresolved) {
+          Object.assign(row, { status: 'closed', closed_at: closedAt });
+        }
+        return changes(row && hasSummary && !unresolved ? 1 : 0);
+      }
       case 'admin_audit_insert':
       case 'publisher_audit_insert':
       case 'publisher_processing_error_audit':
@@ -465,6 +477,35 @@ test('bulk reject remains all-or-none when a candidate changes after complete-se
   assert.equal(env.ITNEW_DB.state.audits.length, 0);
 });
 
+test('failed last-candidate reject claim cannot close the batch after a concurrent approval', async () => {
+  const env = environment({
+    batches: [batchRow()],
+    candidates: [candidateRow('only')],
+  });
+  env.ITNEW_DB.beforeBatch = (state) => {
+    Object.assign(state.candidates[0], {
+      status: 'approved',
+      article_id: 'concurrent-article',
+      reviewed_at: 999,
+    });
+  };
+
+  const result = await callAdmin(env, 'POST', '/itnew/admin/api/review/bulk', {
+    batchId: 'batch-1', candidateIds: ['only'], decision: 'reject',
+  });
+
+  assert.equal(result.response.status, 409);
+  assert.deepEqual(result.body, { error: 'candidate_conflict' });
+  assert.equal(env.ITNEW_DB.state.batches[0].status, 'open');
+  assert.equal(env.ITNEW_DB.state.batches[0].closed_at, null);
+  assert.deepEqual(env.ITNEW_DB.state.candidates[0], candidateRow('only', {
+    status: 'approved',
+    article_id: 'concurrent-article',
+    reviewed_at: 999,
+  }));
+  assert.equal(env.ITNEW_DB.state.audits.length, 0);
+});
+
 test('bulk approve commits all prepared publications once and isolates one preparation failure', async () => {
   const goodEnv = environment({
     batches: [batchRow()],
@@ -671,4 +712,24 @@ test('login and session map missing administrator configuration to the public st
   );
   assert.equal(session.status, 503);
   assert.deepEqual(await session.json(), { error: 'system_not_configured' });
+});
+
+test('default session recovery returns csrf in a no-store response', async () => {
+  const response = await handleItnewAdminRequest(
+    request('GET', '/itnew/admin/api/session'),
+    {},
+    {
+      now: 1000,
+      auth: {
+        requireAdmin: async () => ({ sub: 'admin', csrf: 'recovered-csrf' }),
+      },
+    },
+  );
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('Cache-Control'), 'no-store');
+  assert.deepEqual(await response.json(), {
+    authenticated: true,
+    adminId: 'admin',
+    csrf: 'recovered-csrf',
+  });
 });
