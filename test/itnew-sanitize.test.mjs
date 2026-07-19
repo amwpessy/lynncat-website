@@ -161,6 +161,20 @@ test('sanitizeArticleHtml handles adversarial mismatched closes in linear time',
   assert.ok(elapsed < 500, `mismatched closes took ${elapsed.toFixed(1)}ms`);
 });
 
+test('sanitizeArticleHtml escapes an unterminated quoted suffix once', { timeout: 1_000 }, () => {
+  const repetitions = 30_000;
+  const input = '<a "'.repeat(repetitions);
+  const expected = '&lt;a "'.repeat(repetitions);
+  const startedAt = performance.now();
+  const result = sanitizeArticleHtml(input);
+  const elapsed = performance.now() - startedAt;
+
+  assert.equal(result, expected);
+  assert.doesNotMatch(result, /<a(?:\s|>)/);
+  assert.equal(textContent(result), input);
+  assert.ok(elapsed < 500, `unterminated quoted suffix took ${elapsed.toFixed(1)}ms`);
+});
+
 test('sanitizeArticleHtml safely preserves text, decoded entities and supplementary Unicode', () => {
   assert.equal(
     sanitizeArticleHtml('<p>2 < 3 &amp; 4 > 1; &lt;script&gt; "quotes" &apos; 😀</p>'),

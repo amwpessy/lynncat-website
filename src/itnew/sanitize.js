@@ -59,7 +59,9 @@ function readMarkup(html, start) {
   let cursor = start + 1;
   if (html[cursor] === '!' || html[cursor] === '?') {
     const end = findMarkupEnd(html, cursor + 1);
-    return end < 0 ? null : { type: 'discard', end: end + 1 };
+    return end < 0
+      ? { type: 'text_suffix', end: html.length }
+      : { type: 'discard', end: end + 1 };
   }
 
   let closing = false;
@@ -73,7 +75,7 @@ function readMarkup(html, start) {
   while (cursor < html.length && isTagNameCharacter(html[cursor])) cursor += 1;
   const name = html.slice(nameStart, cursor).toLowerCase();
   const end = findMarkupEnd(html, cursor);
-  if (end < 0) return null;
+  if (end < 0) return { type: 'text_suffix', end: html.length };
 
   let contentEnd = end;
   while (contentEnd > cursor && isWhitespace(html[contentEnd - 1])) contentEnd -= 1;
@@ -265,6 +267,10 @@ function sanitizeToTree(input) {
       if (blocked.length === 0) appendText(stack.at(-1), '<');
       cursor += 1;
       continue;
+    }
+    if (token.type === 'text_suffix') {
+      if (blocked.length === 0) appendText(stack.at(-1), html.slice(cursor, token.end));
+      break;
     }
     cursor = token.end;
     if (token.type === 'discard') continue;
