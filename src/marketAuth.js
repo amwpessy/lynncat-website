@@ -35,7 +35,11 @@ export async function handleMarketAuth(request, env) {
     }
     const appleSubjectHash = await secretHash(env.APPLE_SUBJECT_HASH_SALT, payload.sub, env);
     const installationHash = await secretHash(env.INSTALLATION_HASH_SALT, installationId, env);
-    const encryptedRefreshToken = await sealRefreshToken(tokens.refresh_token, env);
+    const encryptedRefreshToken = await sealRefreshToken(JSON.stringify({
+      version: 1,
+      refreshToken: tokens.refresh_token,
+      clientId: payload.aud,
+    }), env);
     const now = nowFor(env);
     const repository = repositoryFor(env);
 
@@ -45,7 +49,7 @@ export async function handleMarketAuth(request, env) {
         id: randomId('usr', env),
         publicId: randomId('pub', env),
         appleSubjectHash,
-        nickname: anonymousNickname(appleSubjectHash),
+        nickname: await anonymousNickname(appleSubjectHash, env),
         pointsBalance: 0,
         pointsEarnedTotal: 0,
         leaderboardVisible: true,
@@ -311,9 +315,18 @@ function publicAccount(user) {
   };
 }
 
-function anonymousNickname(subjectHash) {
-  const suffix = Number.parseInt(subjectHash.slice(0, 8), 16) % 10_000;
+async function anonymousNickname(subjectHash, env) {
+  const signature = await secretHmac(env.APPLE_SUBJECT_HASH_SALT, `nickname:${subjectHash}`, env);
+  const suffix = Number.parseInt(signature.slice(0, 8), 16) % 10_000;
   return `Lynncat ${String(suffix).padStart(4, '0')}`;
+}
+
+async function secretHmac(secret, value, env) {
+  const encoder = new TextEncoder();
+  const key = await cryptoFor(env).subtle.importKey(
+    'raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
+  );
+  return bytesToHex(await cryptoFor(env).subtle.sign('HMAC', key, encoder.encode(value)));
 }
 
 async function secretHash(salt, value, env) {

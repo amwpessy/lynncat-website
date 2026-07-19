@@ -16,7 +16,10 @@ function deterministicBytes() {
 
 export function createAccountEnv(options = {}) {
   let now = options.now ?? DEFAULT_NOW;
-  const repo = createAccountRepository();
+  let encryptedCredentialPayload = null;
+  const operationLog = [];
+  const apple = { revocationAttempts: [], revokedTokens: [] };
+  const repo = createAccountRepository(operationLog);
   const env = {
     NOW: () => now,
     APPLE_CLIENT_IDS: 'com.lynncat.ios,com.lynncat.macos,com.lynncat.watchos',
@@ -25,10 +28,13 @@ export function createAccountEnv(options = {}) {
     SESSION_HASH_SALT: 'session-salt',
     RANDOM_BYTES: deterministicBytes(),
     MARKET_AUTH_REPOSITORY: repo,
+    MARKET_ACCOUNT_REPOSITORY: repo,
     repo,
+    apple,
+    operationLog,
     VERIFY_APPLE_IDENTITY_TOKEN: async (_token, nonce) => ({
       iss: 'https://appleid.apple.com',
-      aud: 'com.lynncat.ios',
+      aud: options.appleClientId ?? 'com.lynncat.ios',
       exp: Math.floor(now / 1000) + 300,
       nonce,
       sub: options.appleSubject ?? 'apple-user-1',
@@ -37,8 +43,27 @@ export function createAccountEnv(options = {}) {
       refresh_token: 'raw-refresh-token',
       id_token: 'exchanged-id-token',
     }),
-    ENCRYPT_REFRESH_TOKEN: async () => 'sealed-refresh-token',
+    ENCRYPT_REFRESH_TOKEN: async (value) => {
+      encryptedCredentialPayload = value;
+      return 'sealed-refresh-token';
+    },
+    DECRYPT_APPLE_CREDENTIAL: async (value) => {
+      if (value !== 'sealed-refresh-token' || !encryptedCredentialPayload) {
+        throw new Error('unreadable credential');
+      }
+      return JSON.parse(encryptedCredentialPayload);
+    },
+    REVOKE_APPLE_REFRESH_TOKEN: async (refreshToken, clientId) => {
+      apple.revocationAttempts.push({ refreshToken, clientId });
+      operationLog.push('apple-revocation');
+      if (options.revocationFails) throw new Error('Apple unavailable');
+      apple.revokedTokens.push({ refreshToken, clientId });
+    },
   };
+
+  Object.defineProperty(env, 'encryptedCredentialPayload', {
+    get: () => encryptedCredentialPayload,
+  });
 
   env.advance = (milliseconds) => {
     now += milliseconds;
@@ -85,13 +110,41 @@ export function bearerRequest(token) {
   });
 }
 
-function createAccountRepository() {
+export function authenticatedRequest(path, token, { method = 'GET', body } = {}) {
+  const headers = { Authorization: `Bearer ${token}` };
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  return new Request(`https://unit.test${path}`, {
+    method,
+    headers,
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+}
+
+export function visibleUsers(count, options = {}) {
+  return Array.from({ length: count }, (_, index) => ({
+    id: `rank-user-${String(index + 1).padStart(3, '0')}`,
+    publicId: `rank-public-${String(index + 1).padStart(3, '0')}`,
+    appleSubjectHash: `rank-subject-${index + 1}`,
+    nickname: `Rank ${index + 1}`,
+    pointsBalance: (options.highestPoints ?? count) - index,
+    pointsEarnedTotal: (options.highestPoints ?? count) - index,
+    leaderboardVisible: true,
+    balanceChangedAt: (options.balanceChangedAt ?? DEFAULT_NOW) + index,
+    status: 'active',
+    createdAt: DEFAULT_NOW,
+    updatedAt: DEFAULT_NOW,
+  }));
+}
+
+function createAccountRepository(operationLog) {
   const users = new Map();
   const credentials = new Map();
   const devices = new Map();
   const sessions = new Map();
   const leases = new Map();
   const ledger = new Map();
+  const messages = new Map();
+  const reports = new Map();
   let nextHeartbeatConflict = null;
 
   return {
@@ -101,6 +154,8 @@ function createAccountRepository() {
     sessions,
     leases,
     ledger,
+    messages,
+    reports,
 
     set nextHeartbeatConflict(value) {
       nextHeartbeatConflict = value;
@@ -152,6 +207,77 @@ function createAccountRepository() {
     async touchSession(sessionId, lastUsedAt) {
       const session = [...sessions.values()].find((candidate) => candidate.id === sessionId);
       if (session) session.lastUsedAt = lastUsedAt;
+    },
+
+    async loadAccount(userId) {
+      return users.get(userId) ?? null;
+    },
+
+    async updateProfile(userId, updates, updatedAt) {
+      const user = users.get(userId);
+      if (!user) return null;
+      Object.assign(user, updates, { updatedAt });
+      return user;
+    },
+
+    async loadLeaderboard(currentPublicId) {
+      const ranked = [...users.values()]
+        .filter((user) => user.status === 'active' && user.leaderboardVisible)
+        .sort((left, right) => (
+          right.pointsBalance - left.pointsBalance
+          || left.balanceChangedAt - right.balanceChangedAt
+          || left.id.localeCompare(right.id)
+        ))
+        .map((user, index) => ({ ...user, rank: index + 1 }));
+      return ranked.filter((user) => user.rank <= 100 || user.publicId === currentPublicId);
+    },
+
+    async loadPointLedger(userId, { beforeCreatedAt, beforeId, limit }) {
+      return [...ledger.values()]
+        .filter((entry) => entry.userId === userId)
+        .filter((entry) => beforeCreatedAt == null
+          || entry.createdAt < beforeCreatedAt
+          || (entry.createdAt === beforeCreatedAt && entry.id < beforeId))
+        .sort((left, right) => right.createdAt - left.createdAt || right.id.localeCompare(left.id))
+        .slice(0, limit);
+    },
+
+    async revokeSession(userId, sessionId, revokedAt) {
+      const session = [...sessions.values()].find((candidate) => (
+        candidate.id === sessionId && candidate.userId === userId
+      ));
+      if (session) session.revokedAt = revokedAt;
+    },
+
+    async findAppleCredential(userId) {
+      return credentials.get(userId) ?? null;
+    },
+
+    async deleteAccountData(userId) {
+      operationLog.push('account-delete-batch');
+      const activeMessageIds = new Set(
+        [...messages.values()]
+          .filter((message) => message.userId === userId && message.status === 'active')
+          .map((message) => message.id),
+      );
+      for (const [id, report] of reports) {
+        if (activeMessageIds.has(report.messageId)) reports.delete(id);
+      }
+      for (const id of activeMessageIds) messages.delete(id);
+      for (const [key, session] of sessions) {
+        if (session.userId === userId) sessions.delete(key);
+      }
+      for (const [key, lease] of leases) {
+        if (lease.userId === userId) leases.delete(key);
+      }
+      for (const [key, entry] of ledger) {
+        if (entry.userId === userId) ledger.delete(key);
+      }
+      for (const [key, device] of devices) {
+        if (device.userId === userId) devices.delete(key);
+      }
+      credentials.delete(userId);
+      users.delete(userId);
     },
 
     async loadPointState(userId, deviceId) {
