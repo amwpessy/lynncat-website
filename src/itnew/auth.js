@@ -165,30 +165,51 @@ async function getLoginAttempt(db, digest) {
   `).bind(digest).first();
 }
 
-async function saveLoginAttempt(db, attempt) {
+async function registerLoginFailure(db, digest, now) {
   return db.prepare(`
-    /* itnew:login_attempt_upsert */
+    /* itnew:login_attempt_register_failure */
     INSERT INTO itnew_login_attempts (
       ip_hash, window_started_at, failure_count, locked_until
-    ) VALUES (?, ?, ?, ?)
+    ) VALUES (?1, ?2, 1, NULL)
     ON CONFLICT(ip_hash) DO UPDATE SET
-      window_started_at = excluded.window_started_at,
-      failure_count = excluded.failure_count,
-      locked_until = excluded.locked_until
-  `).bind(
-    attempt.ipHash,
-    attempt.windowStartedAt,
-    attempt.failureCount,
-    attempt.lockedUntil,
-  ).run();
+      window_started_at = CASE
+        WHEN itnew_login_attempts.locked_until > ?2
+          THEN itnew_login_attempts.window_started_at
+        WHEN ?2 - itnew_login_attempts.window_started_at >= ?3
+          THEN ?2
+        ELSE itnew_login_attempts.window_started_at
+      END,
+      failure_count = CASE
+        WHEN itnew_login_attempts.locked_until > ?2
+          THEN itnew_login_attempts.failure_count
+        WHEN ?2 - itnew_login_attempts.window_started_at >= ?3
+          THEN 1
+        ELSE itnew_login_attempts.failure_count + 1
+      END,
+      locked_until = CASE
+        WHEN itnew_login_attempts.locked_until > ?2
+          THEN itnew_login_attempts.locked_until
+        WHEN ?2 - itnew_login_attempts.window_started_at >= ?3
+          THEN NULL
+        WHEN itnew_login_attempts.failure_count + 1 >= ?4
+          THEN itnew_login_attempts.window_started_at + ?3
+        ELSE NULL
+      END
+    RETURNING ip_hash, window_started_at, failure_count, locked_until
+  `).bind(digest, now, FAILURE_WINDOW_MS, FAILURE_LIMIT).first();
 }
 
-async function clearLoginAttempt(db, digest) {
+async function resetLoginAttempt(db, digest, now) {
   return db.prepare(`
-    /* itnew:login_attempt_clear */
-    DELETE FROM itnew_login_attempts
-    WHERE ip_hash = ?
-  `).bind(digest).run();
+    /* itnew:login_attempt_reset */
+    INSERT INTO itnew_login_attempts (
+      ip_hash, window_started_at, failure_count, locked_until
+    ) VALUES (?, ?, 0, NULL)
+    ON CONFLICT(ip_hash) DO UPDATE SET
+      window_started_at = excluded.window_started_at,
+      failure_count = 0,
+      locked_until = NULL
+  `).bind(digest, now).run();
 }
 
 function rateLimited(lockedUntil, now) {
@@ -216,7 +237,7 @@ export async function handleLogin(request, env, now = Date.now()) {
   if (attempt?.locked_until > now) return rateLimited(attempt.locked_until, now);
 
   if (usernameMatches && passwordMatches) {
-    await clearLoginAttempt(env.ITNEW_DB, digest);
+    await resetLoginAttempt(env.ITNEW_DB, digest, now);
     const { session, token } = await createSessionToken(env.ITNEW_ADMIN_USERNAME, env.ITNEW_SESSION_SECRET, now);
     return jsonResponse(
       { csrf: session.csrf },
@@ -225,17 +246,8 @@ export async function handleLogin(request, env, now = Date.now()) {
     );
   }
 
-  const insideWindow = attempt && now - attempt.window_started_at < FAILURE_WINDOW_MS;
-  const windowStartedAt = insideWindow ? attempt.window_started_at : now;
-  const failureCount = insideWindow ? attempt.failure_count + 1 : 1;
-  const lockedUntil = failureCount >= FAILURE_LIMIT ? windowStartedAt + FAILURE_WINDOW_MS : null;
-  await saveLoginAttempt(env.ITNEW_DB, {
-    ipHash: digest,
-    windowStartedAt,
-    failureCount,
-    lockedUntil,
-  });
-  if (lockedUntil && lockedUntil > now) return rateLimited(lockedUntil, now);
+  const registered = await registerLoginFailure(env.ITNEW_DB, digest, now);
+  if (registered.locked_until > now) return rateLimited(registered.locked_until, now);
   return jsonResponse({ error: 'invalid_credentials' }, 401);
 }
 

@@ -38,20 +38,56 @@ class AuthD1Statement {
   }
 
   async first() {
-    if (this.operation !== 'login_attempt_get') throw new Error(`Unsupported first: ${this.operation}`);
-    const row = this.db.attempts.get(this.bindings[0]);
-    return row ? { ...row } : null;
+    if (this.operation === 'login_attempt_get') {
+      const row = this.db.attempts.get(this.bindings[0]);
+      const snapshot = row ? { ...row } : null;
+      await this.db.afterRead(this.operation, this.bindings);
+      return snapshot;
+    }
+    if (this.operation === 'login_attempt_register_failure') {
+      await this.db.beforeWrite(this.operation, this.bindings);
+      const [ip_hash, currentNow, windowMs] = this.bindings;
+      const existing = this.db.attempts.get(ip_hash);
+      let row;
+      if (!existing) {
+        row = {
+          ip_hash, window_started_at: currentNow, failure_count: 1, locked_until: null,
+        };
+      } else if (existing.locked_until > currentNow) {
+        row = { ...existing };
+      } else if (currentNow - existing.window_started_at >= windowMs) {
+        row = {
+          ip_hash, window_started_at: currentNow, failure_count: 1, locked_until: null,
+        };
+      } else {
+        const failure_count = existing.failure_count + 1;
+        row = {
+          ip_hash,
+          window_started_at: existing.window_started_at,
+          failure_count,
+          locked_until: failure_count >= 5
+            ? existing.window_started_at + windowMs
+            : null,
+        };
+      }
+      this.db.attempts.set(ip_hash, row);
+      this.db.writeSequence.push(this.operation);
+      await this.db.afterWrite(this.operation, this.bindings);
+      return { ...row };
+    }
+    throw new Error(`Unsupported first: ${this.operation}`);
   }
 
   async run() {
-    if (this.operation === 'login_attempt_upsert') {
-      const [ip_hash, window_started_at, failure_count, locked_until] = this.bindings;
-      this.db.attempts.set(ip_hash, { ip_hash, window_started_at, failure_count, locked_until });
+    if (this.operation === 'login_attempt_reset') {
+      await this.db.beforeWrite(this.operation, this.bindings);
+      const [ip_hash, window_started_at] = this.bindings;
+      this.db.attempts.set(ip_hash, {
+        ip_hash, window_started_at, failure_count: 0, locked_until: null,
+      });
+      this.db.writeSequence.push(this.operation);
+      await this.db.afterWrite(this.operation, this.bindings);
       return { success: true, meta: { changes: 1 } };
-    }
-    if (this.operation === 'login_attempt_clear') {
-      const changes = Number(this.db.attempts.delete(this.bindings[0]));
-      return { success: true, meta: { changes } };
     }
     if (this.operation === 'audit_insert') {
       const [id, admin_id, action, target_type, target_id, batch_id, result, details_json, created_at]
@@ -66,15 +102,37 @@ class AuthD1Statement {
 }
 
 class AuthD1 {
-  constructor() {
+  constructor({ readHook = null, writeHook = null, writeAfterHook = null } = {}) {
     this.attempts = new Map();
     this.audits = [];
     this.history = [];
+    this.writeSequence = [];
+    this.readHook = readHook;
+    this.writeHook = writeHook;
+    this.writeAfterHook = writeAfterHook;
   }
 
   prepare(sql) {
     return new AuthD1Statement(this, sql);
   }
+
+  async afterRead(operation, bindings) {
+    await this.readHook?.(operation, bindings);
+  }
+
+  async beforeWrite(operation, bindings) {
+    await this.writeHook?.(operation, bindings);
+  }
+
+  async afterWrite(operation, bindings) {
+    await this.writeAfterHook?.(operation, bindings);
+  }
+}
+
+function deferred() {
+  let resolve;
+  const promise = new Promise((done) => { resolve = done; });
+  return { promise, resolve };
 }
 
 function env(overrides = {}) {
@@ -134,7 +192,7 @@ test('login returns no-store 503 when any administrator secret is missing', asyn
   }
 });
 
-test('valid login issues the exact signed session contract and resets active failures', async () => {
+test('valid login issues the exact signed session contract and writes an atomic reset marker', async () => {
   const configured = env();
   const failed = await handleLogin(loginRequest({ password: 'synthetic-wrong-password' }), configured, now);
   assert.equal(failed.status, 401);
@@ -162,7 +220,11 @@ test('valid login issues the exact signed session contract and resets active fai
   assert.equal(payload.csrf, body.csrf);
   assert.equal(typeof payload.nonce, 'string');
   assert.ok(payload.nonce.length >= 32);
-  assert.equal(configured.ITNEW_DB.attempts.size, 0);
+  assert.equal(configured.ITNEW_DB.attempts.size, 1);
+  const [reset] = configured.ITNEW_DB.attempts.values();
+  assert.equal(reset.window_started_at, now + 1_000);
+  assert.equal(reset.failure_count, 0);
+  assert.equal(reset.locked_until, null);
 });
 
 test('invalid credentials compare both supplied fields and persist only the peppered IP digest', async () => {
@@ -212,6 +274,105 @@ test('the fifth failure inside fifteen minutes locks the digest and returns Retr
   const locked = await handleLogin(loginRequest(), configured, now + 5_000);
   assert.equal(locked.status, 429);
   assert.deepEqual(await responseJson(locked), { error: 'rate_limited' });
+});
+
+test('five simultaneous failures atomically persist all increments without lost updates', async () => {
+  const allAtWrite = deferred();
+  let waiting = 0;
+  const db = new AuthD1({
+    async writeHook(operation) {
+      if (operation !== 'login_attempt_register_failure') return;
+      waiting += 1;
+      if (waiting === 5) allAtWrite.resolve();
+      await allAtWrite.promise;
+    },
+  });
+  const configured = env({ ITNEW_DB: db });
+  const responses = await Promise.all(Array.from({ length: 5 }, (_, index) => handleLogin(
+    loginRequest({ password: `synthetic-concurrent-wrong-${index}` }),
+    configured,
+    now,
+  )));
+
+  const [row] = db.attempts.values();
+  assert.equal(row.failure_count, 5);
+  assert.equal(row.locked_until, now + 15 * 60 * 1000);
+  assert.ok(responses.some(({ status }) => status === 429));
+});
+
+async function seedFourFailures(configured) {
+  for (let index = 0; index < 4; index += 1) {
+    const response = await handleLogin(
+      loginRequest({ password: `synthetic-seed-wrong-${index}` }),
+      configured,
+      now + index,
+    );
+    assert.equal(response.status, 401);
+  }
+}
+
+function holdTwoInitialReads(db) {
+  const bothRead = deferred();
+  let readCount = 0;
+  db.readHook = async () => {
+    readCount += 1;
+    if (readCount === 2) bothRead.resolve();
+    await bothRead.promise;
+  };
+}
+
+test('a failure serialized after a concurrent success reset becomes count one without a lock', async () => {
+  const db = new AuthD1();
+  const configured = env({ ITNEW_DB: db });
+  await seedFourFailures(configured);
+  holdTwoInitialReads(db);
+
+  const resetWritten = deferred();
+  db.writeHook = async (operation) => {
+    if (operation === 'login_attempt_register_failure') await resetWritten.promise;
+  };
+  db.writeAfterHook = async (operation) => {
+    if (operation === 'login_attempt_reset') resetWritten.resolve();
+  };
+  db.writeSequence.length = 0;
+
+  const [failure, success] = await Promise.all([
+    handleLogin(loginRequest({ password: 'synthetic-overlap-wrong' }), configured, now + 1_000),
+    handleLogin(loginRequest(), configured, now + 1_000),
+  ]);
+  assert.equal(failure.status, 401);
+  assert.equal(success.status, 200);
+  const [row] = db.attempts.values();
+  assert.equal(row.failure_count, 1);
+  assert.equal(row.locked_until, null);
+  assert.equal(db.writeSequence.at(-1), 'login_attempt_register_failure');
+});
+
+test('a success reset serialized after a concurrent failure leaves the reset marker at zero', async () => {
+  const db = new AuthD1();
+  const configured = env({ ITNEW_DB: db });
+  await seedFourFailures(configured);
+  holdTwoInitialReads(db);
+
+  const failureWritten = deferred();
+  db.writeHook = async (operation) => {
+    if (operation === 'login_attempt_reset') await failureWritten.promise;
+  };
+  db.writeAfterHook = async (operation) => {
+    if (operation === 'login_attempt_register_failure') failureWritten.resolve();
+  };
+  db.writeSequence.length = 0;
+
+  const [failure, success] = await Promise.all([
+    handleLogin(loginRequest({ password: 'synthetic-overlap-wrong' }), configured, now + 1_000),
+    handleLogin(loginRequest(), configured, now + 1_000),
+  ]);
+  assert.equal(failure.status, 429);
+  assert.equal(success.status, 200);
+  const [row] = db.attempts.values();
+  assert.equal(row.failure_count, 0);
+  assert.equal(row.locked_until, null);
+  assert.equal(db.writeSequence.at(-1), 'login_attempt_reset');
 });
 
 test('failure window expires after fifteen minutes and starts again at one', async () => {
