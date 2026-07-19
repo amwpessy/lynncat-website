@@ -1,55 +1,5 @@
-CREATE TABLE IF NOT EXISTS market_messages (
-  id TEXT PRIMARY KEY,
-  room_id TEXT NOT NULL,
-  nickname TEXT,
-  text TEXT NOT NULL,
-  author_hash TEXT NOT NULL,
-  author_key TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'hidden', 'removed')),
-  created_at INTEGER NOT NULL,
-  expires_at INTEGER NOT NULL,
-  hidden_at INTEGER,
-  removed_at INTEGER,
-  user_id TEXT,
-  point_ledger_id TEXT,
-  request_key TEXT
-);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_market_messages_author_key ON market_messages(author_key, id);
-CREATE INDEX IF NOT EXISTS idx_market_messages_room_public ON market_messages(room_id, status, expires_at DESC);
-CREATE INDEX IF NOT EXISTS idx_market_messages_author_created ON market_messages(author_hash, created_at DESC);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_market_messages_request_key ON market_messages(request_key) WHERE request_key IS NOT NULL;
-
-CREATE TABLE IF NOT EXISTS market_reports (
-  id TEXT PRIMARY KEY,
-  message_id TEXT NOT NULL,
-  reporter_hash TEXT NOT NULL,
-  reason TEXT NOT NULL,
-  note TEXT,
-  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'resolved', 'dismissed')),
-  created_at INTEGER NOT NULL,
-  resolved_at INTEGER,
-  UNIQUE(message_id, reporter_hash)
-);
-CREATE INDEX IF NOT EXISTS idx_market_reports_status_created ON market_reports(status, created_at DESC);
-
-CREATE TABLE IF NOT EXISTS market_moderation_actions (
-  id TEXT PRIMARY KEY,
-  target_type TEXT NOT NULL CHECK (target_type IN ('message', 'author', 'report')),
-  target_id TEXT NOT NULL,
-  action TEXT NOT NULL,
-  note TEXT,
-  created_at INTEGER NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS market_banned_authors (
-  author_hash TEXT PRIMARY KEY,
-  banned_at INTEGER NOT NULL,
-  note TEXT
-);
-
 PRAGMA foreign_keys = ON;
-
-CREATE TABLE IF NOT EXISTS market_users (
+CREATE TABLE market_users (
   id TEXT PRIMARY KEY, public_id TEXT NOT NULL UNIQUE, apple_subject_hash TEXT NOT NULL UNIQUE,
   nickname TEXT NOT NULL, points_balance INTEGER NOT NULL DEFAULT 0 CHECK (points_balance >= 0),
   points_earned_total INTEGER NOT NULL DEFAULT 0 CHECK (points_earned_total >= 0),
@@ -58,34 +8,38 @@ CREATE TABLE IF NOT EXISTS market_users (
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'deleted')),
   created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, deleted_at INTEGER
 );
-CREATE TABLE IF NOT EXISTS market_apple_credentials (
+CREATE TABLE market_apple_credentials (
   user_id TEXT PRIMARY KEY REFERENCES market_users(id) ON DELETE CASCADE,
   encrypted_refresh_token TEXT NOT NULL, token_key_version INTEGER NOT NULL, updated_at INTEGER NOT NULL
 );
-CREATE TABLE IF NOT EXISTS market_user_devices (
+CREATE TABLE market_user_devices (
   id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES market_users(id) ON DELETE CASCADE,
   installation_hash TEXT NOT NULL, platform TEXT NOT NULL CHECK (platform IN ('macos','ios','watchos')),
   created_at INTEGER NOT NULL, last_seen_at INTEGER NOT NULL, revoked_at INTEGER,
   UNIQUE(user_id, installation_hash)
 );
-CREATE TABLE IF NOT EXISTS market_user_sessions (
+CREATE TABLE market_user_sessions (
   id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES market_users(id) ON DELETE CASCADE,
   device_id TEXT NOT NULL REFERENCES market_user_devices(id) ON DELETE CASCADE,
   token_hash TEXT NOT NULL UNIQUE, created_at INTEGER NOT NULL, last_used_at INTEGER NOT NULL,
   expires_at INTEGER NOT NULL, revoked_at INTEGER
 );
-CREATE TABLE IF NOT EXISTS market_online_leases (
+CREATE TABLE market_online_leases (
   device_id TEXT PRIMARY KEY REFERENCES market_user_devices(id) ON DELETE CASCADE,
   user_id TEXT NOT NULL REFERENCES market_users(id) ON DELETE CASCADE,
   started_at INTEGER NOT NULL, last_heartbeat_at INTEGER NOT NULL,
   active_seconds INTEGER NOT NULL DEFAULT 0, lease_version INTEGER NOT NULL DEFAULT 1,
   updated_at INTEGER NOT NULL
 );
-CREATE TABLE IF NOT EXISTS market_point_ledger (
+CREATE TABLE market_point_ledger (
   id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES market_users(id) ON DELETE CASCADE,
   device_id TEXT REFERENCES market_user_devices(id) ON DELETE SET NULL,
   kind TEXT NOT NULL CHECK (kind IN ('online_credit','message_debit','admin_adjustment','reversal')),
   amount INTEGER NOT NULL CHECK (amount <> 0), balance_after INTEGER NOT NULL CHECK (balance_after >= 0),
   reference_type TEXT, reference_id TEXT, idempotency_key TEXT NOT NULL UNIQUE, created_at INTEGER NOT NULL
 );
-CREATE INDEX IF NOT EXISTS idx_market_users_leaderboard ON market_users(leaderboard_visible, points_balance DESC, balance_changed_at ASC);
+ALTER TABLE market_messages ADD COLUMN user_id TEXT;
+ALTER TABLE market_messages ADD COLUMN point_ledger_id TEXT;
+ALTER TABLE market_messages ADD COLUMN request_key TEXT;
+CREATE UNIQUE INDEX idx_market_messages_request_key ON market_messages(request_key) WHERE request_key IS NOT NULL;
+CREATE INDEX idx_market_users_leaderboard ON market_users(leaderboard_visible, points_balance DESC, balance_changed_at ASC);
