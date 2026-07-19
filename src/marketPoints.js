@@ -25,7 +25,8 @@ export async function handleMarketHeartbeat(request, env) {
     if (request.method !== 'POST') throw marketError('method_not_allowed', 405);
     const principal = await authenticateMarketRequest(request, env);
     const body = await parseJson(request);
-    const expectedVersion = leaseVersion(body?.leaseVersion);
+    if (!body) throw marketError('invalid_json', 400);
+    const expectedVersion = strictLeaseVersion(body.leaseVersion);
     const idempotencyKey = cleanIdempotencyKey(request.headers.get('Idempotency-Key'));
     if (expectedVersion == null) throw marketError('invalid_lease_version', 400);
     if (!idempotencyKey) throw marketError('invalid_idempotency_key', 400);
@@ -34,7 +35,9 @@ export async function handleMarketHeartbeat(request, env) {
     const repository = repositoryFor(env);
     const state = await repository.loadPointState(principal.userId, principal.deviceId);
     const currentVersion = state.lease?.leaseVersion ?? 0;
-    if (currentVersion !== expectedVersion) return heartbeatResponse(state, now, false);
+    if (currentVersion !== expectedVersion) {
+      return heartbeatResponse(normalizeStaleConflictState(state, now), now, false);
+    }
 
     const next = nextLeaseState(state.lease, now);
     if (state.lease && !next.reset && now - state.lease.lastHeartbeatAt < HEARTBEAT_MIN_GAP_MS) {
@@ -101,6 +104,21 @@ function heartbeatResponse(state, serverTime, credited) {
       ? lease.lastHeartbeatAt + Math.max(0, CREDIT_SECONDS - activeSeconds) * 1000
       : null,
   });
+}
+
+function normalizeStaleConflictState(state, now) {
+  const lease = state.lease;
+  if (!lease || now - lease.lastHeartbeatAt <= HEARTBEAT_STALE_MS) return state;
+  return {
+    ...state,
+    lease: {
+      ...lease,
+      startedAt: now,
+      lastHeartbeatAt: now,
+      activeSeconds: 0,
+      updatedAt: now,
+    },
+  };
 }
 
 function repositoryFor(env) {
@@ -226,11 +244,6 @@ function mapLease(row) {
     leaseVersion: Number(row.lease_version),
     updatedAt: Number(row.updated_at),
   };
-}
-
-function leaseVersion(value) {
-  const number = Number(value);
-  return Number.isSafeInteger(number) && number >= 0 ? number : null;
 }
 
 function strictLeaseVersion(value) {

@@ -121,6 +121,45 @@ test('optimistic version conflicts return fresh lease state without a credit', a
   assert.equal(env.repo.user.pointsBalance, 0);
 });
 
+test('a stale lease version conflict returns fresh-start progress without replacing the stored lease', async () => {
+  const { env, sessionToken } = await signedInEnv({ now: 1_000_000, points: 0 });
+  const principal = await principalFor(env, sessionToken);
+  const storedLease = {
+    deviceId: principal.deviceId,
+    userId: principal.userId,
+    startedAt: 900_000,
+    lastHeartbeatAt: 950_000,
+    activeSeconds: 59,
+    leaseVersion: 2,
+    updatedAt: 950_000,
+  };
+  env.repo.leases.set(principal.deviceId, { ...storedLease });
+
+  const conflict = await heartbeat(env, sessionToken, 'stale-conflict', 1);
+
+  assert.deepEqual(pickLease(conflict), { activeSeconds: 0, leaseVersion: 2 });
+  assert.equal(conflict.credited, false);
+  assert.equal(conflict.nextCreditAt, 1_060_000);
+  assert.deepEqual(env.repo.leases.get(principal.deviceId), storedLease);
+});
+
+test('heartbeat rejects non-numeric lease versions without creating a lease', async () => {
+  const { env, sessionToken } = await signedInEnv({ now: 1_000_000, points: 0 });
+
+  for (const body of [
+    '{"leaseVersion":null}',
+    '{"leaseVersion":"0"}',
+    '{"leaseVersion":true}',
+    '{"leaseVersion":0.5}',
+    '{"leaseVersion":-1}',
+  ]) {
+    const response = await heartbeatResponse(env, sessionToken, body, 'strict-version');
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), { error: 'invalid_lease_version' });
+    assert.equal(env.repo.leases.size, 0);
+  }
+});
+
 test('a racing lease update is re-read before returning a conflict response', async () => {
   const { env, sessionToken } = await signedInEnv({ now: 1_000_000, points: 0 });
   const principal = await principalFor(env, sessionToken);
@@ -286,17 +325,26 @@ async function digestSessionToken(sessionToken) {
 }
 
 async function heartbeat(env, sessionToken, idempotencyKey, leaseVersion) {
-  const response = await handleMarketHeartbeat(new Request('https://unit.test/markets/points/heartbeat', {
+  const response = await heartbeatResponse(
+    env,
+    sessionToken,
+    JSON.stringify({ leaseVersion }),
+    idempotencyKey,
+  );
+  assert.equal(response.status, 200);
+  return response.json();
+}
+
+function heartbeatResponse(env, sessionToken, body, idempotencyKey) {
+  return handleMarketHeartbeat(new Request('https://unit.test/markets/points/heartbeat', {
     method: 'POST',
     headers: {
       Authorization: bearerRequest(sessionToken).headers.get('Authorization'),
       'Content-Type': 'application/json',
       'Idempotency-Key': idempotencyKey,
     },
-    body: JSON.stringify({ leaseVersion }),
+    body,
   }), env);
-  assert.equal(response.status, 200);
-  return response.json();
 }
 
 async function stop(env, sessionToken, leaseVersion) {
