@@ -15,7 +15,7 @@ function deterministicBytes() {
 }
 
 export function createAccountEnv(options = {}) {
-  const now = options.now ?? DEFAULT_NOW;
+  let now = options.now ?? DEFAULT_NOW;
   const repo = createAccountRepository();
   const env = {
     NOW: () => now,
@@ -38,6 +38,10 @@ export function createAccountEnv(options = {}) {
       id_token: 'exchanged-id-token',
     }),
     ENCRYPT_REFRESH_TOKEN: async () => 'sealed-refresh-token',
+  };
+
+  env.advance = (milliseconds) => {
+    now += milliseconds;
   };
 
   if (options.sessionExpired || options.sessionRevoked) {
@@ -86,12 +90,25 @@ function createAccountRepository() {
   const credentials = new Map();
   const devices = new Map();
   const sessions = new Map();
+  const leases = new Map();
+  const ledger = new Map();
+  let nextHeartbeatConflict = null;
 
   return {
     users,
     credentials,
     devices,
     sessions,
+    leases,
+    ledger,
+
+    set nextHeartbeatConflict(value) {
+      nextHeartbeatConflict = value;
+    },
+
+    get user() {
+      return users.values().next().value;
+    },
 
     async findUserByAppleSubjectHash(appleSubjectHash) {
       return [...users.values()].find((user) => user.appleSubjectHash === appleSubjectHash) ?? null;
@@ -135,6 +152,57 @@ function createAccountRepository() {
     async touchSession(sessionId, lastUsedAt) {
       const session = [...sessions.values()].find((candidate) => candidate.id === sessionId);
       if (session) session.lastUsedAt = lastUsedAt;
+    },
+
+    async loadPointState(userId, deviceId) {
+      return {
+        user: users.get(userId) ?? null,
+        lease: leases.get(deviceId) ?? null,
+      };
+    },
+
+    async commitHeartbeat({ userId, deviceId, expectedVersion, lease, credit, idempotencyKey, now }) {
+      if (nextHeartbeatConflict) {
+        leases.set(deviceId, { ...nextHeartbeatConflict });
+        nextHeartbeatConflict = null;
+        return { updated: false, credited: false };
+      }
+      const current = leases.get(deviceId);
+      const currentVersion = current?.leaseVersion ?? 0;
+      if (currentVersion !== expectedVersion) return { updated: false, credited: false };
+
+      const nextLease = { ...lease, leaseVersion: expectedVersion + 1 };
+      leases.set(deviceId, nextLease);
+      if (!credit) return { updated: true, credited: false };
+
+      if (ledger.has(idempotencyKey)) return { updated: true, credited: false };
+
+      const user = users.get(userId);
+      const balanceAfter = user.pointsBalance + 1;
+      ledger.set(idempotencyKey, {
+        id: `ledger-${idempotencyKey}`,
+        userId,
+        deviceId,
+        kind: 'online_credit',
+        amount: 1,
+        balanceAfter,
+        idempotencyKey,
+        createdAt: now,
+      });
+      user.pointsBalance = balanceAfter;
+      user.pointsEarnedTotal += 1;
+      user.balanceChangedAt = now;
+      user.updatedAt = now;
+      return { updated: true, credited: true };
+    },
+
+    async stopLease({ deviceId, expectedVersion }) {
+      const current = leases.get(deviceId);
+      if (!current || (expectedVersion != null && current.leaseVersion !== expectedVersion)) {
+        return { removed: false, lease: current ?? null };
+      }
+      leases.delete(deviceId);
+      return { removed: true, lease: current };
     },
   };
 }
