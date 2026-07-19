@@ -1,5 +1,6 @@
 name = "lynncat-website"
 compatibility_date = "2024-01-01"
+compatibility_flags = ["global_fetch_strictly_public"]
 main = "src/worker.js"
 assets = { directory = ".", binding = "ASSETS", run_worker_first = true }
 

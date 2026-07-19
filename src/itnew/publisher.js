@@ -118,6 +118,16 @@ function articleStatus(db, articleId) {
   `).bind(articleId).first();
 }
 
+function imageKeyReference(db, key) {
+  return db.prepare(`
+    /* itnew:publisher_image_key_reference */
+    SELECT 1 AS referenced
+    FROM itnew_articles
+    WHERE hero_image_kind = 'r2' AND hero_image_key = ?
+    LIMIT 1
+  `).bind(key).first();
+}
+
 function articleInsert(db, article) {
   return db.prepare(`
     /* itnew:publisher_article_insert */
@@ -206,6 +216,21 @@ function auditInsert(db, audit) {
   );
 }
 
+function processingErrorAuditInsert(db, audit) {
+  return db.prepare(`
+    /* itnew:publisher_processing_error_audit */
+    INSERT INTO itnew_audit_log (
+      id, admin_id, action, target_type, target_id, batch_id,
+      result, details_json, created_at
+    )
+    SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?
+    WHERE changes() = 1
+  `).bind(
+    audit.id, audit.adminId, 'publish', 'candidate', audit.candidateId,
+    audit.batchId, 'processing_error', JSON.stringify({ error: audit.code }), audit.createdAt,
+  );
+}
+
 function articleUnpublish(db, articleId) {
   return db.prepare(`
     /* itnew:publisher_article_unpublish */
@@ -232,14 +257,20 @@ function unpublishAuditInsert(db, audit) {
 
 async function recordProcessingError(db, candidate, code, now, uuid, adminId) {
   const candidateId = value(candidate, 'id', 'id');
-  await db.batch([
+  const results = await db.batch([
     candidateError(db, candidateId, code, now),
-    auditInsert(db, {
-      id: makeId(uuid), adminId, action: 'publish', targetType: 'candidate',
-      targetId: candidateId, batchId: value(candidate, 'batch_id', 'batchId'),
-      result: 'processing_error', details: { error: code }, createdAt: now,
+    processingErrorAuditInsert(db, {
+      id: makeId(uuid), adminId, candidateId,
+      batchId: value(candidate, 'batch_id', 'batchId'), code, createdAt: now,
     }),
   ]);
+  const changed = Number(results[0]?.meta?.changes ?? results[0]?.changes ?? 0);
+  if (changed === 0) {
+    const current = await candidateCurrent(db, candidateId);
+    if (!current) return { status: 'not_found', articleId: null, slug: null, warnings: [] };
+    const winner = await candidateResult(db, current);
+    return winner ?? { status: 'candidate_conflict', articleId: null, slug: null, warnings: [] };
+  }
   return { status: 'processing_error', articleId: null, slug: null, warnings: [code] };
 }
 
@@ -376,11 +407,20 @@ async function copyHeroImage(images, url, articleId, fetchImpl, policy) {
     const bytes = await boundedImageBytes(response);
     if (!hasRasterSignature(contentType, bytes)) throw new Error('image_signature_mismatch');
     const key = `articles/${articleId}/${await sha256Hex(bytes)}.${extension}`;
+    const preexisting = Boolean(await images.head(key));
     await images.put(key, bytes, { httpMetadata: { contentType } });
-    return { key, contentType };
+    return { key, contentType, preexisting };
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function cleanupCopiedImage(db, images, copiedImage) {
+  if (!copiedImage || copiedImage.preexisting) return;
+  try {
+    const referenced = await imageKeyReference(db, copiedImage.key);
+    if (!referenced) await images.delete(copiedImage.key);
+  } catch { /* Preserve the D1 failure and any potentially shared object. */ }
 }
 
 export async function publishCandidate(env, candidate, context = {}) {
@@ -492,9 +532,7 @@ export async function publishCandidate(env, candidate, context = {}) {
   try {
     await db.batch(statements);
   } catch (error) {
-    if (copiedImage) {
-      try { await images.delete(copiedImage.key); } catch { /* Preserve the D1 failure. */ }
-    }
+    await cleanupCopiedImage(db, images, copiedImage);
     if (isCandidateClaimConflict(error)) {
       const current = await candidateCurrent(db, candidateId);
       const winner = await candidateResult(db, current);

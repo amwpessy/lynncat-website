@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 
 import { publishCandidate, unpublishArticle } from '../src/itnew/publisher.js';
 
@@ -80,6 +81,10 @@ class PublisherD1 {
         const row = state.articles.find(({ id }) => id === bindings[0]);
         return row ? { id: row.id, status: row.status } : null;
       }
+      case 'publisher_image_key_reference':
+        return state.articles.some(({ hero_image_kind, hero_image_key }) => (
+          hero_image_kind === 'r2' && hero_image_key === bindings[0]
+        )) ? { referenced: 1 } : null;
       case 'publisher_article_insert': {
         const [id, candidate_id, slug, source_id, canonical_url, title, summary, language, category,
           rights_mode, article_permission_verified, license_name, license_url,
@@ -119,7 +124,17 @@ class PublisherD1 {
         const row = state.candidates.find((entry) => entry.id === id
           && ['pending', 'processing_error'].includes(entry.status));
         if (row) Object.assign(row, { status: 'processing_error', processing_error, reviewed_at });
+        state.last_changes = row ? 1 : 0;
         return { success: true, meta: { changes: row ? 1 : 0 } };
+      }
+      case 'publisher_processing_error_audit': {
+        if (state.last_changes !== 1) return { success: true, meta: { changes: 0 } };
+        const [id, admin_id, action, target_type, target_id, batch_id, result,
+          details_json, created_at] = bindings;
+        state.audits.push({ id, admin_id, action, target_type, target_id, batch_id,
+          result, details_json, created_at });
+        state.last_changes = 1;
+        return { success: true, meta: { changes: 1 } };
       }
       case 'publisher_audit_insert': {
         const [id, admin_id, action, target_type, target_id, batch_id, result,
@@ -150,10 +165,10 @@ class PublisherD1 {
   }
 }
 
-function r2({ staged = new Map(), failGet = false, failPut = false } = {}) {
-  const calls = { get: [], put: [], delete: [] };
+function r2({ staged = new Map(), objects = new Map(), failGet = false, failPut = false } = {}) {
+  const calls = { get: [], head: [], put: [], delete: [] };
   return {
-    calls,
+    calls, objects,
     async get(key) {
       calls.get.push(key);
       if (failGet) throw new Error('secret body read response');
@@ -161,12 +176,17 @@ function r2({ staged = new Map(), failGet = false, failPut = false } = {}) {
       const value = staged.get(key);
       return { async text() { return value; } };
     },
+    async head(key) {
+      calls.head.push(key);
+      return objects.has(key) ? { key } : null;
+    },
     async put(key, value, options) {
       calls.put.push({ key, value: new Uint8Array(value), options });
       if (failPut) throw new Error('R2 image write denied');
+      objects.set(key, new Uint8Array(value));
       return { key };
     },
-    async delete(key) { calls.delete.push(key); },
+    async delete(key) { calls.delete.push(key); objects.delete(key); },
   };
 }
 
@@ -206,6 +226,23 @@ function context() {
   } };
 }
 
+function deferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((onResolve, onReject) => {
+    resolve = onResolve;
+    reject = onReject;
+  });
+  return { promise, resolve, reject };
+}
+
+async function expectedImageKey(articleId, bytes, extension = 'png') {
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  const hash = [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, '0')).join('');
+  return `articles/${articleId}/${hash}.${extension}`;
+}
+
 function env(db, images = r2()) { return { ITNEW_DB: db, ITNEW_IMAGES: images }; }
 
 function imageResponse(bytes, contentType = 'image/png', headers = {}) {
@@ -241,7 +278,7 @@ test('summary publication never reads body or image and uses category fallback',
   }), { ...context(), fetchImpl: async () => { fetched = true; } });
 
   assert.equal(result.status, 'published');
-  assert.deepEqual(images.calls, { get: [], put: [], delete: [] });
+  assert.deepEqual(images.calls, { get: [], head: [], put: [], delete: [] });
   assert.equal(fetched, false);
   assert.equal(db.state.articles[0].rights_mode, 'summary_link');
   assert.equal(db.state.articles[0].article_permission_verified, 0);
@@ -324,7 +361,7 @@ test('body read or semantically empty sanitized content records only a safe proc
     assert.equal(result.status, 'processing_error');
     assert.equal(db.state.articles.length + db.state.sections.length + db.state.images.length, 0);
     assert.deepEqual(db.batchCalls[0].map(({ operation }) => operation),
-      ['publisher_candidate_error', 'publisher_audit_insert']);
+      ['publisher_candidate_error', 'publisher_processing_error_audit']);
     assert.doesNotMatch(JSON.stringify(db.state.candidates) + JSON.stringify(db.state.audits),
       /secret|<script>/i);
   }
@@ -562,7 +599,7 @@ test('repeated approval returns existing article without D1 batch or R2 work', a
   assert.deepEqual(result, { status: 'published', articleId: 'article-old',
     slug: 'existing-slug', warnings: [] });
   assert.equal(db.batchCalls.length, 0);
-  assert.deepEqual(images.calls, { get: [], put: [], delete: [] });
+  assert.deepEqual(images.calls, { get: [], head: [], put: [], delete: [] });
 });
 
 test('D1 publication failure removes only newly copied image and leaves staged body', async () => {
@@ -580,7 +617,88 @@ test('D1 publication failure removes only newly copied image and leaves staged b
   }), { ...context(), fetchImpl: async () => imageResponse(PNG_BYTES, 'image/png') }), /simulated D1 failure/);
   assert.deepEqual(images.calls.delete, [images.calls.put[0].key]);
   assert.ok(!images.calls.delete.includes('staged/body'));
+  assert.equal(images.objects.has(images.calls.put[0].key), false);
   assert.equal(db.state.articles.length, 0);
+});
+
+test('same-key concurrent publication loser preserves the winner hero object', async () => {
+  const durable = licensedCandidate({ remote_image_url: 'https://cdn.news.example/hero.png' });
+  const db = new PublisherD1({
+    sources: [source({ rights_mode: 'licensed_full' })], candidates: [durable],
+  });
+  const images = r2({ staged: new Map([['staged/body', '<p>body</p>']]) });
+  const bothHeadsReady = deferred();
+  let headCount = 0;
+  images.head = async (key) => {
+    images.calls.head.push(key);
+    const result = images.objects.has(key) ? { key } : null;
+    headCount += 1;
+    if (headCount === 2) bothHeadsReady.resolve();
+    else await bothHeadsReady.promise;
+    return result;
+  };
+  const publish = () => publishCandidate(env(db, images), { id: durable.id }, {
+    ...context(), fetchImpl: async () => imageResponse(PNG_BYTES),
+  });
+  const [first, second] = await Promise.all([publish(), publish()]);
+
+  assert.deepEqual(second, first);
+  assert.equal(db.state.articles.length, 1);
+  const key = db.state.articles[0].hero_image_key;
+  assert.equal(headCount, 2);
+  assert.equal(images.objects.has(key), true);
+  assert.deepEqual(images.calls.delete, []);
+  assert.ok(db.executions.some(({ operation }) => operation === 'publisher_image_key_reference'));
+});
+
+test('D1 failure never deletes a pre-existing content-addressed hero object', async () => {
+  const key = await expectedImageKey('uuid-1', PNG_BYTES);
+  const durable = licensedCandidate({ remote_image_url: 'https://cdn.news.example/hero.png' });
+  const objects = new Map([[key, PNG_BYTES]]);
+  const images = r2({ staged: new Map([['staged/body', '<p>body</p>']]), objects });
+  const db = new PublisherD1({
+    sources: [source({ rights_mode: 'licensed_full' })], candidates: [durable],
+    failBatchOperation: 'publisher_candidate_approve',
+  });
+
+  await assert.rejects(publishCandidate(env(db, images), { id: durable.id }, {
+    ...context(), fetchImpl: async () => imageResponse(PNG_BYTES),
+  }), /simulated D1 failure/);
+  assert.equal(images.objects.has(key), true);
+  assert.deepEqual(images.calls.delete, []);
+});
+
+test('processing-error race converges on a concurrent successful publication without false audit', async () => {
+  const durable = licensedCandidate();
+  const db = new PublisherD1({
+    sources: [source({ rights_mode: 'licensed_full' })], candidates: [durable],
+  });
+  const images = r2({ staged: new Map([['staged/body', '<p>body</p>']]) });
+  const firstReadStarted = deferred();
+  const failFirstRead = deferred();
+  const normalGet = images.get.bind(images);
+  let bodyReads = 0;
+  images.get = async (key) => {
+    bodyReads += 1;
+    if (bodyReads === 1) {
+      images.calls.get.push(key);
+      firstReadStarted.resolve();
+      return { async text() { return failFirstRead.promise; } };
+    }
+    return normalGet(key);
+  };
+
+  const losing = publishCandidate(env(db, images), { id: durable.id }, context());
+  await firstReadStarted.promise;
+  const winner = await publishCandidate(env(db, images), { id: durable.id }, context());
+  failFirstRead.reject(new Error('simulated delayed body read failure'));
+  const converged = await losing;
+
+  assert.equal(winner.status, 'published');
+  assert.deepEqual(converged, winner);
+  assert.equal(db.state.audits.length, 1);
+  assert.equal(db.state.audits[0].result, 'published');
+  assert.equal(db.state.candidates[0].status, 'approved');
 });
 
 test('unpublish handles unknown and repeated requests without duplicate audit', async () => {
@@ -616,4 +734,10 @@ test('concurrent unpublish attempts create exactly one transition audit', async 
   assert.equal(db.state.audits.length, 1);
   assert.equal(db.batchCalls.length, 2);
   assert.ok(db.batchCalls.every((call) => call[1].operation === 'publisher_unpublish_audit'));
+});
+
+test('Wrangler forces global fetch through the public Cloudflare front door', async () => {
+  const config = await readFile(new URL('../wrangler.toml', import.meta.url), 'utf8');
+  assert.match(config,
+    /^compatibility_flags\s*=\s*\[\s*["']global_fetch_strictly_public["']\s*\]\s*$/m);
 });
