@@ -5,6 +5,9 @@ import { publishCandidate, unpublishArticle } from '../src/itnew/publisher.js';
 
 const NOW = Date.parse('2026-07-19T08:00:00Z');
 const MAX_SECTION_BYTES = 409600;
+const IMAGE_MAX_BYTES = 8 * 1024 * 1024;
+const PNG_BYTES = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1]);
+const JPEG_BYTES = Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 1]);
 
 function operationFrom(sql) {
   return /\/\*\s*itnew:([a-z_]+)\s*\*\//.exec(sql)?.[1];
@@ -32,10 +35,11 @@ class Statement {
 }
 
 class PublisherD1 {
-  constructor({ sources = [], articles = [], failBatchOperation = null } = {}) {
+  constructor({ sources = [], articles = [], candidates = [candidate()],
+    failBatchOperation = null } = {}) {
     this.state = {
       sources: structuredClone(sources), articles: structuredClone(articles),
-      sections: [], images: [], candidates: [], audits: [],
+      sections: [], images: [], candidates: structuredClone(candidates), audits: [],
     };
     this.failBatchOperation = failBatchOperation;
     this.batchCalls = [];
@@ -66,6 +70,8 @@ class PublisherD1 {
     switch (operation) {
       case 'publisher_source_current':
         return structuredClone(state.sources.find(({ id }) => id === bindings[0]) ?? null);
+      case 'publisher_candidate_current':
+        return structuredClone(state.candidates.find(({ id }) => id === bindings[0]) ?? null);
       case 'publisher_article_ref': {
         const row = state.articles.find(({ id }) => id === bindings[0]);
         return row ? { id: row.id, slug: row.slug, status: row.status } : null;
@@ -75,11 +81,17 @@ class PublisherD1 {
         return row ? { id: row.id, status: row.status } : null;
       }
       case 'publisher_article_insert': {
-        const [id, slug, source_id, canonical_url, title, summary, language, category,
+        const [id, candidate_id, slug, source_id, canonical_url, title, summary, language, category,
           rights_mode, article_permission_verified, license_name, license_url,
           attribution_text, hero_image_kind, hero_image_key, source_published_at,
           published_at, status] = bindings;
-        state.articles.push({ id, slug, source_id, canonical_url, title, summary, language,
+        const claimed = state.candidates.find((row) => row.id === candidate_id
+          && ['pending', 'processing_error'].includes(row.status) && row.article_id == null);
+        if (!claimed) throw new Error('D1_ERROR: itnew_candidate_not_publishable');
+        if (state.articles.some((row) => row.candidate_id === candidate_id)) {
+          throw new Error('D1_ERROR: UNIQUE constraint failed: itnew_articles.candidate_id');
+        }
+        state.articles.push({ id, candidate_id, slug, source_id, canonical_url, title, summary, language,
           category, rights_mode, article_permission_verified, license_name, license_url,
           attribution_text, hero_image_kind, hero_image_key, source_published_at,
           published_at, status });
@@ -97,13 +109,17 @@ class PublisherD1 {
       }
       case 'publisher_candidate_approve': {
         const [article_id, reviewed_at, id] = bindings;
-        state.candidates.push({ id, status: 'approved', article_id, reviewed_at, processing_error: null });
-        return { success: true, meta: { changes: 1 } };
+        const row = state.candidates.find((entry) => entry.id === id
+          && ['pending', 'processing_error'].includes(entry.status) && entry.article_id == null);
+        if (row) Object.assign(row, { status: 'approved', article_id, reviewed_at, processing_error: null });
+        return { success: true, meta: { changes: row ? 1 : 0 } };
       }
       case 'publisher_candidate_error': {
         const [processing_error, reviewed_at, id] = bindings;
-        state.candidates.push({ id, status: 'processing_error', processing_error, reviewed_at });
-        return { success: true, meta: { changes: 1 } };
+        const row = state.candidates.find((entry) => entry.id === id
+          && ['pending', 'processing_error'].includes(entry.status));
+        if (row) Object.assign(row, { status: 'processing_error', processing_error, reviewed_at });
+        return { success: true, meta: { changes: row ? 1 : 0 } };
       }
       case 'publisher_audit_insert': {
         const [id, admin_id, action, target_type, target_id, batch_id, result,
@@ -112,10 +128,20 @@ class PublisherD1 {
           result, details_json, created_at });
         return { success: true, meta: { changes: 1 } };
       }
+      case 'publisher_unpublish_audit': {
+        if (state.last_changes !== 1) return { success: true, meta: { changes: 0 } };
+        const [id, admin_id, action, target_type, target_id, batch_id, result,
+          details_json, created_at] = bindings;
+        state.audits.push({ id, admin_id, action, target_type, target_id, batch_id,
+          result, details_json, created_at });
+        state.last_changes = 1;
+        return { success: true, meta: { changes: 1 } };
+      }
       case 'publisher_article_unpublish': {
         const [id] = bindings;
         const row = state.articles.find((article) => article.id === id && article.status === 'published');
         if (row) row.status = 'unpublished';
+        state.last_changes = row ? 1 : 0;
         return { success: true, meta: { changes: row ? 1 : 0 } };
       }
       default:
@@ -147,7 +173,9 @@ function r2({ staged = new Map(), failGet = false, failPut = false } = {}) {
 function source(overrides = {}) {
   return {
     id: 'source-1', rights_mode: 'summary_link', license_name: null,
-    license_url: null, attribution_template: null, ...overrides,
+    license_url: null, attribution_template: null,
+    homepage_url: 'https://source.example/', feed_url: 'https://feeds.source.example/rss',
+    ...overrides,
   };
 }
 
@@ -162,6 +190,15 @@ function candidate(overrides = {}) {
   };
 }
 
+function licensedCandidate(overrides = {}) {
+  return candidate({
+    rights_mode_snapshot: 'licensed_full', staged_body_key: 'staged/body',
+    license_snapshot_json: JSON.stringify({ articleAllowed: true, name: 'CC',
+      url: 'https://license.example', attributionTemplate: 'By X' }),
+    ...overrides,
+  });
+}
+
 function context() {
   let next = 0;
   return { now: NOW, uuid: () => `uuid-${++next}`, fetchImpl: async () => {
@@ -174,10 +211,24 @@ function env(db, images = r2()) { return { ITNEW_DB: db, ITNEW_IMAGES: images };
 function imageResponse(bytes, contentType = 'image/png', headers = {}) {
   const normalized = new Map(Object.entries(headers).map(([key, value]) => [key.toLowerCase(), value]));
   normalized.set('content-type', contentType);
+  const chunks = Array.isArray(bytes?.[0]) || bytes?.[0] instanceof Uint8Array
+    ? bytes.map((chunk) => Uint8Array.from(chunk))
+    : [Uint8Array.from(bytes)];
+  let index = 0;
+  let cancelled = false;
+  const reader = {
+    async read() {
+      if (index >= chunks.length) return { done: true, value: undefined };
+      return { done: false, value: chunks[index++] };
+    },
+    async cancel() { cancelled = true; },
+  };
   return {
     ok: true, status: 200,
     headers: { get: (name) => normalized.get(String(name).toLowerCase()) ?? null },
-    async arrayBuffer() { return Uint8Array.from(bytes).buffer; },
+    body: { getReader: () => reader },
+    async arrayBuffer() { throw new Error('unbounded arrayBuffer must not be called'); },
+    get cancelled() { return cancelled; },
   };
 }
 
@@ -201,17 +252,18 @@ test('summary publication never reads body or image and uses category fallback',
 });
 
 test('licensed full publication sanitizes and splits body and atomically persists evidence and image', async () => {
-  const db = new PublisherD1({ sources: [source({ rights_mode: 'licensed_full' })] });
+  const durable = licensedCandidate({ title: '中文标题', staged_body_key: 'staged/body.html',
+    remote_image_url: 'https://cdn.news.example/hero',
+    license_snapshot_json: JSON.stringify({ articleAllowed: true, name: 'CC BY',
+      url: 'https://license.example/by', attributionTemplate: 'By Example' }) });
+  const db = new PublisherD1({
+    sources: [source({ rights_mode: 'licensed_full' })], candidates: [durable],
+  });
   const body = `<script>bad()</script><p>${'云'.repeat(150000)}</p>`;
   const images = r2({ staged: new Map([['staged/body.html', body]]) });
   const ctx = context();
-  ctx.fetchImpl = async () => imageResponse([1, 2, 3], 'image/png');
-  const result = await publishCandidate(env(db, images), candidate({
-    title: '中文标题', rights_mode_snapshot: 'licensed_full',
-    staged_body_key: 'staged/body.html', remote_image_url: 'https://img.example/hero',
-    license_snapshot_json: JSON.stringify({ articleAllowed: true, name: 'CC BY',
-      url: 'https://license.example/by', attributionTemplate: 'By Example' }),
-  }), ctx);
+  ctx.fetchImpl = async () => imageResponse(PNG_BYTES, 'image/png');
+  const result = await publishCandidate(env(db, images), { id: durable.id }, ctx);
 
   assert.equal(result.status, 'published');
   assert.match(result.slug, /^article-[0-9a-f]{12}$/);
@@ -240,6 +292,10 @@ test('missing source or article permission downgrades without reading staged bod
     ['licensed_full', { articleAllowed: false, name: 'CC', url: 'https://l.example', attributionTemplate: 'By X' }],
   ]) {
     const db = new PublisherD1({ sources: [source({ rights_mode: sourceRights })] });
+    db.state.candidates = [candidate({
+      rights_mode_snapshot: 'licensed_full', staged_body_key: 'staged/body',
+      license_snapshot_json: JSON.stringify(snapshot),
+    })];
     const images = r2({ staged: new Map([['staged/body', '<p>not read</p>']]) });
     const result = await publishCandidate(env(db, images), candidate({
       rights_mode_snapshot: 'licensed_full', staged_body_key: 'staged/body',
@@ -256,7 +312,10 @@ test('body read or semantically empty sanitized content records only a safe proc
   for (const images of [r2({ failGet: true }), r2({ staged: new Map([[
     'staged/body', '<script>secret</script><p> &nbsp; </p>',
   ]]) })]) {
-    const db = new PublisherD1({ sources: [source({ rights_mode: 'licensed_full' })] });
+    const durable = licensedCandidate();
+    const db = new PublisherD1({
+      sources: [source({ rights_mode: 'licensed_full' })], candidates: [durable],
+    });
     const result = await publishCandidate(env(db, images), candidate({
       rights_mode_snapshot: 'licensed_full', staged_body_key: 'staged/body',
       license_snapshot_json: JSON.stringify({ articleAllowed: true, name: 'CC',
@@ -272,16 +331,14 @@ test('body read or semantically empty sanitized content records only a safe proc
 });
 
 test('licensed image is content-addressed with normalized safe content type', async () => {
-  const db = new PublisherD1({ sources: [source({ rights_mode: 'licensed_full' })] });
+  const durable = licensedCandidate({ remote_image_url: 'https://cdn.news.example/a.jpg' });
+  const db = new PublisherD1({
+    sources: [source({ rights_mode: 'licensed_full' })], candidates: [durable],
+  });
   const images = r2({ staged: new Map([['staged/body', '<p>body</p>']]) });
   const ctx = context();
-  ctx.fetchImpl = async () => imageResponse([1, 2, 3], 'image/jpeg; charset=binary');
-  await publishCandidate(env(db, images), candidate({
-    rights_mode_snapshot: 'licensed_full', staged_body_key: 'staged/body',
-    remote_image_url: 'https://img.example/a.svg',
-    license_snapshot_json: JSON.stringify({ articleAllowed: true, name: 'CC',
-      url: 'https://license.example', attributionTemplate: 'By X' }),
-  }), ctx);
+  ctx.fetchImpl = async () => imageResponse(JPEG_BYTES, 'image/jpeg; charset=binary');
+  await publishCandidate(env(db, images), { id: durable.id }, ctx);
   assert.match(images.calls.put[0].key, /^articles\/uuid-1\/[0-9a-f]{64}\.jpg$/);
   assert.deepEqual(images.calls.put[0].options,
     { httpMetadata: { contentType: 'image/jpeg' } });
@@ -294,7 +351,10 @@ test('image HTTP type size and R2 failures publish text with fallback warning', 
     async () => imageResponse([1], 'image/png', { 'content-length': String(8 * 1024 * 1024 + 1) }),
   ];
   for (const fetchImpl of failures) {
-    const db = new PublisherD1({ sources: [source({ rights_mode: 'licensed_full' })] });
+    const durable = licensedCandidate({ remote_image_url: 'https://cdn.news.example/hero' });
+    const db = new PublisherD1({
+      sources: [source({ rights_mode: 'licensed_full' })], candidates: [durable],
+    });
     const images = r2({ staged: new Map([['staged/body', '<p>body</p>']]) });
     const result = await publishCandidate(env(db, images), candidate({
       rights_mode_snapshot: 'licensed_full', staged_body_key: 'staged/body',
@@ -307,22 +367,144 @@ test('image HTTP type size and R2 failures publish text with fallback warning', 
     assert.equal(db.state.articles[0].hero_image_kind, 'fallback');
   }
 
-  const db = new PublisherD1({ sources: [source({ rights_mode: 'licensed_full' })] });
+  const durable = licensedCandidate({ remote_image_url: 'https://cdn.news.example/hero' });
+  const db = new PublisherD1({
+    sources: [source({ rights_mode: 'licensed_full' })], candidates: [durable],
+  });
   const images = r2({ staged: new Map([['staged/body', '<p>body</p>']]), failPut: true });
   const result = await publishCandidate(env(db, images), candidate({
     rights_mode_snapshot: 'licensed_full', staged_body_key: 'staged/body',
     remote_image_url: 'https://img.example/hero',
     license_snapshot_json: JSON.stringify({ articleAllowed: true, name: 'CC',
       url: 'https://license.example', attributionTemplate: 'By X' }),
-  }), { ...context(), fetchImpl: async () => imageResponse([1], 'image/png') });
+  }), { ...context(), fetchImpl: async () => imageResponse(PNG_BYTES, 'image/png') });
   assert.ok(result.warnings.includes('image_copy_failed'));
   assert.equal(db.state.articles[0].hero_image_kind, 'fallback');
 });
 
+test('oversized image streams are cancelled without using an unbounded body read', async () => {
+  for (const headers of [{}, { 'content-length': 'not-a-number' }, { 'content-length': '1' }]) {
+    const first = new Uint8Array(IMAGE_MAX_BYTES);
+    first.set(PNG_BYTES);
+    const response = imageResponse([first, Uint8Array.of(1)], 'image/png', headers);
+    const durable = licensedCandidate({ remote_image_url: 'https://cdn.news.example/oversized.png' });
+    const db = new PublisherD1({
+      sources: [source({ rights_mode: 'licensed_full' })], candidates: [durable],
+    });
+    const images = r2({ staged: new Map([['staged/body', '<p>body</p>']]) });
+    const result = await publishCandidate(env(db, images), { id: durable.id }, {
+      ...context(), fetchImpl: async () => response,
+    });
+    assert.ok(result.warnings.includes('image_copy_failed'));
+    assert.equal(response.cancelled, true);
+    assert.equal(images.calls.put.length, 0);
+  }
+});
+
+test('declared oversized image is rejected early and its body is cancelled', async () => {
+  const response = imageResponse(PNG_BYTES, 'image/png', {
+    'content-length': String(IMAGE_MAX_BYTES + 1),
+  });
+  const durable = licensedCandidate({ remote_image_url: 'https://cdn.news.example/declared.png' });
+  const db = new PublisherD1({
+    sources: [source({ rights_mode: 'licensed_full' })], candidates: [durable],
+  });
+  const images = r2({ staged: new Map([['staged/body', '<p>body</p>']]) });
+  const result = await publishCandidate(env(db, images), { id: durable.id }, {
+    ...context(), fetchImpl: async () => response,
+  });
+  assert.ok(result.warnings.includes('image_copy_failed'));
+  assert.equal(response.cancelled, true);
+  assert.equal(images.calls.put.length, 0);
+});
+
+test('image URL policy rejects SSRF-shaped and cross-site URLs before fetch', async () => {
+  const denied = [
+    'https://127.0.0.1/a.png',
+    'https://[::1]/a.png',
+    'https://localhost/a.png',
+    'https://user:pass@news.example/a.png',
+    'https://news.example:8443/a.png',
+    'http://news.example/a.png',
+    '//news.example/a.png',
+    'https://unrelated.example/a.png',
+  ];
+  for (const remote_image_url of denied) {
+    let fetched = false;
+    const durable = licensedCandidate({ remote_image_url });
+    const db = new PublisherD1({
+      sources: [source({ rights_mode: 'licensed_full' })], candidates: [durable],
+    });
+    const images = r2({ staged: new Map([['staged/body', '<p>body</p>']]) });
+    const result = await publishCandidate(env(db, images), { id: durable.id }, {
+      ...context(), fetchImpl: async () => { fetched = true; return imageResponse(PNG_BYTES); },
+    });
+    assert.equal(fetched, false, remote_image_url);
+    assert.ok(result.warnings.includes('image_copy_failed'), remote_image_url);
+  }
+});
+
+test('image fetch uses manual redirects and rejects a public-to-private redirect', async () => {
+  let init;
+  const durable = licensedCandidate({ remote_image_url: 'https://news.example/start.png' });
+  const db = new PublisherD1({
+    sources: [source({ rights_mode: 'licensed_full' })], candidates: [durable],
+  });
+  const images = r2({ staged: new Map([['staged/body', '<p>body</p>']]) });
+  const result = await publishCandidate(env(db, images), { id: durable.id }, {
+    ...context(),
+    fetchImpl: async (_url, requestInit) => {
+      init = requestInit;
+      return { ok: false, status: 302, headers: { get: (name) => (
+        String(name).toLowerCase() === 'location' ? 'http://169.254.169.254/latest/meta-data' : null
+      ) } };
+    },
+  });
+  assert.equal(init.redirect, 'manual');
+  assert.ok(result.warnings.includes('image_copy_failed'));
+  assert.equal(images.calls.put.length, 0);
+});
+
+test('raster MIME must match its magic bytes', async () => {
+  const mismatches = [
+    ['image/jpeg', PNG_BYTES],
+    ['image/png', JPEG_BYTES],
+    ['image/gif', Uint8Array.from([0x47, 0x49, 0x46, 0x00])],
+    ['image/webp', Uint8Array.from([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x4e, 0x4f])],
+    ['image/avif', Uint8Array.from([0, 0, 0, 12, 0x66, 0x74, 0x79, 0x70, 0x6d, 0x70, 0x34, 0x32])],
+  ];
+  for (const [contentType, bytes] of mismatches) {
+    const durable = licensedCandidate({ remote_image_url: 'https://cdn.news.example/file' });
+    const db = new PublisherD1({
+      sources: [source({ rights_mode: 'licensed_full' })], candidates: [durable],
+    });
+    const images = r2({ staged: new Map([['staged/body', '<p>body</p>']]) });
+    const result = await publishCandidate(env(db, images), { id: durable.id }, {
+      ...context(), fetchImpl: async () => imageResponse(bytes, contentType),
+    });
+    assert.ok(result.warnings.includes('image_copy_failed'), contentType);
+    assert.equal(images.calls.put.length, 0);
+  }
+});
+
+test('remote-image-only staged markup is semantically empty after sanitizing', async () => {
+  const durable = licensedCandidate();
+  const db = new PublisherD1({
+    sources: [source({ rights_mode: 'licensed_full' })], candidates: [durable],
+  });
+  const images = r2({ staged: new Map([[
+    'staged/body', '<img src="https://remote.example/tracker.png" alt="tracker">',
+  ]]) });
+  const result = await publishCandidate(env(db, images), { id: durable.id }, context());
+  assert.equal(result.status, 'processing_error');
+  assert.equal(db.state.articles.length, 0);
+});
+
 test('slug is deterministic bounded readable and collision-resistant by canonical URL', async () => {
   async function slugFor(overrides) {
-    const db = new PublisherD1({ sources: [source()] });
-    return (await publishCandidate(env(db), candidate(overrides), context())).slug;
+    const durable = candidate(overrides);
+    const db = new PublisherD1({ sources: [source()], candidates: [durable] });
+    return (await publishCandidate(env(db), { id: durable.id }, context())).slug;
   }
   const english = await slugFor({ title: `Hello ${'VeryLong '.repeat(30)}World` });
   const chinese = await slugFor({ title: '纯中文标题' });
@@ -333,9 +515,45 @@ test('slug is deterministic bounded readable and collision-resistant by canonica
   assert.notEqual(chinese, await slugFor({ title: '纯中文标题', canonical_url: 'https://news.example/two' }));
 });
 
+test('publisher uses the durable current candidate and rejects stale rejected or missing IDs', async () => {
+  const rejectedDb = new PublisherD1({
+    sources: [source()], candidates: [candidate({ status: 'rejected', title: 'Durable rejected' })],
+  });
+  assert.deepEqual(await publishCandidate(env(rejectedDb), candidate({
+    status: 'pending', title: 'Untrusted caller title',
+  }), context()), {
+    status: 'candidate_conflict', articleId: null, slug: null, warnings: [],
+  });
+  assert.equal(rejectedDb.batchCalls.length, 0);
+
+  const missingDb = new PublisherD1({ sources: [source()], candidates: [] });
+  assert.deepEqual(await publishCandidate(env(missingDb), candidate(), context()), {
+    status: 'not_found', articleId: null, slug: null, warnings: [],
+  });
+  assert.equal(missingDb.batchCalls.length, 0);
+});
+
+test('concurrent candidate publication has one atomic winner and one idempotent result', async () => {
+  const durable = candidate();
+  const db = new PublisherD1({ sources: [source()], candidates: [durable] });
+  const [first, second] = await Promise.all([
+    publishCandidate(env(db), { id: durable.id, title: 'Caller one' }, context()),
+    publishCandidate(env(db), { id: durable.id, title: 'Caller two' }, context()),
+  ]);
+
+  assert.equal(first.status, 'published');
+  assert.deepEqual(second, first);
+  assert.equal(db.state.articles.length, 1);
+  assert.equal(db.state.articles[0].candidate_id, durable.id);
+  assert.equal(db.state.articles[0].title, durable.title);
+  assert.equal(db.state.audits.length, 1);
+});
+
 test('repeated approval returns existing article without D1 batch or R2 work', async () => {
-  const db = new PublisherD1({ sources: [source()], articles: [
-    { id: 'article-old', slug: 'existing-slug', status: 'published' },
+  const db = new PublisherD1({ sources: [source()], candidates: [candidate({
+    status: 'approved', article_id: 'article-old',
+  })], articles: [
+    { id: 'article-old', candidate_id: 'candidate-1', slug: 'existing-slug', status: 'published' },
   ] });
   const images = r2();
   const result = await publishCandidate(env(db, images), candidate({
@@ -348,8 +566,10 @@ test('repeated approval returns existing article without D1 batch or R2 work', a
 });
 
 test('D1 publication failure removes only newly copied image and leaves staged body', async () => {
+  const durable = licensedCandidate({ remote_image_url: 'https://cdn.news.example/hero' });
   const db = new PublisherD1({
-    sources: [source({ rights_mode: 'licensed_full' })], failBatchOperation: 'publisher_candidate_approve',
+    sources: [source({ rights_mode: 'licensed_full' })], candidates: [durable],
+    failBatchOperation: 'publisher_candidate_approve',
   });
   const images = r2({ staged: new Map([['staged/body', '<p>body</p>']]) });
   await assert.rejects(publishCandidate(env(db, images), candidate({
@@ -357,7 +577,7 @@ test('D1 publication failure removes only newly copied image and leaves staged b
     remote_image_url: 'https://img.example/hero',
     license_snapshot_json: JSON.stringify({ articleAllowed: true, name: 'CC',
       url: 'https://license.example', attributionTemplate: 'By X' }),
-  }), { ...context(), fetchImpl: async () => imageResponse([1], 'image/png') }), /simulated D1 failure/);
+  }), { ...context(), fetchImpl: async () => imageResponse(PNG_BYTES, 'image/png') }), /simulated D1 failure/);
   assert.deepEqual(images.calls.delete, [images.calls.put[0].key]);
   assert.ok(!images.calls.delete.includes('staged/body'));
   assert.equal(db.state.articles.length, 0);
@@ -372,9 +592,28 @@ test('unpublish handles unknown and repeated requests without duplicate audit', 
   assert.deepEqual(await unpublishArticle(env(db), 'article-1', context()),
     { articleId: 'article-1', status: 'unpublished' });
   assert.deepEqual(db.batchCalls.at(-1).map(({ operation }) => operation),
-    ['publisher_article_unpublish', 'publisher_audit_insert']);
+    ['publisher_article_unpublish', 'publisher_unpublish_audit']);
   assert.deepEqual(await unpublishArticle(env(db), 'article-1', context()),
     { articleId: 'article-1', status: 'unpublished' });
   assert.equal(db.state.audits.length, 1);
   assert.equal(db.batchCalls.length, 1);
+});
+
+test('concurrent unpublish attempts create exactly one transition audit', async () => {
+  const db = new PublisherD1({ articles: [
+    { id: 'article-race', slug: 'race', status: 'published' },
+  ] });
+  const results = await Promise.all([
+    unpublishArticle(env(db), 'article-race', context()),
+    unpublishArticle(env(db), 'article-race', context()),
+  ]);
+
+  assert.deepEqual(results, [
+    { articleId: 'article-race', status: 'unpublished' },
+    { articleId: 'article-race', status: 'unpublished' },
+  ]);
+  assert.equal(db.state.articles[0].status, 'unpublished');
+  assert.equal(db.state.audits.length, 1);
+  assert.equal(db.batchCalls.length, 2);
+  assert.ok(db.batchCalls.every((call) => call[1].operation === 'publisher_unpublish_audit'));
 });

@@ -62,6 +62,7 @@ CREATE INDEX IF NOT EXISTS itnew_candidates_batch_status
 
 CREATE TABLE IF NOT EXISTS itnew_articles (
   id TEXT PRIMARY KEY,
+  candidate_id TEXT NOT NULL UNIQUE REFERENCES itnew_candidates(id),
   slug TEXT NOT NULL UNIQUE,
   source_id TEXT NOT NULL REFERENCES itnew_sources(id),
   canonical_url TEXT NOT NULL UNIQUE,
@@ -181,6 +182,19 @@ WHEN NEW.rights_mode = 'licensed_full'
   )
 BEGIN
   SELECT RAISE(ABORT, 'licensed_full_requires_source_and_article_permission');
+END;
+
+CREATE TRIGGER IF NOT EXISTS itnew_articles_claim_publishable_candidate
+BEFORE INSERT ON itnew_articles
+WHEN NOT EXISTS (
+  SELECT 1
+  FROM itnew_candidates
+  WHERE id = NEW.candidate_id
+    AND status IN ('pending', 'processing_error')
+    AND article_id IS NULL
+)
+BEGIN
+  SELECT RAISE(ABORT, 'itnew_candidate_not_publishable');
 END;
 
 CREATE TRIGGER IF NOT EXISTS itnew_articles_require_full_text_permission_update

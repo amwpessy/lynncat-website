@@ -40,15 +40,54 @@ function sourceSql(rightsMode) {
     VALUES ('source-1', 'Source', 'https://feed.test', 'https://test', 'en', '${rightsMode}');`;
 }
 
-function articleSql({ rightsMode = 'summary_link', permissionVerified = 0 } = {}) {
+function candidateSql({ status = 'pending', articleId = null } = {}) {
+  return `INSERT INTO itnew_batches (id, status, target_count, collected_at)
+      VALUES ('batch-1', 'open', 30, 1);
+    INSERT INTO itnew_candidates (
+      id, batch_id, source_id, canonical_url, content_fingerprint, title, summary,
+      language, category, score, rights_mode_snapshot, status, article_id, created_at
+    ) VALUES (
+      'candidate-1', 'batch-1', 'source-1', 'https://test/article-1', 'fingerprint-1',
+      'Title', 'Summary', 'en', 'AI', 80, 'summary_link', '${status}',
+      ${articleId === null ? 'NULL' : `'${articleId}'`}, 1
+    );`;
+}
+
+function articleSql({ rightsMode = 'summary_link', permissionVerified = 0,
+  candidateId = 'candidate-1', articleId = 'article-1' } = {}) {
   return `INSERT INTO itnew_articles (
-    id, slug, source_id, canonical_url, title, summary, language, category,
+    id, candidate_id, slug, source_id, canonical_url, title, summary, language, category,
     rights_mode, article_permission_verified, hero_image_kind, published_at
   ) VALUES (
-    'article-1', 'article-1', 'source-1', 'https://test/article-1', 'Title', 'Summary', 'en', 'AI',
+    '${articleId}', '${candidateId}', '${articleId}', 'source-1', 'https://test/${articleId}', 'Title', 'Summary', 'en', 'AI',
     '${rightsMode}', ${permissionVerified}, 'fallback', 1
   );`;
 }
+
+test('schema atomically claims only a current publishable candidate', async () => {
+  const pending = await runSchema([
+    sourceSql('summary_link'), candidateSql(), articleSql(),
+  ]);
+  assert.equal(pending.status, 0, pending.stderr);
+
+  for (const setup of [
+    [candidateSql({ status: 'rejected' })],
+    [candidateSql({ status: 'approved', articleId: 'existing-article' })],
+    [],
+  ]) {
+    const rejected = await runSchema([
+      sourceSql('summary_link'), ...setup, articleSql(),
+    ]);
+    assert.notEqual(rejected.status, 0);
+    assert.match(rejected.stderr, /itnew_candidate_not_publishable/);
+  }
+
+  const duplicate = await runSchema([
+    sourceSql('summary_link'), candidateSql(), articleSql(),
+    articleSql({ candidateId: 'candidate-1', articleId: 'article-2' }),
+  ]);
+  assert.notEqual(duplicate.status, 0);
+});
 
 test('schema enforces the 400 KiB UTF-8 body-section limit', async () => {
   const sectionAtLimit = `${'你'.repeat(136533)}a`;
@@ -58,6 +97,7 @@ test('schema enforces the 400 KiB UTF-8 body-section limit', async () => {
 
   const accepted = await runSchema([
     sourceSql('summary_link'),
+    candidateSql(),
     articleSql(),
     `INSERT INTO itnew_article_sections (id, article_id, section_index, html)
       VALUES ('section-1', 'article-1', 0, '${sectionAtLimit}');`,
@@ -66,6 +106,7 @@ test('schema enforces the 400 KiB UTF-8 body-section limit', async () => {
 
   const rejected = await runSchema([
     sourceSql('summary_link'),
+    candidateSql(),
     articleSql(),
     `INSERT INTO itnew_article_sections (id, article_id, section_index, html)
       VALUES ('section-1', 'article-1', 0, '${sectionOverLimit}');`,
@@ -77,36 +118,42 @@ test('schema enforces the 400 KiB UTF-8 body-section limit', async () => {
 test('schema requires source and article permission for full-text articles', async () => {
   const sourceOnly = await runSchema([
     sourceSql('licensed_full'),
+    candidateSql(),
     articleSql({ rightsMode: 'licensed_full', permissionVerified: 0 }),
   ]);
   assert.notEqual(sourceOnly.status, 0);
 
   const articleOnly = await runSchema([
     sourceSql('summary_link'),
+    candidateSql(),
     articleSql({ rightsMode: 'licensed_full', permissionVerified: 1 }),
   ]);
   assert.notEqual(articleOnly.status, 0);
 
   const neither = await runSchema([
     sourceSql('summary_link'),
+    candidateSql(),
     articleSql({ rightsMode: 'licensed_full', permissionVerified: 0 }),
   ]);
   assert.notEqual(neither.status, 0);
 
   const both = await runSchema([
     sourceSql('licensed_full'),
+    candidateSql(),
     articleSql({ rightsMode: 'licensed_full', permissionVerified: 1 }),
   ]);
   assert.equal(both.status, 0, both.stderr);
 
   const summaryLink = await runSchema([
     sourceSql('summary_link'),
+    candidateSql(),
     articleSql(),
   ]);
   assert.equal(summaryLink.status, 0, summaryLink.stderr);
 
   const updateRejected = await runSchema([
     sourceSql('summary_link'),
+    candidateSql(),
     articleSql(),
     "UPDATE itnew_articles SET rights_mode = 'licensed_full', article_permission_verified = 1 WHERE id = 'article-1';",
   ]);
@@ -116,6 +163,7 @@ test('schema requires source and article permission for full-text articles', asy
 test('schema prevents downgrading a source linked to full-text articles', async () => {
   const downgradeRejected = await runSchema([
     sourceSql('licensed_full'),
+    candidateSql(),
     articleSql({ rightsMode: 'licensed_full', permissionVerified: 1 }),
     "UPDATE itnew_sources SET rights_mode = 'summary_link' WHERE id = 'source-1';",
     "SELECT rights_mode FROM itnew_sources WHERE id = 'source-1';",

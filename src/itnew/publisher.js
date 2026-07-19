@@ -74,18 +74,28 @@ function validFullPermission(candidate, source, license) {
 }
 
 function hasArticleContent(html) {
-  if (/<img\b/i.test(html)) return true;
+  if (/<img\b[^>]*\ssrc="\/itnew\/(?:images|assets\/fallback)\//i.test(html)) return true;
   return html.replace(/<[^>]*>/g, '').replaceAll('\u00a0', ' ').trim().length > 0;
 }
 
 function sourceCurrent(db, sourceId) {
   return db.prepare(`
     /* itnew:publisher_source_current */
-    SELECT id, rights_mode
+    SELECT id, rights_mode, homepage_url, feed_url
     FROM itnew_sources
     WHERE id = ?
     LIMIT 1
   `).bind(sourceId).first();
+}
+
+function candidateCurrent(db, candidateId) {
+  return db.prepare(`
+    /* itnew:publisher_candidate_current */
+    SELECT *
+    FROM itnew_candidates
+    WHERE id = ?
+    LIMIT 1
+  `).bind(candidateId).first();
 }
 
 function articleReference(db, articleId) {
@@ -112,18 +122,37 @@ function articleInsert(db, article) {
   return db.prepare(`
     /* itnew:publisher_article_insert */
     INSERT INTO itnew_articles (
-      id, slug, source_id, canonical_url, title, summary, language, category,
+      id, candidate_id, slug, source_id, canonical_url, title, summary, language, category,
       rights_mode, article_permission_verified, license_name, license_url,
       attribution_text, hero_image_kind, hero_image_key, source_published_at,
       published_at, status
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
-    article.id, article.slug, article.sourceId, article.canonicalUrl,
+    article.id, article.candidateId, article.slug, article.sourceId, article.canonicalUrl,
     article.title, article.summary, article.language, article.category,
     article.rightsMode, article.articlePermissionVerified, article.licenseName,
     article.licenseUrl, article.attributionText, article.heroImageKind,
     article.heroImageKey, article.sourcePublishedAt, article.publishedAt, 'published',
   );
+}
+
+function isCandidateClaimConflict(error) {
+  const message = String(error?.message ?? error);
+  return /itnew_candidate_not_publishable|UNIQUE constraint failed:\s*itnew_articles\.candidate_id/i
+    .test(message);
+}
+
+async function candidateResult(db, candidate) {
+  const articleId = value(candidate, 'article_id', 'articleId');
+  if (candidate?.status === 'approved' && articleId) {
+    const existing = await articleReference(db, articleId);
+    if (existing) {
+      return { status: existing.status === 'unpublished' ? 'unpublished' : 'published',
+        articleId: existing.id, slug: existing.slug, warnings: [] };
+    }
+    return { status: 'candidate_conflict', articleId, slug: null, warnings: [] };
+  }
+  return null;
 }
 
 function sectionInsert(db, section) {
@@ -186,6 +215,21 @@ function articleUnpublish(db, articleId) {
   `).bind(articleId);
 }
 
+function unpublishAuditInsert(db, audit) {
+  return db.prepare(`
+    /* itnew:publisher_unpublish_audit */
+    INSERT INTO itnew_audit_log (
+      id, admin_id, action, target_type, target_id, batch_id,
+      result, details_json, created_at
+    )
+    SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?
+    WHERE changes() = 1
+  `).bind(
+    audit.id, audit.adminId, 'unpublish', 'article', audit.articleId,
+    null, 'unpublished', '{}', audit.createdAt,
+  );
+}
+
 async function recordProcessingError(db, candidate, code, now, uuid, adminId) {
   const candidateId = value(candidate, 'id', 'id');
   await db.batch([
@@ -203,14 +247,122 @@ function responseHeader(response, name) {
   return response?.headers?.get?.(name) ?? null;
 }
 
-async function copyHeroImage(images, url, articleId, fetchImpl) {
+function isIpLiteral(hostname) {
+  return hostname.includes(':') || /^\d+(?:\.\d+){3}$/.test(hostname);
+}
+
+function isPrivateName(hostname) {
+  return !hostname.includes('.') || hostname === 'localhost'
+    || hostname.endsWith('.localhost') || hostname.endsWith('.local')
+    || hostname.endsWith('.internal') || hostname.endsWith('.lan')
+    || hostname.endsWith('.home') || hostname.endsWith('.home.arpa');
+}
+
+function hostnameFrom(value) {
+  try { return new URL(value).hostname.toLowerCase().replace(/\.$/, ''); } catch { return ''; }
+}
+
+function sameOrSubdomain(hostname, base) {
+  return Boolean(base) && (hostname === base || hostname.endsWith(`.${base}`));
+}
+
+function permittedImageUrl(url, canonicalUrl, source) {
   const parsed = new URL(url);
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') throw new Error('image_url_invalid');
+  const hostname = parsed.hostname.toLowerCase().replace(/\.$/, '');
+  if (parsed.protocol !== 'https:' || parsed.username || parsed.password || parsed.port
+    || isIpLiteral(hostname) || isPrivateName(hostname)) throw new Error('image_url_invalid');
+  const bases = [canonicalUrl, source?.homepage_url, source?.feed_url]
+    .map(hostnameFrom).filter(Boolean);
+  if (!bases.some((base) => sameOrSubdomain(hostname, base))) {
+    throw new Error('image_host_not_permitted');
+  }
+  return parsed;
+}
+
+async function boundedImageBytes(response) {
+  const reader = response?.body?.getReader?.();
+  if (!reader) throw new Error('image_body_unavailable');
+  const chunks = [];
+  let total = 0;
+  let completed = false;
+  try {
+    while (true) {
+      const { done, value: chunk } = await reader.read();
+      if (done) {
+        completed = true;
+        break;
+      }
+      const bytes = chunk instanceof Uint8Array ? chunk : new Uint8Array(chunk);
+      total += bytes.byteLength;
+      if (total > IMAGE_MAX_BYTES) throw new Error('image_too_large');
+      chunks.push(bytes);
+    }
+  } catch (error) {
+    if (!completed) {
+      try { await reader.cancel(); } catch { /* Keep the bounded-read error. */ }
+    }
+    throw error;
+  } finally {
+    try { reader.releaseLock?.(); } catch { /* Nothing else uses this response. */ }
+  }
+
+  const combined = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    combined.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return combined;
+}
+
+async function cancelImageBody(response) {
+  try {
+    if (typeof response?.body?.cancel === 'function') await response.body.cancel();
+    else await response?.body?.getReader?.().cancel();
+  } catch { /* Rejection remains a safe image fallback. */ }
+}
+
+function startsWith(bytes, signature) {
+  return bytes.byteLength >= signature.length
+    && signature.every((byte, index) => bytes[index] === byte);
+}
+
+function ascii(bytes, start, length) {
+  if (bytes.byteLength < start + length) return '';
+  return String.fromCharCode(...bytes.subarray(start, start + length));
+}
+
+function hasRasterSignature(contentType, bytes) {
+  switch (contentType) {
+    case 'image/jpeg':
+      return startsWith(bytes, [0xff, 0xd8, 0xff]);
+    case 'image/png':
+      return startsWith(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    case 'image/gif':
+      return ascii(bytes, 0, 6) === 'GIF87a' || ascii(bytes, 0, 6) === 'GIF89a';
+    case 'image/webp':
+      return ascii(bytes, 0, 4) === 'RIFF' && ascii(bytes, 8, 4) === 'WEBP';
+    case 'image/avif': {
+      if (ascii(bytes, 4, 4) !== 'ftyp') return false;
+      for (let offset = 8; offset + 4 <= bytes.byteLength; offset += 4) {
+        const brand = ascii(bytes, offset, 4);
+        if (brand === 'avif' || brand === 'avis') return true;
+      }
+      return false;
+    }
+    default:
+      return false;
+  }
+}
+
+async function copyHeroImage(images, url, articleId, fetchImpl, policy) {
+  const parsed = permittedImageUrl(url, policy.canonicalUrl, policy.source);
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), IMAGE_TIMEOUT_MS);
   try {
-    const response = await fetchImpl(parsed.href, { signal: controller.signal });
+    const response = await fetchImpl(parsed.href, { signal: controller.signal, redirect: 'manual' });
+    if (response?.status >= 300 && response.status < 400) throw new Error('image_redirect_denied');
     if (!response?.ok) throw new Error('image_http_failed');
     const contentType = String(responseHeader(response, 'content-type') ?? '')
       .split(';', 1)[0].trim().toLowerCase();
@@ -218,10 +370,11 @@ async function copyHeroImage(images, url, articleId, fetchImpl) {
     if (!extension) throw new Error('image_type_not_allowed');
     const contentLength = Number(responseHeader(response, 'content-length'));
     if (Number.isFinite(contentLength) && contentLength > IMAGE_MAX_BYTES) {
+      await cancelImageBody(response);
       throw new Error('image_too_large');
     }
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    if (bytes.byteLength > IMAGE_MAX_BYTES) throw new Error('image_too_large');
+    const bytes = await boundedImageBytes(response);
+    if (!hasRasterSignature(contentType, bytes)) throw new Error('image_signature_mismatch');
     const key = `articles/${articleId}/${await sha256Hex(bytes)}.${extension}`;
     await images.put(key, bytes, { httpMetadata: { contentType } });
     return { key, contentType };
@@ -238,21 +391,16 @@ export async function publishCandidate(env, candidate, context = {}) {
   const uuid = context.uuid;
   const fetchImpl = context.fetchImpl || fetch;
   const adminId = stringValue(context.adminId) || 'system';
-  const status = value(candidate, 'status', 'status');
-  const existingArticleId = value(candidate, 'article_id', 'articleId');
-
-  if (status === 'approved' && existingArticleId) {
-    const existing = await articleReference(db, existingArticleId);
-    if (existing) {
-      return { status: existing.status === 'unpublished' ? 'unpublished' : 'published',
-        articleId: existing.id, slug: existing.slug, warnings: [] };
-    }
-    return { status: 'processing_error', articleId: existingArticleId, slug: null,
-      warnings: ['approved_article_missing'] };
+  const candidateId = value(candidate, 'id', 'id');
+  candidate = await candidateCurrent(db, candidateId);
+  if (!candidate) {
+    return { status: 'not_found', articleId: null, slug: null, warnings: [] };
   }
+  const existingResult = await candidateResult(db, candidate);
+  if (existingResult) return existingResult;
+  const status = value(candidate, 'status', 'status');
   if (status !== 'pending' && status !== 'processing_error') {
-    return { status: 'processing_error', articleId: null, slug: null,
-      warnings: ['candidate_not_publishable'] };
+    return { status: 'candidate_conflict', articleId: null, slug: null, warnings: [] };
   }
 
   const sourceId = value(candidate, 'source_id', 'sourceId');
@@ -292,7 +440,9 @@ export async function publishCandidate(env, candidate, context = {}) {
   const remoteImageUrl = stringValue(value(candidate, 'remote_image_url', 'remoteImageUrl'));
   if (fullPermission && remoteImageUrl) {
     try {
-      copiedImage = await copyHeroImage(images, remoteImageUrl, articleId, fetchImpl);
+      copiedImage = await copyHeroImage(images, remoteImageUrl, articleId, fetchImpl, {
+        canonicalUrl, source,
+      });
       heroImageKind = 'r2';
       heroImageKey = copiedImage.key;
     } catch {
@@ -301,7 +451,7 @@ export async function publishCandidate(env, candidate, context = {}) {
   }
 
   const article = {
-    id: articleId, slug, sourceId, canonicalUrl,
+    id: articleId, candidateId, slug, sourceId, canonicalUrl,
     title: String(value(candidate, 'title', 'title') ?? ''),
     summary: String(value(candidate, 'summary', 'summary') ?? ''),
     language: value(candidate, 'language', 'language'), category,
@@ -345,6 +495,11 @@ export async function publishCandidate(env, candidate, context = {}) {
     if (copiedImage) {
       try { await images.delete(copiedImage.key); } catch { /* Preserve the D1 failure. */ }
     }
+    if (isCandidateClaimConflict(error)) {
+      const current = await candidateCurrent(db, candidateId);
+      const winner = await candidateResult(db, current);
+      return winner ?? { status: 'candidate_conflict', articleId: null, slug: null, warnings: [] };
+    }
     throw error;
   }
   return { status: 'published', articleId, slug, warnings };
@@ -360,13 +515,13 @@ export async function unpublishArticle(env, articleId, context = {}) {
   const now = publicationTime(context.now);
   const uuid = context.uuid;
   const adminId = stringValue(context.adminId) || 'system';
-  await db.batch([
+  const results = await db.batch([
     articleUnpublish(db, articleId),
-    auditInsert(db, {
-      id: makeId(uuid), adminId, action: 'unpublish', targetType: 'article',
-      targetId: articleId, batchId: null, result: 'unpublished',
-      details: {}, createdAt: now,
+    unpublishAuditInsert(db, {
+      id: makeId(uuid), adminId, articleId, createdAt: now,
     }),
   ]);
+  const changed = Number(results[0]?.meta?.changes ?? results[0]?.changes ?? 0);
+  if (changed === 0) return { articleId, status: 'unpublished' };
   return { articleId, status: 'unpublished' };
 }
