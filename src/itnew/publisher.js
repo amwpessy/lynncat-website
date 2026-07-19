@@ -146,7 +146,7 @@ function articleInsert(db, article) {
   );
 }
 
-function isCandidateClaimConflict(error) {
+export function isCandidateClaimConflict(error) {
   const message = String(error?.message ?? error);
   return /itnew_candidate_not_publishable|UNIQUE constraint failed:\s*itnew_articles\.candidate_id/i
     .test(message);
@@ -423,7 +423,28 @@ async function cleanupCopiedImage(db, images, copiedImage) {
   } catch { /* Preserve the D1 failure and any potentially shared object. */ }
 }
 
-export async function publishCandidate(env, candidate, context = {}) {
+export class PublicationPreparationError extends Error {
+  constructor(code) {
+    super(code);
+    this.name = 'PublicationPreparationError';
+    this.code = code;
+  }
+}
+
+export function processingErrorStatements(db, candidate, code, context = {}) {
+  const now = publicationTime(context.now);
+  const adminId = stringValue(context.adminId) || 'system';
+  const candidateId = value(candidate, 'id', 'id');
+  return [
+    candidateError(db, candidateId, code, now),
+    processingErrorAuditInsert(db, {
+      id: makeId(context.uuid), adminId, candidateId,
+      batchId: value(candidate, 'batch_id', 'batchId'), code, createdAt: now,
+    }),
+  ];
+}
+
+export async function prepareCandidatePublication(env, candidate, context = {}) {
   configured(env);
   const db = env.ITNEW_DB;
   const images = env.ITNEW_IMAGES;
@@ -432,17 +453,6 @@ export async function publishCandidate(env, candidate, context = {}) {
   const fetchImpl = context.fetchImpl || fetch;
   const adminId = stringValue(context.adminId) || 'system';
   const candidateId = value(candidate, 'id', 'id');
-  candidate = await candidateCurrent(db, candidateId);
-  if (!candidate) {
-    return { status: 'not_found', articleId: null, slug: null, warnings: [] };
-  }
-  const existingResult = await candidateResult(db, candidate);
-  if (existingResult) return existingResult;
-  const status = value(candidate, 'status', 'status');
-  if (status !== 'pending' && status !== 'processing_error') {
-    return { status: 'candidate_conflict', articleId: null, slug: null, warnings: [] };
-  }
-
   const sourceId = value(candidate, 'source_id', 'sourceId');
   const source = await sourceCurrent(db, sourceId);
   const license = parseLicense(candidate);
@@ -454,9 +464,7 @@ export async function publishCandidate(env, candidate, context = {}) {
   let sections = [];
   if (fullPermission) {
     const stagedBodyKey = stringValue(value(candidate, 'staged_body_key', 'stagedBodyKey'));
-    if (!stagedBodyKey) {
-      return recordProcessingError(db, candidate, 'staged_body_missing', now, uuid, adminId);
-    }
+    if (!stagedBodyKey) throw new PublicationPreparationError('staged_body_missing');
     try {
       const object = await images.get(stagedBodyKey);
       if (!object || typeof object.text !== 'function') throw new Error('body_unavailable');
@@ -466,7 +474,7 @@ export async function publishCandidate(env, candidate, context = {}) {
       sections = splitArticleSections(sanitized, BODY_SECTION_MAX_BYTES);
       if (sections.length === 0) throw new Error('empty_sanitized_body');
     } catch {
-      return recordProcessingError(db, candidate, 'body_processing_failed', now, uuid, adminId);
+      throw new PublicationPreparationError('body_processing_failed');
     }
   }
 
@@ -512,27 +520,79 @@ export async function publishCandidate(env, candidate, context = {}) {
     altText: article.title, sortOrder: 0, createdAt: now,
   } : null;
   const permissionDowngraded = requestedFull && !fullPermission;
-  const statements = [
-    articleInsert(db, article),
-    ...sectionRows.map((section) => sectionInsert(db, section)),
-    ...(imageRow ? [imageInsert(db, imageRow)] : []),
-    candidateApprove(db, value(candidate, 'id', 'id'), articleId, now),
-    auditInsert(db, {
+  return {
+    candidate,
+    copiedImage,
+    article,
+    sectionRows,
+    imageRow,
+    result: { status: 'published', articleId, slug, warnings },
+    audit: {
       id: makeId(uuid), adminId, action: 'publish', targetType: 'candidate',
-      targetId: value(candidate, 'id', 'id'), batchId: value(candidate, 'batch_id', 'batchId'),
+      targetId: candidateId, batchId: value(candidate, 'batch_id', 'batchId'),
       result: 'published', details: {
         rightsMode: article.rightsMode,
         articleAllowed: fullPermission,
         permissionDowngraded,
         warnings,
       }, createdAt: now,
-    }),
+    },
+  };
+}
+
+export function preparedPublicationStatements(env, prepared) {
+  const db = env.ITNEW_DB;
+  return [
+    articleInsert(db, prepared.article),
+    ...prepared.sectionRows.map((section) => sectionInsert(db, section)),
+    ...(prepared.imageRow ? [imageInsert(db, prepared.imageRow)] : []),
+    candidateApprove(
+      db,
+      value(prepared.candidate, 'id', 'id'),
+      prepared.article.id,
+      prepared.article.publishedAt,
+    ),
+    auditInsert(db, prepared.audit),
   ];
+}
+
+export async function cleanupPreparedPublication(env, prepared) {
+  if (!prepared) return;
+  await cleanupCopiedImage(env.ITNEW_DB, env.ITNEW_IMAGES, prepared.copiedImage);
+}
+
+export async function publishCandidate(env, candidate, context = {}) {
+  configured(env);
+  const db = env.ITNEW_DB;
+  const now = publicationTime(context.now);
+  const uuid = context.uuid;
+  const adminId = stringValue(context.adminId) || 'system';
+  const candidateId = value(candidate, 'id', 'id');
+  candidate = await candidateCurrent(db, candidateId);
+  if (!candidate) {
+    return { status: 'not_found', articleId: null, slug: null, warnings: [] };
+  }
+  const existingResult = await candidateResult(db, candidate);
+  if (existingResult) return existingResult;
+  const status = value(candidate, 'status', 'status');
+  if (status !== 'pending' && status !== 'processing_error') {
+    return { status: 'candidate_conflict', articleId: null, slug: null, warnings: [] };
+  }
+
+  let prepared;
+  try {
+    prepared = await prepareCandidatePublication(env, candidate, context);
+  } catch (error) {
+    if (error instanceof PublicationPreparationError) {
+      return recordProcessingError(db, candidate, error.code, now, uuid, adminId);
+    }
+    throw error;
+  }
 
   try {
-    await db.batch(statements);
+    await db.batch(preparedPublicationStatements(env, prepared));
   } catch (error) {
-    await cleanupCopiedImage(db, images, copiedImage);
+    await cleanupPreparedPublication(env, prepared);
     if (isCandidateClaimConflict(error)) {
       const current = await candidateCurrent(db, candidateId);
       const winner = await candidateResult(db, current);
@@ -540,7 +600,7 @@ export async function publishCandidate(env, candidate, context = {}) {
     }
     throw error;
   }
-  return { status: 'published', articleId, slug, warnings };
+  return prepared.result;
 }
 
 export async function unpublishArticle(env, articleId, context = {}) {
