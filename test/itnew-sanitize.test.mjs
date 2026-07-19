@@ -51,6 +51,22 @@ test('sanitizeArticleHtml removes mixed-case and nested blocked regions with the
   );
 });
 
+test('sanitizeArticleHtml treats slash-marked blocked tags as HTML start tags', () => {
+  for (const tag of [
+    'ScRiPt', 'StYlE', 'IfRaMe', 'FoRm', 'SvG', 'MaTh', 'ObJeCt', 'EmBeD', 'TeMpLaTe',
+  ]) {
+    assert.equal(
+      sanitizeArticleHtml(`<p>safe<${tag}/>secret</${tag}>end</p>`),
+      '<p>safeend</p>',
+      tag,
+    );
+  }
+  assert.equal(
+    sanitizeArticleHtml('<p>a<SvG/><StYlE/>bad</style>still</svg>b</p>'),
+    '<p>ab</p>',
+  );
+});
+
 test('sanitizeArticleHtml drops dangerous, unknown, namespace and malformed attributes', () => {
   const input = '<p ONCLICK="run()" style="color:red" srcdoc="<script>" data-extra="x" '
     + 'xml:lang="en" bad@name="y">safe</p>'
@@ -89,12 +105,39 @@ test('sanitizeArticleHtml restricts image paths and dimensions', () => {
   );
 });
 
-test('sanitizeArticleHtml balances malformed input and ignores unmatched closing tags', () => {
+test('sanitizeArticleHtml rejects ambiguous encoded image traversal, separators and controls', () => {
+  const rejected = [
+    '/itnew/images/%252e%252e/private.png',
+    '/itnew/images/%252fprivate.png',
+    '/itnew/images/%255cprivate.png',
+    '/itnew/images/%2500private.png',
+    '/itnew/images/%2e%2e/private.png',
+    '/itnew/images/%2fprivate.png',
+    '/itnew/images/%5cprivate.png',
+    '/itnew/images/%00private.png',
+    '/itnew/images/%0aprivate.png',
+    '/itnew/images/%c2%80private.png',
+    '/itnew/images/../assets/fallback/ai.png',
+  ];
+
+  assert.equal(
+    sanitizeArticleHtml(rejected.map((src) => `<img src="${src}">`).join('')),
+    '<img>'.repeat(rejected.length),
+  );
+  assert.equal(
+    sanitizeArticleHtml(
+      '<img src="/itnew/images/hash.png"><img src="/itnew/assets/fallback/ai.png">',
+    ),
+    '<img src="/itnew/images/hash.png"><img src="/itnew/assets/fallback/ai.png">',
+  );
+});
+
+test('sanitizeArticleHtml balances malformed input and ignores non-top closing tags', () => {
   const result = sanitizeArticleHtml(
     '<P><strong>one</p>two</strong><unknown>three</unknown><br/></P>',
   );
 
-  assert.equal(result, '<p><strong>one</strong></p>twothree<br>');
+  assert.equal(result, '<p><strong>onetwo</strong>three<br></p>');
   assertBalanced(result);
 });
 
@@ -103,6 +146,19 @@ test('sanitizeArticleHtml handles deeply nested allowed tags without exhausting 
   const input = `${'<strong>'.repeat(depth)}x${'</strong>'.repeat(depth)}`;
 
   assert.equal(sanitizeArticleHtml(input), input);
+});
+
+test('sanitizeArticleHtml handles adversarial mismatched closes in linear time', { timeout: 1_000 }, () => {
+  const depth = 30_000;
+  const input = `${'<strong>'.repeat(depth)}x${'</p>'.repeat(depth)}`;
+  const expected = `${'<strong>'.repeat(depth)}x${'</strong>'.repeat(depth)}`;
+  const startedAt = performance.now();
+  const result = sanitizeArticleHtml(input);
+  const elapsed = performance.now() - startedAt;
+
+  assert.equal(result, expected);
+  assertBalanced(result);
+  assert.ok(elapsed < 500, `mismatched closes took ${elapsed.toFixed(1)}ms`);
 });
 
 test('sanitizeArticleHtml safely preserves text, decoded entities and supplementary Unicode', () => {

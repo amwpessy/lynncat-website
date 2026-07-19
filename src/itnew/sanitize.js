@@ -181,12 +181,22 @@ function safeLink(value) {
 
 function safeImagePath(value) {
   if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//')) return null;
+  if (/%25/i.test(value) || /[\u0000-\u001f\u007f-\u009f]/.test(value)) return null;
+  const rawPath = value.split(/[?#]/, 1)[0];
+  if (/%(?:0[0-9a-f]|1[0-9a-f]|2e|2f|5c|7f)/i.test(rawPath) || rawPath.includes('\\')) {
+    return null;
+  }
   try {
+    const decodedRawPath = decodeURIComponent(rawPath);
+    if (/[\u0000-\u001f\u007f-\u009f\\]/.test(decodedRawPath)
+      || decodedRawPath.split('/').some((segment) => segment === '.' || segment === '..')) return null;
     const url = new URL(value, 'https://itnew.invalid');
     if (url.origin !== 'https://itnew.invalid') return null;
-    if (/%(?:2e|2f|5c)/i.test(url.pathname)) return null;
-    if (!url.pathname.startsWith('/itnew/images/')
-      && !url.pathname.startsWith('/itnew/assets/fallback/')) return null;
+    const decodedPath = decodeURIComponent(url.pathname);
+    if (/[\u0000-\u001f\u007f-\u009f\\]/.test(decodedPath)
+      || decodedPath.split('/').some((segment) => segment === '.' || segment === '..')) return null;
+    if (!decodedPath.startsWith('/itnew/images/')
+      && !decodedPath.startsWith('/itnew/assets/fallback/')) return null;
     return `${url.pathname}${url.search}${url.hash}`;
   } catch {
     return null;
@@ -260,7 +270,7 @@ function sanitizeToTree(input) {
     if (token.type === 'discard') continue;
 
     if (blocked.length > 0) {
-      if (token.type === 'start' && BLOCKED_TAGS.has(token.name) && !token.selfClosing) {
+      if (token.type === 'start' && BLOCKED_TAGS.has(token.name)) {
         blocked.push(token.name);
       } else if (token.type === 'end' && token.name === blocked.at(-1)) {
         blocked.pop();
@@ -269,7 +279,7 @@ function sanitizeToTree(input) {
     }
 
     if (token.type === 'start' && BLOCKED_TAGS.has(token.name)) {
-      if (!token.selfClosing) blocked.push(token.name);
+      blocked.push(token.name);
       continue;
     }
     if (!ALLOWED_TAGS.has(token.name)) continue;
@@ -283,15 +293,8 @@ function sanitizeToTree(input) {
       };
       stack.at(-1).children.push(node);
       if (!VOID_TAGS.has(token.name) && !token.selfClosing) stack.push(node);
-    } else if (!VOID_TAGS.has(token.name)) {
-      let match = -1;
-      for (let index = stack.length - 1; index > 0; index -= 1) {
-        if (stack[index].tag === token.name) {
-          match = index;
-          break;
-        }
-      }
-      if (match > 0) stack.length = match;
+    } else if (!VOID_TAGS.has(token.name) && stack.at(-1)?.tag === token.name) {
+      stack.pop();
     }
   }
   return root;
