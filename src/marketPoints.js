@@ -70,12 +70,17 @@ export async function handleMarketHeartbeatStop(request, env) {
     if (request.method !== 'POST') throw marketError('method_not_allowed', 405);
     const principal = await authenticateMarketRequest(request, env);
     const body = await parseJson(request);
-    const expectedVersion = body?.leaseVersion == null ? null : leaseVersion(body.leaseVersion);
-    if (body?.leaseVersion != null && expectedVersion == null) throw marketError('invalid_lease_version', 400);
+    if (!body) throw marketError('invalid_json', 400);
+    const expectedVersion = strictLeaseVersion(body.leaseVersion);
+    if (expectedVersion == null) throw marketError('invalid_lease_version', 400);
 
     const now = nowFor(env);
     const repository = repositoryFor(env);
-    await repository.stopLease({ deviceId: principal.deviceId, expectedVersion });
+    await repository.stopLease({
+      userId: principal.userId,
+      deviceId: principal.deviceId,
+      expectedVersion,
+    });
     const state = await repository.loadPointState(principal.userId, principal.deviceId);
     return heartbeatResponse(state, now, false);
   } catch (error) {
@@ -92,7 +97,9 @@ function heartbeatResponse(state, serverTime, credited) {
     activeSeconds,
     leaseVersion: Number(lease?.leaseVersion ?? 0),
     serverTime,
-    nextCreditAt: lease ? serverTime + (CREDIT_SECONDS - activeSeconds) * 1000 : null,
+    nextCreditAt: lease
+      ? lease.lastHeartbeatAt + Math.max(0, CREDIT_SECONDS - activeSeconds) * 1000
+      : null,
   });
 }
 
@@ -120,20 +127,45 @@ function d1Repository(db) {
     },
 
     async commitHeartbeat({ userId, deviceId, expectedVersion, lease, credit, idempotencyKey, now }) {
-      const leaseMutation = expectedVersion === 0
-        ? db.prepare(`
+      let leaseMutation;
+      if (expectedVersion === 0 && credit) {
+        leaseMutation = db.prepare(`
+          INSERT INTO market_online_leases (
+            device_id, user_id, started_at, last_heartbeat_at, active_seconds, lease_version, updated_at
+          )
+          SELECT ?, ?, ?, ?, ?, 1, ?
+          WHERE NOT EXISTS (
+            SELECT 1 FROM market_point_ledger WHERE idempotency_key = ?
+          )
+          ON CONFLICT(device_id) DO NOTHING
+        `).bind(
+          deviceId, userId, lease.startedAt, lease.lastHeartbeatAt, lease.activeSeconds, lease.updatedAt,
+          idempotencyKey,
+        );
+      } else if (expectedVersion === 0) {
+        leaseMutation = db.prepare(`
           INSERT INTO market_online_leases (
             device_id, user_id, started_at, last_heartbeat_at, active_seconds, lease_version, updated_at
           ) VALUES (?, ?, ?, ?, ?, 1, ?)
           ON CONFLICT(device_id) DO NOTHING
         `).bind(
           deviceId, userId, lease.startedAt, lease.lastHeartbeatAt, lease.activeSeconds, lease.updatedAt,
-        )
-        : db.prepare(`
+        );
+      } else {
+        const idempotencyGuard = credit ? `
+            AND NOT EXISTS (
+              SELECT 1 FROM market_point_ledger WHERE idempotency_key = ?
+            )` : '';
+        const bindings = [
+          lease.lastHeartbeatAt, lease.activeSeconds, lease.updatedAt, deviceId, userId, expectedVersion,
+        ];
+        if (credit) bindings.push(idempotencyKey);
+        leaseMutation = db.prepare(`
           UPDATE market_online_leases
           SET last_heartbeat_at = ?, active_seconds = ?, lease_version = lease_version + 1, updated_at = ?
-          WHERE device_id = ? AND user_id = ? AND lease_version = ?
-        `).bind(lease.lastHeartbeatAt, lease.activeSeconds, lease.updatedAt, deviceId, userId, expectedVersion);
+          WHERE device_id = ? AND user_id = ? AND lease_version = ?${idempotencyGuard}
+        `).bind(...bindings);
+      }
 
       if (!credit) {
         const [leaseResult] = await db.batch([leaseMutation]);
@@ -167,12 +199,12 @@ function d1Repository(db) {
       };
     },
 
-    async stopLease({ deviceId, expectedVersion }) {
-      const statement = expectedVersion == null
-        ? db.prepare('DELETE FROM market_online_leases WHERE device_id = ?').bind(deviceId)
-        : db.prepare('DELETE FROM market_online_leases WHERE device_id = ? AND lease_version = ?').bind(
-          deviceId, expectedVersion,
-        );
+    async stopLease({ userId, deviceId, expectedVersion }) {
+      if (strictLeaseVersion(expectedVersion) == null) return { removed: false };
+      const statement = db.prepare(`
+        DELETE FROM market_online_leases
+        WHERE device_id = ? AND user_id = ? AND lease_version = ?
+      `).bind(deviceId, userId, expectedVersion);
       const result = await statement.run();
       return { removed: Number(result.meta?.changes) === 1 };
     },
@@ -199,6 +231,10 @@ function mapLease(row) {
 function leaseVersion(value) {
   const number = Number(value);
   return Number.isSafeInteger(number) && number >= 0 ? number : null;
+}
+
+function strictLeaseVersion(value) {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : null;
 }
 
 function cleanIdempotencyKey(value) {

@@ -170,12 +170,11 @@ function createAccountRepository() {
       const current = leases.get(deviceId);
       const currentVersion = current?.leaseVersion ?? 0;
       if (currentVersion !== expectedVersion) return { updated: false, credited: false };
+      if (credit && ledger.has(idempotencyKey)) return { updated: false, credited: false };
 
       const nextLease = { ...lease, leaseVersion: expectedVersion + 1 };
       leases.set(deviceId, nextLease);
       if (!credit) return { updated: true, credited: false };
-
-      if (ledger.has(idempotencyKey)) return { updated: true, credited: false };
 
       const user = users.get(userId);
       const balanceAfter = user.pointsBalance + 1;
@@ -196,9 +195,9 @@ function createAccountRepository() {
       return { updated: true, credited: true };
     },
 
-    async stopLease({ deviceId, expectedVersion }) {
+    async stopLease({ userId, deviceId, expectedVersion }) {
       const current = leases.get(deviceId);
-      if (!current || (expectedVersion != null && current.leaseVersion !== expectedVersion)) {
+      if (!current || current.userId !== userId || current.leaseVersion !== expectedVersion) {
         return { removed: false, lease: current ?? null };
       }
       leases.delete(deviceId);
