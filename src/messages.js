@@ -85,9 +85,6 @@ export async function handleAuthenticatedPost(request, env) {
 
     const body = await parseJson(request.clone());
     if (!body) throw marketError('invalid_json', 400);
-    if (!hasIdentityConfiguration(env)) {
-      throw marketError('identity_configuration_unavailable', 503);
-    }
 
     const room = normalizeRoomId(body.roomId ?? body.boardSymbol);
     const classifiedText = classifyText(body.text);
@@ -96,13 +93,20 @@ export async function handleAuthenticatedPost(request, env) {
       throw marketError(classifiedText.code, classifiedText.code === 'empty_text' ? 400 : 422);
     }
 
+    const now = nowFor(env);
+    const replay = await resolveOwnedReplay(env.DB, principal.userId, requestKey, now);
+    if (replay) return replay;
+
+    if (!hasIdentityConfiguration(env)) {
+      throw marketError('identity_configuration_unavailable', 503);
+    }
     const authorHash = await hashGuestId(principal.userId, env.AUTHOR_HASH_SALT);
     const banned = await env.DB.prepare(
       'SELECT 1 FROM market_banned_authors WHERE author_hash = ? LIMIT 1',
     ).bind(authorHash).first();
     if (banned) throw marketError('author_banned', 403);
 
-    return publishWithPoints({
+    return await publishWithPoints({
       env,
       principal,
       room,
@@ -110,7 +114,7 @@ export async function handleAuthenticatedPost(request, env) {
       requestKey,
       authorHash,
       authorKey: await authorKeyFor(principal.userId, env.AUTHOR_KEY_SECRET),
-      now: nowFor(env),
+      now,
     });
   } catch (error) {
     if (typeof error?.code === 'string' && Number.isInteger(error?.status)) {
@@ -202,16 +206,8 @@ async function publishWithPoints({
     }, Number(ledger?.balance_after), 201);
   }
 
-  const existing = await env.DB.prepare(`
-    SELECT id, room_id, nickname, text, author_key, created_at, expires_at
-    FROM market_messages
-    WHERE request_key = ? AND user_id = ?
-    LIMIT 1
-  `).bind(requestKey, principal.userId).first();
-  if (existing) {
-    const account = await loadPublishingUser(env.DB, principal.userId);
-    return publishResponse(existing, Number(account?.points_balance ?? 0), 200);
-  }
+  const replay = await resolveOwnedReplay(env.DB, principal.userId, requestKey, now);
+  if (replay) return replay;
 
   const account = await loadPublishingUser(env.DB, principal.userId);
   if (Number(account?.points_balance) < MESSAGE_COST) {
@@ -231,6 +227,32 @@ async function publishWithPoints({
   }
 
   return json({ error: 'publish_conflict' }, 409);
+}
+
+async function resolveOwnedReplay(db, userId, requestKey, now) {
+  const existing = await db.prepare(`
+    SELECT id, room_id, nickname, text, author_key, created_at, expires_at
+    FROM market_messages
+    WHERE request_key = ? AND user_id = ? AND expires_at > ?
+    LIMIT 1
+  `).bind(requestKey, userId, now).first();
+  if (existing) {
+    const account = await loadPublishingUser(db, userId);
+    return publishResponse(existing, Number(account?.points_balance ?? 0), 200);
+  }
+
+  const priorDebit = await db.prepare(`
+    SELECT 1 FROM market_point_ledger
+    WHERE idempotency_key = ? AND user_id = ?
+      AND kind = 'message_debit' AND reference_type = 'message'
+    LIMIT 1
+  `).bind(requestKey, userId).first();
+  if (priorDebit) {
+    await purgeExpired(db, now);
+    return json({ error: 'publish_conflict' }, 409);
+  }
+
+  return null;
 }
 
 async function loadPublishingUser(db, userId) {
@@ -290,7 +312,7 @@ async function handleReport(request, env, messageId) {
 }
 
 async function purgeExpired(db, now) {
-  await db.prepare('DELETE FROM market_messages WHERE expires_at < ?').bind(now).run();
+  await db.prepare('DELETE FROM market_messages WHERE expires_at <= ?').bind(now).run();
 }
 
 async function recordModerationAction(db, targetType, targetId, action, note, now) {

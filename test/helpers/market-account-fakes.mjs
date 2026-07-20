@@ -174,7 +174,7 @@ export function createMessageAccountEnv(options = {}) {
       userId,
       deviceId,
       tokenHash: digest(env.SESSION_HASH_SALT, token),
-      expiresAt: sessionState === 'expired' ? env.NOW() - 1 : env.NOW() + 60_000,
+      expiresAt: sessionState === 'expired' ? env.NOW() - 1 : env.NOW() + (24 * 60 * 60 * 1000),
       revokedAt: sessionState === 'revoked' ? env.NOW() - 1 : null,
       lastUsedAt: env.NOW(),
     };
@@ -444,16 +444,31 @@ function createMessageD1(repo) {
   const db = {
     publishBatches: [],
     bannedAuthors,
+    actions: [],
+    failNextPublishBatchAt: null,
     banUser(userId) {
       const authorHash = digest('hash-salt', userId);
       bannedAuthors.set(authorHash, { author_hash: authorHash });
     },
     batch(statements) {
       const operation = batchQueue.then(async () => {
-        db.publishBatches.push(statements.map((statement) => statement.kind));
-        const results = [];
-        for (const statement of statements) results.push(await statement.run());
-        return results;
+        const kinds = statements.map((statement) => statement.kind);
+        const isPublishBatch = kinds.includes('message_insert');
+        if (isPublishBatch) db.publishBatches.push(kinds);
+        const snapshots = snapshotRepository(repo);
+        const failureKind = isPublishBatch ? db.failNextPublishBatchAt : null;
+        if (isPublishBatch) db.failNextPublishBatchAt = null;
+        try {
+          const results = [];
+          for (const statement of statements) {
+            if (statement.kind === failureKind) throw new Error(`Injected ${failureKind} failure`);
+            results.push(await statement.run());
+          }
+          return results;
+        } catch (error) {
+          restoreRepository(repo, snapshots);
+          throw error;
+        }
       });
       batchQueue = operation.catch(() => {});
       return operation;
@@ -468,9 +483,23 @@ function createMessageD1(repo) {
               if (/^\s*DELETE\s+FROM\s+market_messages/i.test(sql)) {
                 const [now] = values;
                 for (const [id, message] of repo.messages) {
-                  if (Number(message.expiresAt) < now) repo.messages.delete(id);
+                  if (Number(message.expiresAt) <= now) repo.messages.delete(id);
                 }
                 return changed(0);
+              }
+              if (/^\s*DELETE\s+FROM\s+market_banned_authors/i.test(sql)) {
+                const removed = bannedAuthors.delete(values[0]);
+                return changed(removed ? 1 : 0);
+              }
+              if (/^\s*INSERT\s+INTO\s+market_banned_authors/i.test(sql)) {
+                const [authorHash, bannedAt, note] = values;
+                bannedAuthors.set(authorHash, { author_hash: authorHash, banned_at: bannedAt, note });
+                return changed(1);
+              }
+              if (/^\s*INSERT\s+INTO\s+market_moderation_actions/i.test(sql)) {
+                const [id, targetType, targetId, action, note, createdAt] = values;
+                db.actions.push({ id, targetType, targetId, action, note, createdAt });
+                return changed(1);
               }
               if (/^\s*INSERT\s+INTO\s+market_messages/i.test(sql)) {
                 const [
@@ -533,11 +562,18 @@ function createMessageD1(repo) {
                 return bannedAuthors.get(values[0]) ?? null;
               }
               if (/FROM\s+market_messages/i.test(sql) && /request_key\s*=\s*\?/i.test(sql)) {
-                const [requestKey, userId] = values;
+                const [requestKey, userId, now] = values;
                 const message = [...repo.messages.values()].find((candidate) => (
                   candidate.requestKey === requestKey && candidate.userId === userId
+                  && (now === undefined || candidate.expiresAt > now)
                 ));
                 return message ? messageRow(message) : null;
+              }
+              if (/FROM\s+market_point_ledger/i.test(sql) && /idempotency_key\s*=\s*\?/i.test(sql)) {
+                const [requestKey, userId] = values;
+                const ledger = repo.ledger.get(requestKey);
+                return ledger?.userId === userId && ledger.kind === 'message_debit'
+                  && ledger.referenceType === 'message' ? { 1: 1 } : null;
               }
               if (/FROM\s+market_users/i.test(sql) && /points_balance/i.test(sql)) {
                 const user = repo.users.get(values[0]);
@@ -560,6 +596,14 @@ function createMessageD1(repo) {
               return null;
             },
             async all() {
+              if (/SELECT\s+DISTINCT\s+author_hash\s+FROM\s+market_messages/i.test(sql)) {
+                const hashes = new Set(
+                  [...repo.messages.values()]
+                    .filter((message) => message.authorKey === values[0])
+                    .map((message) => message.authorHash),
+                );
+                return { results: [...hashes].filter(Boolean).map((author_hash) => ({ author_hash })) };
+              }
               if (/FROM\s+market_messages/i.test(sql) && /room_id\s*=\s*\?/i.test(sql)) {
                 const [roomId, status, now] = values;
                 return {
@@ -586,7 +630,32 @@ function statementKind(sql) {
   if (/^\s*INSERT\s+INTO\s+market_messages/i.test(sql)) return 'message_insert';
   if (/^\s*INSERT\s+INTO\s+market_point_ledger/i.test(sql)) return 'ledger_insert';
   if (/^\s*UPDATE\s+market_users/i.test(sql)) return 'balance_update';
+  if (/^\s*INSERT\s+INTO\s+market_banned_authors/i.test(sql)) return 'author_ban';
+  if (/^\s*INSERT\s+INTO\s+market_moderation_actions/i.test(sql)) return 'moderation_action';
   return 'other';
+}
+
+function snapshotRepository(repo) {
+  return {
+    users: cloneMap(repo.users),
+    messages: cloneMap(repo.messages),
+    ledger: cloneMap(repo.ledger),
+  };
+}
+
+function restoreRepository(repo, snapshots) {
+  restoreMap(repo.users, snapshots.users);
+  restoreMap(repo.messages, snapshots.messages);
+  restoreMap(repo.ledger, snapshots.ledger);
+}
+
+function cloneMap(source) {
+  return new Map([...source].map(([key, value]) => [key, { ...value }]));
+}
+
+function restoreMap(target, snapshot) {
+  target.clear();
+  for (const [key, value] of snapshot) target.set(key, value);
 }
 
 function messageRow(message) {

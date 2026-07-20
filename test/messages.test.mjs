@@ -39,6 +39,24 @@ test('public reads bind the requested room and active status only', async () => 
   assert.deepEqual(bindings.slice(0, 3), ['XAU', 'active', 1_000_000]);
 });
 
+test('OPTIONS permits authenticated idempotent publishing headers', async () => {
+  const response = await handleMessages(new Request('https://unit.test/markets/messages', {
+    method: 'OPTIONS',
+    headers: {
+      'Access-Control-Request-Method': 'POST',
+      'Access-Control-Request-Headers': 'authorization,content-type,idempotency-key',
+      Origin: 'https://lynncat.com',
+    },
+  }), createMessageAccountEnv());
+  const allowedHeaders = response.headers.get('Access-Control-Allow-Headers')
+    .toLowerCase().split(/\s*,\s*/);
+
+  assert.equal(response.status, 204);
+  assert.equal(response.headers.get('Access-Control-Allow-Origin'), '*');
+  assert.match(response.headers.get('Access-Control-Allow-Methods'), /\bPOST\b/);
+  assert.deepEqual(allowedHeaders.sort(), ['authorization', 'content-type', 'idempotency-key']);
+});
+
 test('a third distinct report hides a public message and records an action', async () => {
   const result = await reportMessage({ messageId: 'm1', reporterIds: ['r1', 'r2', 'r3'] });
 
@@ -112,8 +130,82 @@ test('authenticated POST atomically debits three points and publishes once', asy
   assert.equal(ledger.referenceId, message.id);
   assert.deepEqual(env.DB.publishBatches, [
     ['message_insert', 'ledger_insert', 'balance_update'],
-    ['message_insert', 'ledger_insert', 'balance_update'],
   ]);
+});
+
+test('a retained owner replay returns before purge or another publish batch', async () => {
+  const env = createMessageAccountEnv({ points: 6 });
+  const request = authenticatedPostMessage({
+    roomId: 'XAU', text: '保留期内观点', requestKey: 'retained-replay',
+  });
+  const first = await handleMessages(request, env);
+  const firstBody = await first.json();
+  env.advance((60 * 60 * 1000) - 1);
+  const batchCount = env.DB.publishBatches.length;
+
+  const replay = await handleMessages(request, env);
+
+  assert.equal(replay.status, 200);
+  assert.deepEqual((await replay.json()).message, firstBody.message);
+  assert.equal(env.DB.publishBatches.length, batchCount);
+  assert.equal(env.repo.messages.size, 1);
+  assert.equal(env.repo.ledger.size, 1);
+  assert.equal(env.repo.user.pointsBalance, 3);
+});
+
+test('an owner replay at expiresAt returns publish_conflict and removes expired content', async () => {
+  const env = createMessageAccountEnv({ points: 3 });
+  const request = authenticatedPostMessage({
+    roomId: 'XAU', text: '到期观点', requestKey: 'expired-replay',
+  });
+  const first = await handleMessages(request, env);
+  assert.equal(first.status, 201);
+  env.advance(60 * 60 * 1000);
+  const batchCount = env.DB.publishBatches.length;
+
+  const replay = await handleMessages(request, env);
+
+  assert.equal(replay.status, 409);
+  assert.deepEqual(await replay.json(), { error: 'publish_conflict' });
+  assert.equal(env.DB.publishBatches.length, batchCount);
+  assert.equal(env.repo.messages.size, 0);
+  assert.equal(env.repo.ledger.size, 1);
+  assert.equal(env.repo.user.pointsBalance, 0);
+});
+
+test('a previously purged owner request key returns owner-safe publish_conflict', async () => {
+  const env = createMessageAccountEnv({ points: 3 });
+  const request = authenticatedPostMessage({
+    roomId: 'XAU', text: '已清理观点', requestKey: 'purged-replay',
+  });
+  const first = await handleMessages(request, env);
+  assert.equal(first.status, 201);
+  env.repo.messages.clear();
+  const batchCount = env.DB.publishBatches.length;
+
+  const replay = await handleMessages(request, env);
+
+  assert.equal(replay.status, 409);
+  assert.deepEqual(await replay.json(), { error: 'publish_conflict' });
+  assert.equal(env.DB.publishBatches.length, batchCount);
+  assert.equal(env.repo.messages.size, 0);
+  assert.equal(env.repo.ledger.size, 1);
+  assert.equal(env.repo.user.pointsBalance, 0);
+});
+
+test('a later publish batch failure rolls back message ledger and balance', async () => {
+  const env = createMessageAccountEnv({ points: 3 });
+  env.DB.failNextPublishBatchAt = 'balance_update';
+
+  const response = await handleMessages(authenticatedPostMessage({
+    roomId: 'XAU', text: '事务失败观点', requestKey: 'batch-failure',
+  }), env);
+
+  assert.equal(response.status, 500);
+  assert.deepEqual(await response.json(), { error: 'publish_unavailable' });
+  assert.equal(env.repo.messages.size, 0);
+  assert.equal(env.repo.ledger.size, 0);
+  assert.equal(env.repo.user.pointsBalance, 3);
 });
 
 test('another user cannot reveal or reuse an existing request key', async () => {
@@ -374,6 +466,52 @@ test('moderator author bans batch every author mutation with the audit action', 
   assert.equal(db.batchCount, 1);
   assert.equal(db.bannedAuthors.size, 2);
   assert.equal(db.actions.at(-1)?.action, 'author_banned');
+});
+
+test('moderator ban blocks a new key while retained same-key replay returns the original', async () => {
+  const env = createMessageAccountEnv({ points: 9 });
+  Object.assign(env, {
+    MODERATION_USERNAME: 'moderator',
+    MODERATION_PASSWORD: 'secret',
+    ASSETS: { fetch: async () => new Response('asset') },
+  });
+  const originalRequest = authenticatedPostMessage({
+    roomId: 'XAU', text: '原始观点', requestKey: 'ban-original',
+  });
+  const published = await handleMessages(originalRequest, env);
+  const publishedBody = await published.json();
+
+  const banned = await marketWorker.fetch(new Request(
+    `https://unit.test/markets/moderation/api/authors/${publishedBody.message.authorKey}`,
+    {
+      method: 'PUT',
+      headers: moderatorHeaders(),
+      body: JSON.stringify({ action: 'ban', note: 'reviewed' }),
+    },
+  ), env, {});
+  assert.equal(banned.status, 200);
+
+  const beforeBlockedPost = {
+    balance: env.repo.user.pointsBalance,
+    messages: env.repo.messages.size,
+    ledger: env.repo.ledger.size,
+  };
+  const blocked = await handleMessages(authenticatedPostMessage({
+    roomId: 'EURUSD', text: '封禁后新观点', requestKey: 'ban-new',
+  }), env);
+  const replay = await handleMessages(originalRequest, env);
+  const replayBody = await replay.json();
+
+  assert.equal(blocked.status, 403);
+  assert.deepEqual(await blocked.json(), { error: 'author_banned' });
+  assert.equal(replay.status, 200);
+  assert.deepEqual(replayBody.message, publishedBody.message);
+  assert.equal(replayBody.pointsBalance, beforeBlockedPost.balance);
+  assert.deepEqual({
+    balance: env.repo.user.pointsBalance,
+    messages: env.repo.messages.size,
+    ledger: env.repo.ledger.size,
+  }, beforeBlockedPost);
 });
 
 function createEnv(DB) {
