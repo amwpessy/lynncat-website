@@ -310,3 +310,16 @@ test('published search and status query the complete server result set from page
   assert.match(app, /publishedSearch[\s\S]*?setTimeout\([\s\S]*?250/iu);
   assert.match(app, /publishedFilter[\s\S]*?reloadPublishedFromFirstPage/iu);
 });
+
+test('paginated mutations restore controls after clearing the mutation guard', async () => {
+  const app = await source('itnew/admin/app.js');
+  const unpublishStart = app.indexOf('async function unpublishArticle(');
+  const unpublishEnd = app.indexOf('\nfunction sourceHealth(', unpublishStart);
+  const unpublish = app.slice(unpublishStart, unpublishEnd);
+  assert.match(unpublish, /finally\s*\{[\s\S]*?state\.mutating\s*=\s*false;[\s\S]*?renderPagination\(['"]articles['"]\)/iu);
+
+  const toggleStart = app.indexOf('async function toggleSource(');
+  const toggleEnd = app.indexOf('\nfunction warningText(', toggleStart);
+  const toggle = app.slice(toggleStart, toggleEnd);
+  assert.match(toggle, /finally\s*\{[\s\S]*?state\.mutating\s*=\s*false;[\s\S]*?renderPagination\(['"]sources['"]\)/iu);
+});

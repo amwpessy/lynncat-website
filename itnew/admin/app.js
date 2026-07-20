@@ -700,6 +700,7 @@ async function unpublishArticle(article) {
     setStatus(elements.publishedStatus, '下线失败，请重试。', true);
   } finally {
     state.mutating = false;
+    renderPagination('articles');
   }
 }
 
@@ -775,6 +776,7 @@ async function toggleSource(source) {
     setStatus(elements.sourcesStatus, '来源状态更新失败，请重试。', true);
   } finally {
     state.mutating = false;
+    renderPagination('sources');
   }
 }
 
