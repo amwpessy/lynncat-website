@@ -52,8 +52,67 @@ class PublicDb {
       return structuredClone(this.sections.filter(({ article_id }) => article_id === bindings[0])
         .sort((left, right) => left.section_index - right.section_index));
     }
+    if (operation === 'public_image_reference') {
+      return published.some(({ hero_image_kind, hero_image_key }) => (
+        hero_image_kind === 'r2' && hero_image_key === bindings[0]
+      )) ? { referenced: 1 } : null;
+    }
     throw new Error(`unsupported public SQL operation: ${operation}`);
   }
+}
+
+class SqliteD1Statement {
+  constructor(database, sql, bindings = []) {
+    this.database = database;
+    this.sql = sql;
+    this.bindings = bindings;
+  }
+
+  bind(...bindings) { return new SqliteD1Statement(this.database, this.sql, bindings); }
+  async first() { return this.database.prepare(this.sql).get(...this.bindings) ?? null; }
+  async all() { return { success: true, results: this.database.prepare(this.sql).all(...this.bindings) }; }
+}
+
+class SqliteD1 {
+  constructor() {
+    this.database = new DatabaseSync(':memory:');
+  }
+
+  prepare(sql) { return new SqliteD1Statement(this.database, sql); }
+  close() { this.database.close(); }
+}
+
+function realSearchDb() {
+  const db = new SqliteD1();
+  db.database.exec(`
+    CREATE TABLE itnew_sources (id TEXT PRIMARY KEY, name TEXT NOT NULL);
+    CREATE TABLE itnew_articles (
+      id TEXT PRIMARY KEY,
+      slug TEXT NOT NULL,
+      source_id TEXT NOT NULL,
+      title TEXT NOT NULL,
+      summary TEXT NOT NULL,
+      language TEXT NOT NULL,
+      category TEXT NOT NULL,
+      rights_mode TEXT NOT NULL,
+      hero_image_kind TEXT NOT NULL,
+      hero_image_key TEXT,
+      source_published_at INTEGER,
+      published_at INTEGER NOT NULL,
+      status TEXT NOT NULL
+    );
+    CREATE VIRTUAL TABLE itnew_articles_fts USING fts5(
+      title, summary, content='itnew_articles', content_rowid='rowid'
+    );
+    INSERT INTO itnew_sources(id, name) VALUES ('source-1', '中文来源');
+    INSERT INTO itnew_articles VALUES (
+      'article-cjk', 'cjk', 'source-1', '国产芯片安全突破 safety', '连续中文不应依赖分词边界',
+      'zh', 'chips', 'summary_link', 'fallback', NULL, 100, 200, 'published'
+    );
+    INSERT INTO itnew_articles_fts(rowid, title, summary)
+    SELECT rowid, title, summary FROM itnew_articles;
+  `);
+  return db;
 }
 
 function article(overrides = {}) {
@@ -196,7 +255,7 @@ test('ordinary category and language filters remain bound values before limit an
   assert.deepEqual(count.bindings, ['AI', 'zh']);
 });
 
-test('FTS search quotes and escapes every token, AND-joins it, and binds filters separately', async () => {
+test('search quotes Latin FTS tokens and ANDs bound Han substrings with bound filters', async () => {
   const configured = env([article()]);
   const q = 'alpha "beta" OR NEAR(chip) 芯片';
   const response = await handleItnewPublicRequest(request(
@@ -209,12 +268,31 @@ test('FTS search quotes and escapes every token, AND-joins it, and binds filters
     .find(({ operation }) => operation === 'public_article_search');
   const count = configured.ITNEW_DB.executions
     .find(({ operation }) => operation === 'public_article_search_count');
-  const match = '"alpha" AND """beta""" AND "OR" AND "NEAR(chip)" AND "芯片"';
+  const match = '"alpha" AND """beta""" AND "OR" AND "NEAR(chip)"';
   assert.match(list.sql, /JOIN\s+itnew_articles_fts\s+ON\s+itnew_articles_fts\.rowid\s*=\s*a\.rowid/iu);
   assert.match(list.sql, /itnew_articles_fts\s+MATCH\s+\?/iu);
+  assert.match(list.sql, /instr\(a\.title,\s*\?\)\s*>\s*0\s+OR\s+instr\(a\.summary,\s*\?\)\s*>\s*0/iu);
   assert.match(list.sql, /a\.status\s*=\s*'published'/iu);
-  assert.deepEqual(list.bindings, [match, 'AI', 'zh', 20, 0]);
-  assert.deepEqual(count.bindings, [match, 'AI', 'zh']);
+  assert.deepEqual(list.bindings, [match, '芯片', '芯片', 'AI', 'zh', 20, 0]);
+  assert.deepEqual(count.bindings, [match, '芯片', '芯片', 'AI', 'zh']);
+});
+
+test('real SQLite search finds Han substrings in continuous text with pure and mixed AND terms', async () => {
+  const db = realSearchDb();
+  try {
+    for (const q of ['芯片', '芯片 safety']) {
+      const response = await handleItnewPublicRequest(
+        request('GET', `/itnew/api/articles?language=zh&q=${encodeURIComponent(q)}`),
+        { ITNEW_DB: db },
+      );
+      assert.equal(response.status, 200, q);
+      const body = await response.json();
+      assert.equal(body.total, 1, q);
+      assert.deepEqual(body.items.map(({ slug }) => slug), ['cjk'], q);
+    }
+  } finally {
+    db.close();
+  }
 });
 
 test('FTS adversarial operators, quotes, punctuation, and CJK never become query syntax', async () => {
@@ -240,9 +318,14 @@ test('FTS adversarial operators, quotes, punctuation, and CJK never become query
     const execution = configured.ITNEW_DB.executions
       .find(({ operation }) => operation === 'public_article_search');
     assert.ok(execution, q);
-    assert.equal(execution.bindings.length, 3);
-    assert.match(execution.bindings[0], /^"(?:[^"]|"")*"(?: AND "(?:[^"]|"")*")*$/u, q);
-    assert.doesNotThrow(() => realMatch.get(execution.bindings[0]), q);
+    if (/\p{Script=Han}/u.test(q)) {
+      assert.doesNotMatch(execution.sql, /\bMATCH\b/iu, q);
+      assert.deepEqual(execution.bindings, ['芯片', '芯片', '安全', '安全', 20, 0]);
+    } else {
+      assert.equal(execution.bindings.length, 3);
+      assert.match(execution.bindings[0], /^"(?:[^"]|"")*"(?: AND "(?:[^"]|"")*")*$/u, q);
+      assert.doesNotThrow(() => realMatch.get(execution.bindings[0]), q);
+    }
   }
   sqlite.close();
 });
@@ -360,7 +443,7 @@ test('R2 image route safely decodes an article key and emits only fixed normaliz
   }]]));
   const response = await handleItnewPublicRequest(
     request('GET', '/itnew/images/articles/article-1/hero%20image.webp'),
-    env([], [], images),
+    env([article({ hero_image_kind: 'r2', hero_image_key: key })], [], images),
   );
   assert.equal(response.status, 200);
   assert.equal(response.headers.get('Content-Type'), 'image/webp');
@@ -394,11 +477,36 @@ test('R2 key validation rejects traversal, encoded separators, empty segments, c
   }
 });
 
+test('normalized encoded dot segments cannot access an unreferenced R2 object', async () => {
+  const normalizedKey = 'articles/b/x.png';
+  const images = new PublicImages(new Map([[normalizedKey, {
+    body: new Uint8Array([1, 2, 3]),
+    httpMetadata: { contentType: 'image/png' },
+  }]]));
+  const configured = env([], [], images);
+  const response = await handleItnewPublicRequest(
+    request('GET', '/itnew/images/articles/a/%2e%2e/b/x.png'),
+    configured,
+  );
+  assert.equal(response.status, 404);
+  assert.deepEqual(await response.json(), { error: 'not_found' });
+  assert.deepEqual(images.gets, []);
+  const reference = configured.ITNEW_DB.executions
+    .find(({ operation }) => operation === 'public_image_reference');
+  assert.ok(reference);
+  assert.match(reference.sql, /status\s*=\s*'published'/iu);
+  assert.match(reference.sql, /hero_image_kind\s*=\s*'r2'/iu);
+  assert.match(reference.sql, /hero_image_key\s*=\s*\?/iu);
+  assert.deepEqual(reference.bindings, [normalizedKey]);
+});
+
 test('missing R2 object returns 404 and unsafe metadata falls back to non-sniffable octet-stream', async () => {
   const missingImages = new PublicImages();
   const missing = await handleItnewPublicRequest(
     request('GET', '/itnew/images/articles/article-1/missing.png'),
-    env([], [], missingImages),
+    env([article({
+      hero_image_kind: 'r2', hero_image_key: 'articles/article-1/missing.png',
+    })], [], missingImages),
   );
   assert.equal(missing.status, 404);
   assert.deepEqual(await missing.json(), { error: 'not_found' });
@@ -411,7 +519,7 @@ test('missing R2 object returns 404 and unsafe metadata falls back to non-sniffa
   }]]));
   const unsafe = await handleItnewPublicRequest(
     request('GET', '/itnew/images/articles/article-1/unknown.bin'),
-    env([], [], unsafeImages),
+    env([article({ hero_image_kind: 'r2', hero_image_key: key })], [], unsafeImages),
   );
   assert.equal(unsafe.status, 200);
   assert.equal(unsafe.headers.get('Content-Type'), 'application/octet-stream');

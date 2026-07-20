@@ -70,11 +70,30 @@ function listParameters(request) {
   return { category, language, q: q?.trim() ?? '', page, limit, offset };
 }
 
-function ftsExpression(q) {
-  return q.split(/\s+/u)
-    .filter(Boolean)
+function ftsExpression(tokens) {
+  return tokens
     .map((token) => `"${token.replaceAll('"', '""')}"`)
     .join(' AND ');
+}
+
+function searchSql(q) {
+  const tokens = q.split(/\s+/u).filter(Boolean);
+  const ftsTokens = tokens.filter((token) => !/\p{Script=Han}/u.test(token));
+  const hanTokens = tokens.filter((token) => /\p{Script=Han}/u.test(token));
+  const joins = [];
+  const conditions = [];
+  const bindings = [];
+
+  if (ftsTokens.length > 0) {
+    joins.push('JOIN itnew_articles_fts ON itnew_articles_fts.rowid = a.rowid');
+    conditions.push('itnew_articles_fts MATCH ?');
+    bindings.push(ftsExpression(ftsTokens));
+  }
+  for (const token of hanTokens) {
+    conditions.push('(instr(a.title, ?) > 0 OR instr(a.summary, ?) > 0)');
+    bindings.push(token, token);
+  }
+  return { joins, conditions, bindings };
 }
 
 function storedImageKey(key) {
@@ -144,9 +163,11 @@ async function listArticlesService({ request, env }) {
   const parameters = listParameters(request);
   const db = env.ITNEW_DB;
   const { conditions, bindings } = filterSql(parameters);
-  const where = conditions.join(' AND ');
   if (parameters.q) {
-    const match = ftsExpression(parameters.q);
+    const search = searchSql(parameters.q);
+    const joins = search.joins.join('\n');
+    const where = [...search.conditions, ...conditions].join(' AND ');
+    const searchBindings = [...search.bindings, ...bindings];
     const [itemsResult, countRow] = await Promise.all([
       db.prepare(`
         /* itnew:public_article_search */
@@ -156,18 +177,18 @@ async function listArticlesService({ request, env }) {
           s.name AS source_name
         FROM itnew_articles AS a
         JOIN itnew_sources AS s ON s.id = a.source_id
-        JOIN itnew_articles_fts ON itnew_articles_fts.rowid = a.rowid
-        WHERE itnew_articles_fts MATCH ? AND ${where}
+        ${joins}
+        WHERE ${where}
         ORDER BY a.published_at DESC, a.id ASC
         LIMIT ? OFFSET ?
-      `).bind(match, ...bindings, parameters.limit, parameters.offset).all(),
+      `).bind(...searchBindings, parameters.limit, parameters.offset).all(),
       db.prepare(`
         /* itnew:public_article_search_count */
         SELECT COUNT(*) AS total
         FROM itnew_articles AS a
-        JOIN itnew_articles_fts ON itnew_articles_fts.rowid = a.rowid
-        WHERE itnew_articles_fts MATCH ? AND ${where}
-      `).bind(match, ...bindings).first(),
+        ${joins}
+        WHERE ${where}
+      `).bind(...searchBindings).first(),
     ]);
     const total = Number(countRow?.total ?? 0);
     return jsonResponse({
@@ -178,6 +199,7 @@ async function listArticlesService({ request, env }) {
       hasMore: parameters.offset + itemsResult.results.length < total,
     });
   }
+  const where = conditions.join(' AND ');
   const [itemsResult, countRow] = await Promise.all([
     db.prepare(`
       /* itnew:public_article_list */
@@ -268,8 +290,18 @@ function safeObjectContentType(object) {
 }
 
 async function articleImageService({ env, params }) {
-  if (!env?.ITNEW_IMAGES) throw new PublicApiError('internal_error', 500);
+  if (!env?.ITNEW_DB || !env?.ITNEW_IMAGES) throw new PublicApiError('internal_error', 500);
   const key = decodedArticleImageKey(params.encodedKey);
+  const reference = await env.ITNEW_DB.prepare(`
+    /* itnew:public_image_reference */
+    SELECT 1 AS referenced
+    FROM itnew_articles AS a
+    WHERE a.status = 'published'
+      AND a.hero_image_kind = 'r2'
+      AND a.hero_image_key = ?
+    LIMIT 1
+  `).bind(key).first();
+  if (!reference) throw new PublicApiError('not_found', 404);
   const object = await env.ITNEW_IMAGES.get(key);
   if (!object) throw new PublicApiError('not_found', 404);
   return new Response(object.body, {
