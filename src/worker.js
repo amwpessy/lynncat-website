@@ -1,6 +1,7 @@
 import { handleSina } from './sina.js';
 import { handleNewsFetch, runNewsFetch } from './newsFetch.js';
 import { handleMessages } from './messages.js';
+import { handleItnewRequest, runItnewCollection } from './itnew/index.js';
 
 const MESSAGE_STATUSES = new Set(['active', 'hidden', 'removed']);
 const AUTHOR_ACTIONS = new Set(['ban', 'unban']);
@@ -30,13 +31,62 @@ export default {
       return handleModeration(request, env);
     }
 
+    if (url.pathname === '/itnew' || url.pathname.startsWith('/itnew/')) {
+      return handleItnewRequest(request, env, ctx);
+    }
+
     return env.ASSETS.fetch(request);
   },
 
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(runNewsFetch(env));
+    runScheduledJobs(env, ctx.waitUntil.bind(ctx));
   },
 };
+
+function boundedErrorText(value, fallback) {
+  return typeof value === 'string' && value ? value.slice(0, 500) : fallback;
+}
+
+export function safeError(error) {
+  let name;
+  let message;
+  try {
+    name = error?.name;
+    message = error?.message;
+  } catch {
+    return { name: 'Error', message: 'Unknown error' };
+  }
+  if (typeof error === 'string') message = error;
+  return {
+    name: boundedErrorText(name, 'Error'),
+    message: boundedErrorText(message, 'Unknown error'),
+  };
+}
+
+function guardedScheduledJob(label, job, env) {
+  let result;
+  try {
+    result = job(env);
+  } catch (error) {
+    result = Promise.reject(error);
+  }
+  return Promise.resolve(result).catch((error) => {
+    console.error(label, safeError(error));
+  });
+}
+
+export function runScheduledJobs(
+  env,
+  waitUntil,
+  jobs = { runNewsFetch, runItnewCollection },
+) {
+  const newsPromise = guardedScheduledJob('news_fetch_failed', jobs.runNewsFetch, env);
+  const itnewPromise = guardedScheduledJob(
+    'itnew_collection_failed', jobs.runItnewCollection, env,
+  );
+  waitUntil(newsPromise);
+  waitUntil(itnewPromise);
+}
 
 export function isPrivateAssetPath(pathname) {
   return PRIVATE_ASSET_PATHS.has(pathname)
