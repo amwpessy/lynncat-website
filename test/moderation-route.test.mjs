@@ -39,9 +39,16 @@ test('moderation console is protected and community rules stay public', async ()
 });
 
 test('internal worker files are never served as public assets', async () => {
-  const response = await marketWorker.fetch(
-    new Request('https://unit.test/src/community-schema.sql'), environment(), {},
-  );
-
-  assert.equal(response.status, 404);
+  for (const path of [
+    '/src/community-schema.sql',
+    '/test/market-worker.test.mjs',
+    '/docs/release/lynncat-points-apple-setup.md',
+    '/migrations/0002_lynncat_accounts_points.sql',
+    '/.superpowers/sdd/progress.md',
+  ]) {
+    const response = await marketWorker.fetch(
+      new Request(`https://unit.test${path}`), environment(), {},
+    );
+    assert.equal(response.status, 404, path);
+  }
 });

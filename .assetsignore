@@ -8,6 +8,7 @@ node_modules
 .gitignore
 .claude
 .openai
+.superpowers
 .dev.vars
 .DS_Store
 **/.DS_Store
@@ -16,3 +17,5 @@ wrangler.toml
 src
 test
 dist
+docs
+migrations

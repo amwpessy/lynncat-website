@@ -4,7 +4,8 @@ main = "src/worker.js"
 assets = { directory = ".", binding = "ASSETS", run_worker_first = true }
 
 [vars]
-MARKET_POINTS_MODE = "disabled"
+MARKET_POINTS_MODE = "optional"
+APPLE_TOKEN_KEY_VERSION = "1"
 
 [[d1_databases]]
 binding = "DB"
