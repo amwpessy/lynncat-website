@@ -25,7 +25,9 @@ export async function handleItnewRequest(request, env, ctx = {}, handlers = defa
     return handlers.public(request, env, ctx);
   }
   if (/^\/itnew\/article\/[^/]+$/u.test(pathname)) {
-    return env.ASSETS.fetch(new Request(new URL('/itnew/article.html', url), request));
+    // Fetch the canonical extensionless asset so Cloudflare's HTML handling
+    // serves article.html instead of redirecting the browser and dropping the slug.
+    return env.ASSETS.fetch(new Request(new URL('/itnew/article', url), request));
   }
   if (pathname === '/itnew/admin') {
     return redirectWithTrailingSlash(url, '/itnew/admin/');
