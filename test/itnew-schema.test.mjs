@@ -1,0 +1,182 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { readFile } from 'node:fs/promises';
+import {
+  BATCH_TARGET_SIZE,
+  BODY_SECTION_MAX_BYTES,
+  fallbackForCategory,
+} from '../src/itnew/constants.js';
+
+test('itnew constants enforce the confirmed batch and body limits', () => {
+  assert.equal(BATCH_TARGET_SIZE, 30);
+  assert.equal(BODY_SECTION_MAX_BYTES, 400 * 1024);
+  assert.equal(fallbackForCategory('AI'), '/itnew/assets/fallback/ai.png');
+  assert.equal(fallbackForCategory('unknown'), '/itnew/assets/fallback/frontier.png');
+});
+
+test('schema contains isolated tables, an open-batch guard and article FTS', async () => {
+  const sql = await readFile(new URL('../src/itnew/schema.sql', import.meta.url), 'utf8');
+  for (const table of [
+    'itnew_sources', 'itnew_batches', 'itnew_candidates', 'itnew_articles',
+    'itnew_article_sections', 'itnew_article_images', 'itnew_login_attempts',
+    'itnew_audit_log', 'itnew_source_runs',
+  ]) assert.match(sql, new RegExp(`CREATE TABLE IF NOT EXISTS ${table}`));
+  assert.match(sql, /CREATE UNIQUE INDEX IF NOT EXISTS itnew_one_open_batch[\s\S]*WHERE status = 'open'/);
+  assert.match(sql, /CREATE VIRTUAL TABLE IF NOT EXISTS itnew_articles_fts USING fts5/);
+  assert.match(sql, /CHECK \(rights_mode IN \('licensed_full', 'summary_link'\)\)/);
+});
+
+async function runSchema(statements, { bail = true } = {}) {
+  const schema = await readFile(new URL('../src/itnew/schema.sql', import.meta.url), 'utf8');
+  return spawnSync('sqlite3', [':memory:'], {
+    encoding: 'utf8',
+    input: `${bail ? '.bail on\n' : ''}PRAGMA foreign_keys = ON;\n${schema}\n${statements.join('\n')}\n`,
+  });
+}
+
+function sourceSql(rightsMode) {
+  return `INSERT INTO itnew_sources (id, name, feed_url, homepage_url, language, rights_mode)
+    VALUES ('source-1', 'Source', 'https://feed.test', 'https://test', 'en', '${rightsMode}');`;
+}
+
+function candidateSql({ status = 'pending', articleId = null } = {}) {
+  return `INSERT INTO itnew_batches (id, status, target_count, collected_at)
+      VALUES ('batch-1', 'open', 30, 1);
+    INSERT INTO itnew_candidates (
+      id, batch_id, source_id, canonical_url, content_fingerprint, title, summary,
+      language, category, score, rights_mode_snapshot, status, article_id, created_at
+    ) VALUES (
+      'candidate-1', 'batch-1', 'source-1', 'https://test/article-1', 'fingerprint-1',
+      'Title', 'Summary', 'en', 'AI', 80, 'summary_link', '${status}',
+      ${articleId === null ? 'NULL' : `'${articleId}'`}, 1
+    );`;
+}
+
+function articleSql({ rightsMode = 'summary_link', permissionVerified = 0,
+  candidateId = 'candidate-1', articleId = 'article-1' } = {}) {
+  return `INSERT INTO itnew_articles (
+    id, candidate_id, slug, source_id, canonical_url, title, summary, language, category,
+    rights_mode, article_permission_verified, hero_image_kind, published_at
+  ) VALUES (
+    '${articleId}', '${candidateId}', '${articleId}', 'source-1', 'https://test/${articleId}', 'Title', 'Summary', 'en', 'AI',
+    '${rightsMode}', ${permissionVerified}, 'fallback', 1
+  );`;
+}
+
+test('schema atomically claims only a current publishable candidate', async () => {
+  const pending = await runSchema([
+    sourceSql('summary_link'), candidateSql(), articleSql(),
+  ]);
+  assert.equal(pending.status, 0, pending.stderr);
+
+  for (const setup of [
+    [candidateSql({ status: 'rejected' })],
+    [candidateSql({ status: 'approved', articleId: 'existing-article' })],
+    [],
+  ]) {
+    const rejected = await runSchema([
+      sourceSql('summary_link'), ...setup, articleSql(),
+    ]);
+    assert.notEqual(rejected.status, 0);
+    assert.match(rejected.stderr, /itnew_candidate_not_publishable/);
+  }
+
+  const duplicate = await runSchema([
+    sourceSql('summary_link'), candidateSql(), articleSql(),
+    articleSql({ candidateId: 'candidate-1', articleId: 'article-2' }),
+  ]);
+  assert.notEqual(duplicate.status, 0);
+});
+
+test('schema enforces the 400 KiB UTF-8 body-section limit', async () => {
+  const sectionAtLimit = `${'你'.repeat(136533)}a`;
+  const sectionOverLimit = `${sectionAtLimit}a`;
+  assert.equal(Buffer.byteLength(sectionAtLimit, 'utf8'), 409600);
+  assert.equal(Buffer.byteLength(sectionOverLimit, 'utf8'), 409601);
+
+  const accepted = await runSchema([
+    sourceSql('summary_link'),
+    candidateSql(),
+    articleSql(),
+    `INSERT INTO itnew_article_sections (id, article_id, section_index, html)
+      VALUES ('section-1', 'article-1', 0, '${sectionAtLimit}');`,
+  ]);
+  assert.equal(accepted.status, 0, accepted.stderr);
+
+  const rejected = await runSchema([
+    sourceSql('summary_link'),
+    candidateSql(),
+    articleSql(),
+    `INSERT INTO itnew_article_sections (id, article_id, section_index, html)
+      VALUES ('section-1', 'article-1', 0, '${sectionOverLimit}');`,
+  ]);
+  assert.notEqual(rejected.status, 0);
+  assert.match(rejected.stderr, /CHECK constraint failed/);
+});
+
+test('schema requires source and article permission for full-text articles', async () => {
+  const sourceOnly = await runSchema([
+    sourceSql('licensed_full'),
+    candidateSql(),
+    articleSql({ rightsMode: 'licensed_full', permissionVerified: 0 }),
+  ]);
+  assert.notEqual(sourceOnly.status, 0);
+
+  const articleOnly = await runSchema([
+    sourceSql('summary_link'),
+    candidateSql(),
+    articleSql({ rightsMode: 'licensed_full', permissionVerified: 1 }),
+  ]);
+  assert.notEqual(articleOnly.status, 0);
+
+  const neither = await runSchema([
+    sourceSql('summary_link'),
+    candidateSql(),
+    articleSql({ rightsMode: 'licensed_full', permissionVerified: 0 }),
+  ]);
+  assert.notEqual(neither.status, 0);
+
+  const both = await runSchema([
+    sourceSql('licensed_full'),
+    candidateSql(),
+    articleSql({ rightsMode: 'licensed_full', permissionVerified: 1 }),
+  ]);
+  assert.equal(both.status, 0, both.stderr);
+
+  const summaryLink = await runSchema([
+    sourceSql('summary_link'),
+    candidateSql(),
+    articleSql(),
+  ]);
+  assert.equal(summaryLink.status, 0, summaryLink.stderr);
+
+  const updateRejected = await runSchema([
+    sourceSql('summary_link'),
+    candidateSql(),
+    articleSql(),
+    "UPDATE itnew_articles SET rights_mode = 'licensed_full', article_permission_verified = 1 WHERE id = 'article-1';",
+  ]);
+  assert.notEqual(updateRejected.status, 0);
+});
+
+test('schema prevents downgrading a source linked to full-text articles', async () => {
+  const downgradeRejected = await runSchema([
+    sourceSql('licensed_full'),
+    candidateSql(),
+    articleSql({ rightsMode: 'licensed_full', permissionVerified: 1 }),
+    "UPDATE itnew_sources SET rights_mode = 'summary_link' WHERE id = 'source-1';",
+    "SELECT rights_mode FROM itnew_sources WHERE id = 'source-1';",
+  ], { bail: false });
+  assert.notEqual(downgradeRejected.status, 0);
+  assert.match(downgradeRejected.stderr, /itnew_source_has_licensed_full_articles/);
+  assert.equal(downgradeRejected.stdout.trim(), 'licensed_full');
+
+  const downgradeAllowed = await runSchema([
+    sourceSql('licensed_full'),
+    "UPDATE itnew_sources SET rights_mode = 'summary_link' WHERE id = 'source-1';",
+    "SELECT rights_mode FROM itnew_sources WHERE id = 'source-1';",
+  ]);
+  assert.equal(downgradeAllowed.status, 0, downgradeAllowed.stderr);
+  assert.equal(downgradeAllowed.stdout.trim(), 'summary_link');
+});

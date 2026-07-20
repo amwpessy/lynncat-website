@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="ITNEW 编辑与审核控制台。">
+  <title>ITNEW Console</title>
+  <link rel="stylesheet" href="/itnew/admin/styles.css">
+  <script type="module" src="/itnew/admin/app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#adminMain">跳至主要内容</a>
+
+  <section id="loginShell" class="login-shell" aria-labelledby="loginTitle">
+    <div class="login-panel">
+      <div class="console-brand" aria-label="ITNEW Console">
+        <span class="brand-mark" aria-hidden="true">I</span>
+        <span>ITNEW <small>CONSOLE</small></span>
+      </div>
+      <div class="login-copy">
+        <p class="eyebrow">EDITORIAL ACCESS · 编辑入口</p>
+        <h1 id="loginTitle">回到清晰、专注的审核节奏。</h1>
+        <p>登录后管理候选资讯、发布内容、来源健康与采集批次。</p>
+      </div>
+      <form id="loginForm" class="login-form" novalidate>
+        <label for="username">管理员账号</label>
+        <input id="username" name="username" autocomplete="username" value="admin" required>
+        <label for="password">密码</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+        <label class="remember-control">
+          <input name="remember" type="checkbox">
+          <span>在此设备记住账号（仅界面偏好）</span>
+        </label>
+        <button id="loginSubmit" class="primary-button" type="submit">登录控制台</button>
+        <p id="loginError" class="form-message error-message" role="alert" hidden></p>
+        <p id="rateLimitStatus" class="form-message" role="status" aria-live="polite"></p>
+      </form>
+    </div>
+
+    <div class="technology-visual" aria-hidden="true">
+      <div class="visual-orbit orbit-one"></div>
+      <div class="visual-orbit orbit-two"></div>
+      <div class="signal-card signal-primary">
+        <span>01</span><strong>VERIFY</strong><small>来源与版权</small>
+      </div>
+      <div class="signal-card signal-secondary">
+        <span>02</span><strong>CURATE</strong><small>质量与语境</small>
+      </div>
+      <div class="visual-grid"></div>
+      <p>HUMAN REVIEW<br>BEFORE PUBLICATION</p>
+    </div>
+  </section>
+
+  <div id="appShell" class="app-shell" hidden>
+    <aside class="sidebar" aria-label="控制台导航">
+      <div class="console-brand compact">
+        <span class="brand-mark" aria-hidden="true">I</span>
+        <span>ITNEW</span>
+      </div>
+      <nav class="sidebar-nav">
+        <button type="button" class="nav-button" data-view="review" aria-current="page">
+          <span aria-hidden="true">◇</span> 审核队列
+        </button>
+        <button type="button" class="nav-button" data-view="published">
+          <span aria-hidden="true">▤</span> 已发布
+        </button>
+        <button type="button" class="nav-button" data-view="sources">
+          <span aria-hidden="true">◎</span> 来源健康
+        </button>
+        <button type="button" class="nav-button" data-view="batches">
+          <span aria-hidden="true">◫</span> 采集批次
+        </button>
+      </nav>
+      <button id="logoutButton" class="logout-button" type="button">退出登录</button>
+    </aside>
+
+    <div class="workspace">
+      <header class="workspace-header">
+        <div>
+          <p class="eyebrow">ITNEW EDITORIAL SYSTEM</p>
+          <h1 id="viewTitle">审核队列</h1>
+        </div>
+        <div class="header-actions">
+          <span id="adminIdentity" class="admin-identity"></span>
+          <p id="logoutStatus" class="header-error" role="alert" hidden></p>
+          <button id="collectNow" class="primary-button compact-button" type="button" disabled>立即采集</button>
+        </div>
+      </header>
+
+      <main id="adminMain" class="workspace-main">
+        <section id="reviewView" class="view-panel review-main" data-view="review" aria-labelledby="reviewHeading">
+          <div class="view-heading">
+            <div>
+              <p class="eyebrow">CURRENT BATCH · 当前批次</p>
+              <h2 id="reviewHeading">逐条确认，保持发布质量</h2>
+            </div>
+            <p id="batchIdentity" class="muted-copy"></p>
+          </div>
+
+          <div class="progress-grid" aria-label="审核进度">
+            <div><span id="pendingCount">0</span><small>待审核</small></div>
+            <div><span id="approvedCount">0</span><small>已批准</small></div>
+            <div><span id="rejectedCount">0</span><small>已拒绝</small></div>
+            <div><span id="errorCount">0</span><small>处理错误</small></div>
+          </div>
+
+          <div id="reviewStatus" class="status-region" role="status" aria-live="polite"></div>
+          <div id="reviewGrid" class="review-grid" aria-live="polite"></div>
+
+          <div class="bulk-toolbar" aria-label="批量审核工具栏">
+            <label class="select-visible-control">
+              <input id="selectVisible" type="checkbox">
+              <span>选择当前可见待审核项</span>
+            </label>
+            <strong id="selectedCount">已选择 0 项</strong>
+            <div class="bulk-actions">
+              <button id="bulkReject" class="secondary-button danger-button" type="button" disabled>批量拒绝</button>
+              <button id="bulkApprove" class="primary-button" type="button" disabled>批量批准</button>
+            </div>
+          </div>
+        </section>
+
+        <section id="publishedView" class="view-panel" data-view="published" aria-labelledby="publishedHeading" hidden>
+          <div class="view-heading">
+            <div>
+              <p class="eyebrow">PUBLICATION · 发布管理</p>
+              <h2 id="publishedHeading">已发布内容</h2>
+            </div>
+            <div class="inline-filters">
+              <label for="publishedSearch">搜索</label>
+              <input id="publishedSearch" type="search" maxlength="200" placeholder="标题或来源">
+              <label for="publishedFilter">状态</label>
+              <select id="publishedFilter"><option value="">全部</option><option value="published">已发布</option><option value="unpublished">已下线</option></select>
+            </div>
+          </div>
+          <div id="publishedStatus" class="status-region" role="status" aria-live="polite"></div>
+          <div id="publishedList" class="management-list"></div>
+          <nav class="pagination-controls" aria-label="已发布文章分页">
+            <button id="publishedPrev" class="secondary-button" type="button" aria-label="上一页已发布文章">上一页</button>
+            <span id="publishedPage" role="status" aria-live="polite">第 1 / 1 页 · 共 0 条</span>
+            <button id="publishedNext" class="secondary-button" type="button" aria-label="下一页已发布文章">下一页</button>
+          </nav>
+        </section>
+
+        <section id="sourcesView" class="view-panel" data-view="sources" aria-labelledby="sourcesHeading" hidden>
+          <div class="view-heading">
+            <div>
+              <p class="eyebrow">SOURCE HEALTH · 来源健康</p>
+              <h2 id="sourcesHeading">采集来源</h2>
+            </div>
+          </div>
+          <div id="sourcesStatus" class="status-region" role="status" aria-live="polite"></div>
+          <div id="sourcesList" class="management-grid"></div>
+          <nav class="pagination-controls" aria-label="采集来源分页">
+            <button id="sourcesPrev" class="secondary-button" type="button" aria-label="上一页采集来源">上一页</button>
+            <span id="sourcesPage" role="status" aria-live="polite">第 1 / 1 页 · 共 0 条</span>
+            <button id="sourcesNext" class="secondary-button" type="button" aria-label="下一页采集来源">下一页</button>
+          </nav>
+        </section>
+
+        <section id="batchesView" class="view-panel" data-view="batches" aria-labelledby="batchesHeading" hidden>
+          <div class="view-heading">
+            <div>
+              <p class="eyebrow">COLLECTION HISTORY · 采集历史</p>
+              <h2 id="batchesHeading">批次记录</h2>
+            </div>
+          </div>
+          <div id="batchesStatus" class="status-region" role="status" aria-live="polite"></div>
+          <div id="batchesList" class="management-list"></div>
+          <nav class="pagination-controls" aria-label="采集批次分页">
+            <button id="batchesPrev" class="secondary-button" type="button" aria-label="上一页采集批次">上一页</button>
+            <span id="batchesPage" role="status" aria-live="polite">第 1 / 1 页 · 共 0 条</span>
+            <button id="batchesNext" class="secondary-button" type="button" aria-label="下一页采集批次">下一页</button>
+          </nav>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <dialog id="previewDialog" aria-labelledby="previewTitle" aria-describedby="previewSummary">
+    <form method="dialog" class="dialog-close-row"><button aria-label="关闭预览">×</button></form>
+    <p id="previewEyebrow" class="eyebrow"></p>
+    <h2 id="previewTitle"></h2>
+    <p id="previewSummary"></p>
+    <dl id="previewMeta" class="preview-meta"></dl>
+    <a id="previewOriginal" class="external-link" target="_blank" rel="noopener noreferrer">查看原文 ↗</a>
+  </dialog>
+</body>
+</html>

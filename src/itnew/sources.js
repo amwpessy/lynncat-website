@@ -1,0 +1,52 @@
+function source(config) {
+  return Object.freeze({
+    adapter: 'feed',
+    rightsMode: 'summary_link',
+    enabledByDefault: false,
+    priorityWeight: 25,
+    licenseName: null,
+    licenseUrl: null,
+    attributionTemplate: null,
+    fullTextEligibility: null,
+    ...config,
+  });
+}
+
+export const SOURCE_REGISTRY = Object.freeze([
+  source({ id: '36kr', name: '36氪', feedUrl: 'https://36kr.com/feed', homepageUrl: 'https://36kr.com/', language: 'zh' }),
+  source({ id: 'infoq-cn', name: 'InfoQ 中文', feedUrl: 'https://www.infoq.cn/feed', homepageUrl: 'https://www.infoq.cn/', language: 'zh' }),
+  source({ id: 'oschina', name: 'OSCHINA 开源中国', feedUrl: 'https://www.oschina.net/news/rss', homepageUrl: 'https://www.oschina.net/', language: 'zh' }),
+  source({ id: 'solidot', name: 'Solidot', feedUrl: 'https://www.solidot.org/index.rss', homepageUrl: 'https://www.solidot.org/', language: 'zh' }),
+  source({ id: 'sspai', name: '少数派', feedUrl: 'https://sspai.com/feed', homepageUrl: 'https://sspai.com/', language: 'zh' }),
+  source({ id: 'jiqizhixin', name: '机器之心', feedUrl: 'https://www.jiqizhixin.com/rss', homepageUrl: 'https://www.jiqizhixin.com/', language: 'zh' }),
+  source({ id: 'techcrunch', name: 'TechCrunch', feedUrl: 'https://techcrunch.com/feed/', homepageUrl: 'https://techcrunch.com/', language: 'en' }),
+  source({ id: 'the-verge', name: 'The Verge', feedUrl: 'https://www.theverge.com/rss/index.xml', homepageUrl: 'https://www.theverge.com/', language: 'en' }),
+  source({ id: 'ars-technica', name: 'Ars Technica', feedUrl: 'https://feeds.arstechnica.com/arstechnica/index', homepageUrl: 'https://arstechnica.com/', language: 'en' }),
+  source({ id: 'wired', name: 'WIRED', feedUrl: 'https://www.wired.com/feed/rss', homepageUrl: 'https://www.wired.com/', language: 'en' }),
+  source({ id: 'mit-technology-review', name: 'MIT Technology Review', feedUrl: 'https://www.technologyreview.com/feed/', homepageUrl: 'https://www.technologyreview.com/', language: 'en' }),
+  source({ id: 'cloudflare-blog', name: 'Cloudflare Blog', feedUrl: 'https://blog.cloudflare.com/rss/', homepageUrl: 'https://blog.cloudflare.com/', language: 'en' }),
+  source({ id: 'github-blog', name: 'GitHub Blog', feedUrl: 'https://github.blog/feed/', homepageUrl: 'https://github.blog/', language: 'en' }),
+  source({ id: 'github-changelog', name: 'GitHub Changelog', feedUrl: 'https://github.blog/changelog/feed/', homepageUrl: 'https://github.blog/changelog/', language: 'en' }),
+  source({ id: 'hacker-news', name: 'Hacker News Top Stories', feedUrl: 'https://hacker-news.firebaseio.com/v0/topstories.json', homepageUrl: 'https://news.ycombinator.com/', language: 'en', adapter: 'hn_json' }),
+  source({
+    id: 'fedora-magazine',
+    name: 'Fedora Magazine',
+    feedUrl: 'https://fedoramagazine.org/feed/',
+    homepageUrl: 'https://fedoramagazine.org/',
+    language: 'en',
+    fullTextEligibility: 'article_verification_required',
+    licenseName: 'CC BY-SA 4.0',
+    licenseUrl: 'https://creativecommons.org/licenses/by-sa/4.0/',
+    attributionTemplate: '{author}, Fedora Magazine, {url}',
+  }),
+  source({
+    id: 'mozilla-hacks',
+    name: 'Mozilla Hacks',
+    feedUrl: 'https://hacks.mozilla.org/feed/',
+    homepageUrl: 'https://hacks.mozilla.org/',
+    language: 'en',
+    fullTextEligibility: 'article_verification_required',
+    licenseName: 'Article-specific Creative Commons license',
+    attributionTemplate: '{author}, Mozilla, {url}',
+  }),
+]);
