@@ -3,6 +3,7 @@ import { authenticateMarketRequest } from './marketAuth.js';
 const MESSAGE_TTL_MS = 60 * 60 * 1000;
 const COOLDOWN_MS = 3 * 60 * 1000;
 const MESSAGE_COST = 3;
+const MAX_NICKNAME_LENGTH = 14;
 const REPORT_REASONS = new Set([
   'spam', 'harassment', 'sexual_or_violent', 'personal_information', 'scam', 'other',
 ]);
@@ -14,7 +15,7 @@ const corsHeaders = {
   'Cache-Control': 'no-store',
 };
 
-export async function handleMessages(request, env) {
+export async function handleMessages(request, env, mode = normalizeMarketPointsMode(env?.MARKET_POINTS_MODE)) {
   if (request.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
@@ -27,13 +28,19 @@ export async function handleMessages(request, env) {
   }
 
   if (request.method === 'GET') return handleGet(request, env);
-  if (request.method === 'POST') return handlePost(request, env);
+  if (request.method === 'POST') return handlePost(request, env, mode);
   return json({ error: 'method_not_allowed' }, 405);
 }
 
 export function normalizeRoomId(value) {
   const room = String(value || '').trim();
   return /^[A-Za-z0-9_.-]{1,64}$/.test(room) ? room : '';
+}
+
+export function normalizeMarketPointsMode(value) {
+  return value === 'optional' || value === 'required' || value === 'disabled'
+    ? value
+    : 'disabled';
 }
 
 export function classifyText(value) {
@@ -73,8 +80,75 @@ async function handleGet(request, env) {
   return json({ messages: (result.results || []).map(toPublicMessage) });
 }
 
-async function handlePost(request, env) {
+async function handlePost(request, env, mode) {
+  if (mode === 'disabled') return handleLegacyGuestPost(request, env);
+  if (mode === 'optional' && !request.headers.has('Authorization')) {
+    return handleLegacyGuestPost(request, env);
+  }
   return handleAuthenticatedPost(request, env);
+}
+
+export async function handleLegacyGuestPost(request, env) {
+  const body = await parseJson(request);
+  if (!body) return json({ error: 'invalid_json' }, 400);
+  if (!hasIdentityConfiguration(env)) {
+    return json({ error: 'identity_configuration_unavailable' }, 503);
+  }
+
+  const room = normalizeRoomId(body.roomId ?? body.boardSymbol);
+  const classifiedText = classifyText(body.text);
+  const nickname = cleanNickname(body.nickname);
+  const clientId = cleanClientId(body.clientId);
+
+  if (!clientId) return json({ error: 'missing_guest_identity' }, 400);
+  if (!room) return json({ error: 'missing_room' }, 400);
+  if (!classifiedText.allowed) {
+    return json({ error: classifiedText.code }, classifiedText.code === 'empty_text' ? 400 : 422);
+  }
+
+  const authorHash = await hashGuestId(clientId, env.AUTHOR_HASH_SALT);
+  const banned = await env.DB.prepare(
+    'SELECT 1 FROM market_banned_authors WHERE author_hash = ? LIMIT 1',
+  ).bind(authorHash).first();
+  if (banned) return json({ error: 'author_banned' }, 403);
+
+  const authorKey = await authorKeyFor(clientId, env.AUTHOR_KEY_SECRET);
+  const now = nowFor(env);
+  await purgeExpired(env.DB, now);
+  const id = crypto.randomUUID();
+  const expiresAt = now + MESSAGE_TTL_MS;
+  const cooldownCutoff = now - COOLDOWN_MS;
+  const insertResult = await env.DB.prepare(`
+    INSERT INTO market_messages (id, room_id, nickname, text, author_hash, author_key, status, created_at, expires_at)
+    SELECT ?, ?, ?, ?, ?, ?, 'active', ?, ?
+    WHERE NOT EXISTS (
+      SELECT 1 FROM market_messages
+      WHERE author_hash = ? AND room_id = ? AND created_at > ?
+    )
+  `).bind(
+    id, room, nickname || null, classifiedText.text, authorHash, authorKey, now, expiresAt,
+    authorHash, room, cooldownCutoff,
+  ).run();
+
+  if (Number(insertResult.meta?.changes) === 0) {
+    const last = await env.DB.prepare(`
+      SELECT created_at FROM market_messages
+      WHERE author_hash = ? AND room_id = ?
+      ORDER BY created_at DESC
+      LIMIT 1
+    `).bind(authorHash, room).first();
+    const elapsed = last ? now - Number(last.created_at) : COOLDOWN_MS;
+    const remainingCooldown = Math.max(0, Math.ceil((COOLDOWN_MS - elapsed) / 1000));
+    return json({ error: 'cooldown', remainingCooldown }, 429);
+  }
+
+  return json({
+    message: toPublicMessage({
+      id, room_id: room, nickname: nickname || null, text: classifiedText.text,
+      created_at: now, expires_at: expiresAt, author_key: authorKey,
+    }),
+    remainingCooldown: Math.ceil(COOLDOWN_MS / 1000),
+  }, 201);
 }
 
 export async function handleAuthenticatedPost(request, env) {
@@ -382,6 +456,16 @@ function cleanReporterId(value) {
   if (typeof value !== 'string') return '';
   const reporterId = value.trim();
   return reporterId.length > 0 && reporterId.length <= 128 ? reporterId : '';
+}
+
+function cleanNickname(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim().slice(0, MAX_NICKNAME_LENGTH);
+}
+
+function cleanClientId(value) {
+  if (typeof value !== 'string') return '';
+  const clientId = value.trim();
+  return /^[A-Za-z0-9][A-Za-z0-9._:-]{7,79}$/.test(clientId) ? clientId : '';
 }
 
 function cleanNote(value) {

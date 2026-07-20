@@ -83,8 +83,8 @@ test('report responses return the final persisted message status', async () => {
   assert.equal((await response.json()).messageStatus, 'removed');
 });
 
-test('guest POST is rejected before publishing or debiting', async () => {
-  const env = createMessageAccountEnv({ points: 3 });
+test('required mode rejects a legacy guest POST before publishing or debiting', async () => {
+  const env = createMessageAccountEnv({ points: 3, mode: 'required' });
   const response = await handleMessages(postMessage({
     roomId: 'XAU', text: '关注实际利率', clientId: 'guest-client-1234',
   }, { 'Idempotency-Key': 'guest-publish' }), env);
@@ -95,8 +95,62 @@ test('guest POST is rejected before publishing or debiting', async () => {
   assert.equal(env.repo.ledger.size, 0);
 });
 
-test('authenticated POST atomically debits three points and publishes once', async () => {
-  const env = createMessageAccountEnv({ points: 3, nickname: 'Server Name' });
+test('disabled mode preserves legacy guest publishing, moderation, bans and guest-room cooldown', async () => {
+  const env = createMessageAccountEnv({ points: 3, mode: 'disabled' });
+  const first = await handleMessages(postMessage({
+    roomId: 'XAU', text: '关注实际利率', nickname: 'Legacy', clientId: 'guest-client-1234',
+  }), env);
+  const sameGuestRoom = await handleMessages(postMessage({
+    roomId: 'XAU', text: '第二条观点', clientId: 'guest-client-1234',
+  }), env);
+  const sameGuestOtherRoom = await handleMessages(postMessage({
+    roomId: 'EURUSD', text: '欧元观点', clientId: 'guest-client-1234',
+  }), env);
+  const otherGuestSameRoom = await handleMessages(postMessage({
+    roomId: 'XAU', text: '另一位访客', clientId: 'other-guest-1234',
+  }, { Authorization: 'Bearer malformed' }), env);
+  const moderated = await handleMessages(postMessage({
+    roomId: 'XAU', text: '加我微信', clientId: 'moderated-guest-1234',
+  }), env);
+  env.DB.banGuest('banned-guest-1234');
+  const banned = await handleMessages(postMessage({
+    roomId: 'XAU', text: '正常观点', clientId: 'banned-guest-1234',
+  }), env);
+
+  assert.deepEqual(
+    [first.status, sameGuestRoom.status, sameGuestOtherRoom.status, otherGuestSameRoom.status],
+    [201, 429, 201, 201],
+  );
+  assert.equal((await first.json()).message.nickname, 'Legacy');
+  assert.equal((await sameGuestRoom.json()).error, 'cooldown');
+  assert.deepEqual(await moderated.json(), { error: 'unsafe_financial_solicitation' });
+  assert.deepEqual(await banned.json(), { error: 'author_banned' });
+  assert.equal(env.repo.messages.size, 3);
+  assert.equal(env.repo.ledger.size, 0);
+  assert.equal(env.repo.user.pointsBalance, 3);
+});
+
+test('optional mode keeps headerless legacy posts but authenticates any Authorization attempt', async () => {
+  const guestEnv = createMessageAccountEnv({ points: 3, mode: 'optional' });
+  const guest = await handleMessages(postMessage({
+    roomId: 'XAU', text: '访客观点', clientId: 'guest-client-1234',
+  }), guestEnv);
+
+  const malformedEnv = createMessageAccountEnv({ points: 3, mode: 'optional' });
+  const malformed = await handleMessages(postMessage({
+    roomId: 'XAU', text: '不应降级', clientId: 'guest-client-1234',
+  }, { Authorization: 'Bearer bad' }), malformedEnv);
+
+  assert.equal(guest.status, 201);
+  assert.equal(guestEnv.repo.ledger.size, 0);
+  assert.equal(malformed.status, 401);
+  assert.deepEqual(await malformed.json(), { error: 'login_required' });
+  assert.equal(malformedEnv.repo.messages.size, 0);
+  assert.equal(malformedEnv.repo.ledger.size, 0);
+});
+
+test('optional mode authenticated POST atomically debits three points and publishes once', async () => {
+  const env = createMessageAccountEnv({ points: 3, nickname: 'Server Name', mode: 'optional' });
   const request = authenticatedPostMessage({
     roomId: 'XAU', text: '关注实际利率', requestKey: 'publish-1',
     nickname: 'Spoofed Name', clientId: 'spoofed-client-1234',

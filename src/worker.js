@@ -1,6 +1,9 @@
 import { handleSina } from './sina.js';
 import { handleNewsFetch, runNewsFetch } from './newsFetch.js';
-import { handleMessages } from './messages.js';
+import { handleMarketAccount } from './marketAccount.js';
+import { handleMarketAuth } from './marketAuth.js';
+import { handleMarketHeartbeat, handleMarketHeartbeatStop } from './marketPoints.js';
+import { handleMessages, normalizeMarketPointsMode } from './messages.js';
 
 const MESSAGE_STATUSES = new Set(['active', 'hidden', 'removed']);
 const AUTHOR_ACTIONS = new Set(['ban', 'unban']);
@@ -9,6 +12,23 @@ const PRIVATE_ASSET_PREFIXES = ['/src/', '/test/', '/dist/', '/.git/', '/.claude
 const PRIVATE_ASSET_PATHS = new Set([
   '/.DS_Store', '/.dev.vars', '/.assetsignore', '/.gitignore', '/README.md', '/wrangler.toml',
 ]);
+const MARKET_API_ROUTES = new Map([
+  ['/markets/auth/apple', { methods: ['POST'], handler: handleMarketAuth }],
+  ['/markets/auth/logout', { methods: ['POST'], handler: handleMarketAccount }],
+  ['/markets/account', { methods: ['GET', 'DELETE'], handler: handleMarketAccount }],
+  ['/markets/account/profile', { methods: ['PUT'], handler: handleMarketAccount }],
+  ['/markets/points/heartbeat', { methods: ['POST'], handler: handleMarketHeartbeat }],
+  ['/markets/points/heartbeat/stop', { methods: ['POST'], handler: handleMarketHeartbeatStop }],
+  ['/markets/points/ledger', { methods: ['GET'], handler: handleMarketAccount }],
+  ['/markets/leaderboard', { methods: ['GET'], handler: handleMarketAccount }],
+]);
+const MARKET_API_NAMESPACES = ['/markets/auth', '/markets/account', '/markets/points', '/markets/leaderboard'];
+const MARKET_CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Authorization, Content-Type, Idempotency-Key',
+  'Cache-Control': 'no-store',
+};
 
 export default {
   async fetch(request, env, ctx) {
@@ -19,8 +39,11 @@ export default {
     if (url.pathname === '/xxxc/sina') return handleSina(request);
     if (url.pathname === '/news/fetch') return handleNewsFetch(request, env);
     if (url.pathname === '/markets/messages' || /^\/markets\/messages\/[^/]+\/reports$/.test(url.pathname)) {
-      return handleMessages(request, env);
+      return handleMessages(request, env, marketPointsMode(env));
     }
+
+    const marketApiResponse = await dispatchMarketApi(request, env);
+    if (marketApiResponse) return marketApiResponse;
 
     if (url.pathname.startsWith('/markets/moderation')) {
       if (!requireModerator(request, env)) return authenticationRequired();
@@ -37,6 +60,69 @@ export default {
     ctx.waitUntil(runNewsFetch(env));
   },
 };
+
+export function marketPointsMode(env) {
+  return normalizeMarketPointsMode(env?.MARKET_POINTS_MODE);
+}
+
+async function dispatchMarketApi(request, env) {
+  const pathname = new URL(request.url).pathname;
+  const route = MARKET_API_ROUTES.get(pathname);
+  if (!route) {
+    return isMarketApiPath(pathname)
+      ? marketApiJson({ error: 'route_not_found' }, 404)
+      : null;
+  }
+
+  if (request.method === 'OPTIONS') return marketApiOptions(route.methods);
+  if (!route.methods.includes(request.method)) {
+    return marketApiJson({ error: 'method_not_allowed' }, 405, {
+      Allow: [...route.methods, 'OPTIONS'].join(', '),
+    });
+  }
+  if (marketPointsMode(env) === 'disabled') {
+    return marketApiJson({ error: 'market_points_disabled' }, 503);
+  }
+
+  return withMarketApiHeaders(await route.handler(request, env));
+}
+
+function isMarketApiPath(pathname) {
+  return MARKET_API_NAMESPACES.some((namespace) => (
+    pathname === namespace || pathname.startsWith(`${namespace}/`)
+  ));
+}
+
+function marketApiOptions(methods) {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      ...MARKET_CORS_HEADERS,
+      Allow: [...methods, 'OPTIONS'].join(', '),
+    },
+  });
+}
+
+function marketApiJson(payload, status, headers = {}) {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: {
+      ...MARKET_CORS_HEADERS,
+      'Content-Type': 'application/json; charset=utf-8',
+      ...headers,
+    },
+  });
+}
+
+function withMarketApiHeaders(response) {
+  const headers = new Headers(response.headers);
+  for (const [name, value] of Object.entries(MARKET_CORS_HEADERS)) headers.set(name, value);
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
 
 export function isPrivateAssetPath(pathname) {
   return PRIVATE_ASSET_PATHS.has(pathname)

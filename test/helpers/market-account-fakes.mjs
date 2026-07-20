@@ -145,6 +145,7 @@ export function authenticatedPostMessage({
 
 export function createMessageAccountEnv(options = {}) {
   const env = createAccountEnv({ now: options.now });
+  env.MARKET_POINTS_MODE = options.mode ?? 'required';
   env.AUTHOR_HASH_SALT = 'hash-salt';
   env.AUTHOR_KEY_SECRET = 'key-secret';
   env.addAccount = ({
@@ -450,6 +451,10 @@ function createMessageD1(repo) {
       const authorHash = digest('hash-salt', userId);
       bannedAuthors.set(authorHash, { author_hash: authorHash });
     },
+    banGuest(clientId) {
+      const authorHash = digest('hash-salt', clientId);
+      bannedAuthors.set(authorHash, { author_hash: authorHash });
+    },
     batch(statements) {
       const operation = batchQueue.then(async () => {
         const kinds = statements.map((statement) => statement.kind);
@@ -502,6 +507,22 @@ function createMessageD1(repo) {
                 return changed(1);
               }
               if (/^\s*INSERT\s+INTO\s+market_messages/i.test(sql)) {
+                if (!/user_id/i.test(sql)) {
+                  const [
+                    id, roomId, nickname, text, authorHash, authorKey, createdAt, expiresAt,
+                    cooldownAuthorHash, cooldownRoomId, cooldownCutoff,
+                  ] = values;
+                  const coolingDown = [...repo.messages.values()].some((message) => (
+                    message.authorHash === cooldownAuthorHash && message.roomId === cooldownRoomId
+                    && message.createdAt > cooldownCutoff
+                  ));
+                  if (coolingDown) return changed(0);
+                  repo.messages.set(id, {
+                    id, roomId, nickname, text, authorHash, authorKey, status: 'active',
+                    createdAt, expiresAt, userId: null, pointLedgerId: null, requestKey: null,
+                  });
+                  return changed(1);
+                }
                 const [
                   id, roomId, nickname, text, authorHash, authorKey, createdAt, expiresAt,
                   userId, pointLedgerId, requestKey,
@@ -587,9 +608,13 @@ function createMessageD1(repo) {
                 return ledger ? { balance_after: ledger.balanceAfter } : null;
               }
               if (/FROM\s+market_messages/i.test(sql) && /created_at/i.test(sql)) {
-                const [userId, roomId] = values;
+                const [identity, roomId] = values;
+                const usesGuestIdentity = /author_hash\s*=\s*\?/i.test(sql);
                 const message = [...repo.messages.values()]
-                  .filter((candidate) => candidate.userId === userId && candidate.roomId === roomId)
+                  .filter((candidate) => (
+                    (usesGuestIdentity ? candidate.authorHash === identity : candidate.userId === identity)
+                    && candidate.roomId === roomId
+                  ))
                   .sort((left, right) => right.createdAt - left.createdAt)[0];
                 return message ? { created_at: message.createdAt } : null;
               }
