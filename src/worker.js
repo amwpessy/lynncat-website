@@ -22,10 +22,11 @@ const MARKET_API_ROUTES = new Map([
   ['/markets/points/ledger', { methods: ['GET'], handler: handleMarketAccount }],
   ['/markets/leaderboard', { methods: ['GET'], handler: handleMarketAccount }],
 ]);
-const MARKET_API_NAMESPACES = ['/markets/auth', '/markets/account', '/markets/points', '/markets/leaderboard'];
-const MARKET_CORS_HEADERS = {
+const MARKET_API_NAMESPACES = [
+  '/markets/auth', '/markets/account', '/markets/points', '/markets/leaderboard', '/markets/messages',
+];
+const MARKET_CORS_BASE_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Authorization, Content-Type, Idempotency-Key',
   'Cache-Control': 'no-store',
 };
@@ -76,15 +77,15 @@ async function dispatchMarketApi(request, env) {
 
   if (request.method === 'OPTIONS') return marketApiOptions(route.methods);
   if (!route.methods.includes(request.method)) {
-    return marketApiJson({ error: 'method_not_allowed' }, 405, {
+    return marketApiJson({ error: 'method_not_allowed' }, 405, route.methods, {
       Allow: [...route.methods, 'OPTIONS'].join(', '),
     });
   }
   if (marketPointsMode(env) === 'disabled') {
-    return marketApiJson({ error: 'market_points_disabled' }, 503);
+    return marketApiJson({ error: 'market_points_disabled' }, 503, route.methods);
   }
 
-  return withMarketApiHeaders(await route.handler(request, env));
+  return withMarketApiHeaders(await route.handler(request, env), route.methods);
 }
 
 function isMarketApiPath(pathname) {
@@ -97,31 +98,39 @@ function marketApiOptions(methods) {
   return new Response(null, {
     status: 204,
     headers: {
-      ...MARKET_CORS_HEADERS,
+      ...marketCorsHeaders(methods),
       Allow: [...methods, 'OPTIONS'].join(', '),
     },
   });
 }
 
-function marketApiJson(payload, status, headers = {}) {
+function marketApiJson(payload, status, methods = [], headers = {}) {
   return new Response(JSON.stringify(payload), {
     status,
     headers: {
-      ...MARKET_CORS_HEADERS,
+      ...marketCorsHeaders(methods),
       'Content-Type': 'application/json; charset=utf-8',
       ...headers,
     },
   });
 }
 
-function withMarketApiHeaders(response) {
+function withMarketApiHeaders(response, methods) {
   const headers = new Headers(response.headers);
-  for (const [name, value] of Object.entries(MARKET_CORS_HEADERS)) headers.set(name, value);
+  for (const [name, value] of Object.entries(marketCorsHeaders(methods))) headers.set(name, value);
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
     headers,
   });
+}
+
+function marketCorsHeaders(methods = []) {
+  const headers = { ...MARKET_CORS_BASE_HEADERS };
+  if (methods.length > 0) {
+    headers['Access-Control-Allow-Methods'] = [...methods, 'OPTIONS'].join(', ');
+  }
+  return headers;
 }
 
 export function isPrivateAssetPath(pathname) {

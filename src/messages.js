@@ -4,32 +4,41 @@ const MESSAGE_TTL_MS = 60 * 60 * 1000;
 const COOLDOWN_MS = 3 * 60 * 1000;
 const MESSAGE_COST = 3;
 const MAX_NICKNAME_LENGTH = 14;
+const MESSAGE_ROUTE_METHODS = ['GET', 'POST'];
+const REPORT_ROUTE_METHODS = ['POST'];
 const REPORT_REASONS = new Set([
   'spam', 'harassment', 'sexual_or_violent', 'personal_information', 'scam', 'other',
 ]);
 
-const corsHeaders = {
+const corsBaseHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
   'Access-Control-Allow-Headers': 'Authorization, Content-Type, Idempotency-Key',
   'Cache-Control': 'no-store',
 };
 
 export async function handleMessages(request, env, mode = normalizeMarketPointsMode(env?.MARKET_POINTS_MODE)) {
-  if (request.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: corsHeaders });
-  }
-
   const url = new URL(request.url);
   const reportMatch = url.pathname.match(/^\/markets\/messages\/([^/]+)\/reports$/);
+  const routeMethods = reportMatch ? REPORT_ROUTE_METHODS : MESSAGE_ROUTE_METHODS;
+  if (url.pathname !== '/markets/messages' && !reportMatch) {
+    return json({ error: 'route_not_found' }, 404);
+  }
+  if (request.method === 'OPTIONS') return messageOptions(routeMethods);
+
   if (reportMatch) {
-    if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
-    return handleReport(request, env, decodePathSegment(reportMatch[1]));
+    if (request.method !== 'POST') return messageMethodNotAllowed(routeMethods);
+    return withMessageRouteHeaders(
+      await handleReport(request, env, decodePathSegment(reportMatch[1])), routeMethods,
+    );
   }
 
-  if (request.method === 'GET') return handleGet(request, env);
-  if (request.method === 'POST') return handlePost(request, env, mode);
-  return json({ error: 'method_not_allowed' }, 405);
+  if (request.method === 'GET') {
+    return withMessageRouteHeaders(await handleGet(request, env), routeMethods);
+  }
+  if (request.method === 'POST') {
+    return withMessageRouteHeaders(await handlePost(request, env, mode), routeMethods);
+  }
+  return messageMethodNotAllowed(routeMethods);
 }
 
 export function normalizeRoomId(value) {
@@ -512,8 +521,42 @@ function json(payload, status = 200) {
   return new Response(JSON.stringify(payload), {
     status,
     headers: {
-      ...corsHeaders,
+      ...corsBaseHeaders,
       'Content-Type': 'application/json; charset=utf-8',
     },
   });
+}
+
+function messageOptions(methods) {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      ...messageRouteHeaders(methods),
+      Allow: [...methods, 'OPTIONS'].join(', '),
+    },
+  });
+}
+
+function messageMethodNotAllowed(methods) {
+  return withMessageRouteHeaders(json({ error: 'method_not_allowed' }, 405), methods, {
+    Allow: [...methods, 'OPTIONS'].join(', '),
+  });
+}
+
+function withMessageRouteHeaders(response, methods, additionalHeaders = {}) {
+  const headers = new Headers(response.headers);
+  for (const [name, value] of Object.entries(messageRouteHeaders(methods))) headers.set(name, value);
+  for (const [name, value] of Object.entries(additionalHeaders)) headers.set(name, value);
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
+function messageRouteHeaders(methods) {
+  return {
+    ...corsBaseHeaders,
+    'Access-Control-Allow-Methods': [...methods, 'OPTIONS'].join(', '),
+  };
 }

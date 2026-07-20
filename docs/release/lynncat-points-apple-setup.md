@@ -24,6 +24,21 @@ Configure the following names in Cloudflare and the release environment. Keep al
 
 Use Cloudflare's interactive secret command once per secret name so values are entered without being included in shell history. Treat the token-encryption key version and rollout mode as non-secret deployment configuration, but still review their changes.
 
+### Token-encryption key lifecycle
+
+`APPLE_TOKEN_ENCRYPTION_KEYS` is a JSON object mapping positive string versions to 32-byte standard Base64 or Base64URL keys. The following is structure-only documentation with placeholder values, not usable secret material:
+
+```json
+{
+  "1": "<standard-Base64-or-Base64URL-encoded-32-byte-key>",
+  "<next-positive-version>": "<standard-Base64-or-Base64URL-encoded-32-byte-key>"
+}
+```
+
+Keep every historical key available until D1 has zero `market_apple_credentials` rows referencing that old `token_key_version`, and until the rollback and backup policy allows its removal. Rotating the current key does not rewrite old credentials; each stored credential keeps the token key version used when it was encrypted.
+
+The single `APPLE_TOKEN_ENCRYPTION_KEY` fallback is only for the current APPLE_TOKEN_KEY_VERSION. It cannot decrypt a credential that references another version. Account deletion will return retry and preserve account data if the referenced old key is absent. Before removing a historical key, check the live D1 row count for its version and confirm retained backups cannot require that key during an approved rollback or recovery window.
+
 ## Apple setup
 
 1. Choose the existing primary App ID that owns Sign in with Apple, then group the macOS, iOS, and watchOS App IDs with that primary App ID in Apple Developer.
