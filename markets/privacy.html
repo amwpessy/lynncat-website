@@ -56,15 +56,22 @@
 
   <!-- English -->
   <div class="lang-section active" id="lang-en">
-    <div class="badge-clean">✓ No tracking · No account required</div>
+    <div class="badge-clean">✓ No tracking · Optional account</div>
     <h2>Overview</h2>
     <p>Lynncat Markets is developed by Lynncat (lynncat.com). This policy explains how the app handles privacy across the iPhone, Apple Watch and Mac versions.</p>
 
+    <h2>Optional Lynncat Account</h2>
+    <p>You can browse market data, news and public discussions without an account. Sign in with Apple is required only to earn or spend Lynncat Points, publish discussion messages and use account features. Lynncat receives an opaque Apple user identifier and authentication credentials from Apple; we do not request your Apple ID password, contacts, phone number or address book.</p>
+    <p>We store a one-way hash of the Apple user identifier, an encrypted Apple refresh token used for account management and deletion, a public Lynncat account ID, your generated or chosen nickname, and session records. These records link your account across the iPhone, Apple Watch and Mac versions.</p>
+
     <h2>What We Collect</h2>
-    <p>We do not require an account and we do not collect information that directly identifies you. Specifically:</p>
+    <p>When you use the optional account and community features, we process:</p>
     <ul>
-      <li>No account or registration required</li>
-      <li>No name, email address, phone number, contacts or address book data collected</li>
+      <li>User ID: the pseudonymous account identifiers described above</li>
+      <li>Device ID: a salted hash of an app-generated installation identifier and the device platform</li>
+      <li>User content: nickname, discussion text, selected market room, reports and optional report notes</li>
+      <li>Product interaction: foreground heartbeat times, points balance, points ledger and leaderboard visibility</li>
+      <li>No email address, phone number, contacts or address book data collected by Lynncat</li>
       <li>No precise or approximate location data collected</li>
       <li>No advertising identifier collected</li>
       <li>No third-party analytics, advertising or tracking SDKs</li>
@@ -72,7 +79,7 @@
     </ul>
 
     <h2>Local Storage</h2>
-    <p>The app saves preferences on your device using Apple's standard local storage APIs, including selected region/language, exchange-rate display settings, watchlist state, price alert settings, theme choices and similar app preferences. This information stays on your device and is not sent to Lynncat.</p>
+    <p>The app saves preferences on your device using Apple's standard local storage APIs, including selected region/language, exchange-rate display settings, watchlist state, price alert settings, theme choices and similar app preferences. Account session tokens are stored in the Apple Keychain. Local preferences stay on your device unless a feature description above says that data is sent to Lynncat.</p>
 
     <h2>Price Alerts and Notifications</h2>
     <p>If you enable price alerts, alert rules are stored locally on your device. Price checks and notification scheduling are handled by the app and Apple system notification services. Lynncat does not receive your alert rules.</p>
@@ -81,14 +88,23 @@
     <p>To provide the app's core features, Lynncat Markets makes network requests to public or third-party data sources for market prices, exchange rates, historical charts, economic events and news feeds. The app may also request a Lynncat-hosted configuration file to check whether a minimum supported version is required.</p>
     <p>These requests are used to load app content and generally include only technical request information and market/news identifiers, such as asset symbols or feed URLs. Data handling by third-party data providers is governed by their own privacy policies.</p>
 
+    <h2>Lynncat Points and Leaderboard</h2>
+    <p>While a signed-in app is visible in the foreground, it sends periodic heartbeats with the app platform and installation identifier. The server uses these interactions to award one Lynncat Point for each eligible foreground minute on each active device. It stores credit and debit entries, resulting balances and timestamps to prevent duplicate awards and support account history.</p>
+    <p>Publishing a message costs three Lynncat Points. Points are an in-app participation unit only: they have no cash value, cannot be purchased, transferred, redeemed or exchanged, and are not a financial asset.</p>
+    <p>The leaderboard is visible to app users. If leaderboard visibility is enabled, only your nickname, points balance and rank are public; your Apple identifier, installation identifier and ledger are not public. You can hide or show your entry in account settings.</p>
+
     <h2>Messages and User-Generated Content</h2>
-    <p>Market-specific discussion tickers allow guests to read and submit user-generated content without creating an account. When you participate, Lynncat processes the nickname you choose, your submitted text, the selected market room, posting and expiry timestamps, and an opaque author key derived from your app-generated guest identity.</p>
-    <p>The service stores a salted hashed guest identifier for cooldown enforcement and abuse prevention. If a post is reported, the report reason, optional note, message status and necessary moderation history are also stored. Raw guest identifiers, moderator credentials and internal audit-only data are not returned to ordinary app users.</p>
+    <p>Market-specific discussion tickers allow anyone to read public messages, while publishing requires a signed-in Lynncat account. When you participate, Lynncat processes your nickname, submitted text, selected market room, posting and expiry timestamps, linked account ID and an opaque author key.</p>
+    <p>The service uses pseudonymous account and installation identifiers for cooldown enforcement, point charging and abuse prevention. If a post is reported, the report reason, optional note, message status and necessary moderation history are also stored. Apple identifiers, session credentials, installation hashes, moderator credentials and internal audit-only data are not returned to ordinary app users.</p>
     <p>Posts expire from public display one hour after publication. Server records may be retained only as needed for abuse prevention, reports, legal compliance and moderation integrity. Local author blocks remain on your device and are not uploaded as a social graph.</p>
     <p>This feature does not access your contacts, precise location, advertising identifier or data from other apps, and it is not used for advertising or cross-app tracking. See the <a href="community.html">Community Rules</a> for reporting and blocking details.</p>
 
+    <h2>Retention and Account Deletion</h2>
+    <p>Account, device, session, heartbeat lease, points ledger and profile records are kept while your Lynncat account is active. To remove them, open account settings and choose Delete Lynncat Account. The service asks Apple to revoke the account credential, then deletes the account records and active messages linked to that account. A temporary error may require you to retry so deletion is not reported as complete before Apple revocation succeeds.</p>
+    <p>Posts expire from public display one hour after publication. Reported or moderated records may be retained only as needed for abuse prevention, legal compliance and moderation integrity. Local author blocks remain on your device and are not uploaded as a social graph.</p>
+
     <h2>Data Sharing</h2>
-    <p>We do not sell personal information. We do not share personal information for advertising or tracking purposes.</p>
+    <p>We do not sell personal information or share it for advertising or tracking. Apple processes Sign in with Apple, and our hosting provider processes the account and community data only to operate, secure and maintain these features.</p>
 
     <h2>Children</h2>
     <p>The app is intended for general audiences and is not directed to children. We do not knowingly collect personal information from children.</p>
@@ -106,15 +122,22 @@
 
   <!-- 繁體中文 -->
   <div class="lang-section" id="lang-zht">
-    <div class="badge-clean">✓ 不追蹤 · 無需帳號</div>
+    <div class="badge-clean">✓ 不追蹤 · 帳號可選用</div>
     <h2>概述</h2>
     <p>靈貓行情由 Lynncat（lynncat.com）開發。本政策說明 iPhone、Apple Watch 與 Mac 版本如何處理隱私。</p>
 
+    <h2>可選用的 Lynncat 帳號</h2>
+    <p>您無需帳號即可瀏覽行情、資訊與公開交流內容。只有取得或使用 Lynncat 積分、發佈交流內容及使用帳號功能時，才需要使用 Apple 登入。Lynncat 會從 Apple 收到不透明的 Apple 使用者識別碼和驗證憑證；我們不會要求您的 Apple ID 密碼、通訊錄、電話號碼或地址簿。</p>
+    <p>我們會保存 Apple 使用者識別碼的單向哈希、用於帳號管理及刪除的加密 Apple 更新權杖、公開 Lynncat 帳號識別碼、系統產生或您選擇的暱稱，以及工作階段記錄。這些記錄用於在 iPhone、Apple Watch 與 Mac 版本之間識別同一帳號。</p>
+
     <h2>我們收集的資料</h2>
-    <p>本 App 無需註冊帳號，也不收集可直接識別您身份的資料。具體包括：</p>
+    <p>當您使用可選帳號與交流功能時，我們會處理：</p>
     <ul>
-      <li>無需註冊帳號</li>
-      <li>不收集姓名、電子郵件、電話號碼、通訊錄或地址簿資料</li>
+      <li>使用者 ID：上述假名化帳號識別碼</li>
+      <li>裝置 ID：App 產生之安裝識別碼的加鹽哈希，以及裝置平台</li>
+      <li>使用者內容：暱稱、交流文字、所選市場房間、舉報原因及可選備註</li>
+      <li>產品互動：前景在線心跳時間、積分餘額、積分明細及排行榜顯示設定</li>
+      <li>Lynncat 不收集您的電子郵件、電話號碼、通訊錄或地址簿資料</li>
       <li>不收集精確或概略位置資訊</li>
       <li>不收集廣告識別碼</li>
       <li>不使用第三方分析、廣告或追蹤 SDK</li>
@@ -122,7 +145,7 @@
     </ul>
 
     <h2>本機儲存</h2>
-    <p>App 會透過 Apple 標準本機儲存 API，在您的裝置上保存偏好設定，包括所選地區/語言、匯率顯示設定、自選狀態、價格提醒設定、主題選擇及類似 App 偏好。這些資訊保留在您的裝置上，不會傳送給 Lynncat。</p>
+    <p>App 會透過 Apple 標準本機儲存 API，在您的裝置上保存偏好設定，包括所選地區/語言、匯率顯示設定、自選狀態、價格提醒設定、主題選擇及類似 App 偏好。帳號工作階段權杖保存在 Apple 鑰匙圈。本機偏好會留在裝置上，除非上述功能說明明確指出資料會傳送給 Lynncat。</p>
 
     <h2>價格提醒與通知</h2>
     <p>如果您啟用價格提醒，提醒規則會保存在您的裝置本機。價格檢查與通知排程由 App 和 Apple 系統通知服務處理。Lynncat 不會收到您的提醒規則。</p>
@@ -131,14 +154,22 @@
     <p>為提供核心功能，靈貓行情會向公開或第三方資料來源發出網路請求，用於取得市場價格、匯率、歷史走勢、經濟事件與新聞資訊。App 也可能請求 Lynncat 託管的設定檔，以檢查是否需要最低可用版本。</p>
     <p>這些請求用於載入 App 內容，通常僅包含技術性請求資訊及行情/資訊識別內容，例如資產代碼或 RSS 來源網址。第三方資料提供者如何處理資料，受其各自隱私政策約束。</p>
 
-    <h2>留言與使用者產生內容</h2>
-    <p>分品種市場交流滾動條讓訪客在無需註冊帳號的情況下閱讀及提交使用者產生內容。當您參與交流時，Lynncat 會處理您選擇的暱稱、提交文字、所選市場房間、發佈與到期時間，以及由 App 產生之訪客標識衍生的不透明作者識別碼。</p>
-    <p>服務會保存加鹽哈希訪客標識，用於執行發言冷卻和防止濫用。若內容被舉報，亦會保存舉報原因、可選備註、內容狀態及必要的審核記錄。原始訪客標識、管理員憑證和僅供審計的內部資料不會返回給一般 App 使用者。</p>
-    <p>內容會在發佈一小時後從公開顯示區過期。服務端記錄僅會在防止濫用、處理舉報、符合法律要求及維持審核完整性所需範圍內保留。本機屏蔽名單只保存在您的裝置上，不會作為社交關係上傳。</p>
+    <h2>Lynncat 積分與排行榜</h2>
+    <p>已登入的 App 在前景顯示時，會定期傳送包含 App 平台及安裝識別碼的在線心跳。伺服器會依這些互動，為每台符合條件的前景裝置每分鐘增加一個 Lynncat 積分，並保存積分增加、扣除、結果餘額與時間，以防重複計算並提供帳號明細。</p>
+    <p>每次發佈交流內容會扣除三個 Lynncat 積分。積分只是在 App 內使用的參與單位，沒有現金價值，不可購買、轉讓、兌現或交換，也不是金融資產。</p>
+    <p>排行榜可由 App 使用者查看。啟用排行榜顯示時，只有您的暱稱、積分餘額及名次會公開；Apple 識別碼、安裝識別碼和積分明細不會公開。您可在帳號設定中隱藏或顯示自己的排名。</p>
+
+    <h2>交流與使用者產生內容</h2>
+    <p>所有人都可閱讀分品種市場交流滾動內容，但發佈內容需要已登入的 Lynncat 帳號。當您參與交流時，Lynncat 會處理您的暱稱、提交文字、所選市場房間、發佈與到期時間、關聯帳號識別碼及不透明作者識別碼。</p>
+    <p>服務會使用假名化帳號與安裝識別碼執行發言冷卻、積分扣除和防止濫用。若內容被舉報，亦會保存舉報原因、可選備註、內容狀態及必要的審核記錄。Apple 識別碼、工作階段憑證、安裝識別碼哈希、管理員憑證和僅供審計的內部資料不會返回給一般 App 使用者。</p>
     <p>此功能不會存取您的通訊錄、精確位置、廣告識別碼或其他 App 資料，也不會用於廣告或跨 App 追蹤。舉報與屏蔽方式請參閱<a href="community.html">《社區規則》</a>。</p>
 
+    <h2>保留與刪除帳號</h2>
+    <p>Lynncat 帳號啟用期間，我們會保存帳號、裝置、工作階段、在線心跳租約、積分明細和個人檔案記錄。若要刪除，請在帳號設定中選擇「刪除 Lynncat 帳號」。服務會要求 Apple 撤銷帳號憑證，然後刪除帳號記錄及與該帳號關聯的有效交流內容。若發生暫時錯誤，系統會要求您重試，避免在 Apple 撤銷完成前錯誤顯示刪除成功。</p>
+    <p>交流內容會在發佈一小時後從公開顯示區過期。被舉報或審核的記錄，僅會在防止濫用、符合法律要求及維持審核完整性所需範圍內保留。本機屏蔽名單只保存在您的裝置上，不會作為社交關係上傳。</p>
+
     <h2>資料分享</h2>
-    <p>我們不出售個人資訊，也不會為廣告或追蹤目的分享個人資訊。</p>
+    <p>我們不出售個人資訊，也不會為廣告或追蹤目的分享個人資訊。Apple 會處理「使用 Apple 登入」，我們的託管服務供應商只會為營運、保護及維護帳號與交流功能而處理相關資料。</p>
 
     <h2>兒童</h2>
     <p>本 App 面向一般大眾，並非專為兒童設計。我們不會故意收集兒童的個人資訊。</p>

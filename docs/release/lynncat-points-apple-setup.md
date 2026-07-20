@@ -55,6 +55,31 @@ The single `APPLE_TOKEN_ENCRYPTION_KEY` fallback is only for the current APPLE_T
 4. Apply the same migration to production before enabling account routes.
 5. Verify the new account, device, session, credential, lease, and ledger tables and the nullable message linkage columns exist. Do not backfill legacy guest messages.
 
+## App Store privacy answers
+
+Use the same answers for the macOS and iOS app records. Apple Watch is included with the iOS app privacy disclosure. Confirm the answers again if the implementation or service providers change.
+
+| App Store Connect data type | Linked to user | Tracking | Purpose |
+| --- | --- | --- | --- |
+| `User ID` | Yes | No | App Functionality; Fraud Prevention and Security |
+| `Device ID` | Yes | No | App Functionality; Fraud Prevention and Security |
+| `Other User Content` | Yes | No | App Functionality; Fraud Prevention and Security |
+| `Product Interaction` | Yes | No | App Functionality |
+
+- **Data Used to Track You:** No.
+- **Data Not Linked to You:** None for these four account/community categories; they are linked to the pseudonymous Lynncat account.
+- **Advertising:** No third-party advertising, advertising measurement, or cross-app/cross-website tracking.
+- **Account data:** Sign in with Apple supplies an opaque Apple user identifier and credentials. Lynncat stores a hashed subject, encrypted refresh credential, public account ID, nickname, installation hash/platform, sessions, foreground heartbeats, points balance and ledger, leaderboard visibility, messages, and reports.
+- **Public data:** only a message's nickname/text/room/timestamps and, when enabled, leaderboard nickname/balance/rank are public. Apple identifiers, installation hashes, session data, and point ledgers are not public.
+- **Deletion:** Settings provides **Delete Lynncat Account**. Successful deletion revokes the Apple credential and deletes account, device, session, heartbeat lease, point ledger, profile, and linked active-message data. The UI asks the user to retry if revocation or deletion cannot complete.
+- **Points:** Lynncat Points have no cash value and cannot be bought, transferred, redeemed, or exchanged.
+
+Keep the macOS, iOS, and watchOS `PrivacyInfo.xcprivacy` files aligned with this table. App Store Connect answers are not changed automatically by the manifests and must be entered in the web console before submission.
+
+### App Review note
+
+Explain that browsing does not require an account; Sign in with Apple is required to earn one Lynncat Point per eligible foreground minute and to spend three points to publish a market-specific discussion message. Include the location of the account section in Settings, the leaderboard visibility control, the report/block controls, the one-hour public message expiry, and the Delete Lynncat Account button. Do not include test credentials, Apple tokens, installation identifiers, or production secrets in review notes.
+
 ## Optional deployment
 
 1. Upload every required secret and configure the current token key version.
