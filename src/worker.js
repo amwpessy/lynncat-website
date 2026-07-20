@@ -6,9 +6,11 @@ import { handleItnewRequest, runItnewCollection } from './itnew/index.js';
 const MESSAGE_STATUSES = new Set(['active', 'hidden', 'removed']);
 const AUTHOR_ACTIONS = new Set(['ban', 'unban']);
 const REPORT_STATUSES = new Set(['open', 'resolved', 'dismissed']);
-const PRIVATE_ASSET_PREFIXES = ['/src/', '/test/', '/dist/', '/.git/', '/.claude/', '/.openai/', '/.wrangler/'];
+const PRIVATE_ASSET_PREFIXES = [
+  '/src/', '/test/', '/dist/', '/docs/', '/.git/', '/.claude/', '/.openai/', '/.superpowers/', '/.wrangler/',
+];
 const PRIVATE_ASSET_PATHS = new Set([
-  '/.DS_Store', '/.dev.vars', '/.assetsignore', '/.gitignore', '/README.md', '/wrangler.toml',
+  '/docs', '/.superpowers', '/.DS_Store', '/.dev.vars', '/.assetsignore', '/.gitignore', '/README.md', '/wrangler.toml',
 ]);
 
 export default {

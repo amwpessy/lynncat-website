@@ -8,6 +8,8 @@ node_modules
 .gitignore
 .claude
 .openai
+.superpowers
+docs
 .dev.vars
 .DS_Store
 **/.DS_Store
