@@ -9,6 +9,10 @@ binding = "DB"
 database_name = "lynncat-market-community"
 database_id = "775274a2-1e87-4c37-b1bf-7aac393f66a7"
 
+[[r2_buckets]]
+binding = "ITNEW_IMAGES"
+bucket_name = "lynncat-itnew-images"
+
 [observability]
 enabled = true
 
