@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="ITNEW 站内文章详情。">
+  <title>文章 · ITNEW</title>
+  <link rel="stylesheet" href="/itnew/styles.css">
+  <script type="module" src="/itnew/article.js"></script>
+</head>
+<body class="article-page">
+  <a class="skip-link" href="#articleMain">跳至文章 / Skip to article</a>
+  <header class="site-header article-header">
+    <div class="nav-shell">
+      <a class="wordmark" href="/itnew/" aria-label="返回 ITNEW 首页">
+        <span class="wordmark-mark" aria-hidden="true">I</span>
+        <span>ITNEW</span>
+      </a>
+      <a class="back-link" href="/itnew/">← 返回最新资讯 / Back to signals</a>
+    </div>
+  </header>
+
+  <main id="articleMain" class="article-shell">
+    <div id="articleStatus" class="article-status" role="status" aria-live="polite">
+      <div class="article-loading" aria-label="正在加载文章">
+        <span class="skeleton skeleton-line short"></span>
+        <span class="skeleton skeleton-line"></span>
+        <span class="skeleton skeleton-line medium"></span>
+      </div>
+    </div>
+    <button id="articleRetry" class="retry-button" type="button" hidden>重新加载 / Retry</button>
+
+    <article id="articleContent" hidden>
+      <header class="article-lede">
+        <p id="articleEyebrow" class="section-kicker"></p>
+        <h1 id="articleTitle"></h1>
+        <dl id="articleMeta" class="article-meta"></dl>
+      </header>
+
+      <figure class="article-hero-media">
+        <img id="articleImage" alt="">
+        <figcaption id="articleCaption"></figcaption>
+      </figure>
+
+      <p id="articleSummary" class="article-summary"></p>
+
+      <aside class="rights-card" aria-labelledby="rightsHeading">
+        <h2 id="rightsHeading">内容与转载说明</h2>
+        <p id="rightsNotice"></p>
+        <div id="licenseBlock" class="license-block" hidden></div>
+      </aside>
+
+      <div id="articleBody" class="article-body"></div>
+
+      <footer class="article-source">
+        <p>继续阅读来源发布的完整上下文。</p>
+        <a id="originalLink" class="original-link" href="/itnew/" target="_blank" rel="noopener noreferrer">
+          查看原文 / Read original <span aria-hidden="true">↗</span>
+        </a>
+        <p id="originalUnavailable" class="muted-copy" hidden>原文地址暂不可用。</p>
+      </footer>
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    <span>ITNEW</span>
+    <p>Independent context, clearly attributed.</p>
+  </footer>
+</body>
+</html>
