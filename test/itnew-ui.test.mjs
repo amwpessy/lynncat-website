@@ -68,7 +68,24 @@ test('public masthead keeps discovery compact before the first story', async () 
   const phone = css.match(/@media\s*\(max-width:\s*720px\)[\s\S]*?(?=@media|$)/iu)?.[0] || '';
   assert.match(phone, /\.discovery-bar\s*\{[^}]*grid-template-columns:\s*1fr[^}]*margin-top:\s*8px/isu);
   assert.match(phone, /\.page-shell\s*\{[^}]*padding-top:\s*18px/isu);
-  assert.match(phone, /\.focus-copy\s*\{[^}]*min-height:\s*210px/isu);
+  assert.match(phone, /\.focus-copy\s*\{[^}]*min-height:\s*170px/isu);
+});
+
+test('focus and editor picks stay compact without the removed slow-reading headline', async () => {
+  const [html, css] = await Promise.all([
+    source('itnew/index.html'), source('itnew/styles.css'),
+  ]);
+
+  assert.doesNotMatch(html, /值得慢下来读的信号/u);
+  assert.match(html, /<h2[^>]+id=["']picksHeading["'][^>]+class=["']visually-hidden["']>编辑精选<\/h2>/iu);
+  assert.match(css, /\.focus-story\s*\{[^}]*min-height:\s*340px[^}]*margin-top:\s*4px/isu);
+  assert.match(css, /\.focus-media,\s*\.skeleton-media\s*\{[^}]*min-height:\s*340px/isu);
+  assert.match(css, /\.picks-section\s*\{[^}]*margin-top:\s*42px/isu);
+  assert.match(css, /\.pick-card\s*\{[^}]*min-height:\s*188px[^}]*padding:\s*20px/isu);
+  assert.match(css, /\.pick-card p\s*\{[^}]*-webkit-line-clamp:\s*2/isu);
+  const phone = css.match(/@media\s*\(max-width:\s*720px\)[\s\S]*?(?=@media|$)/iu)?.[0] || '';
+  assert.match(phone, /\.focus-copy\s*\{[^}]*min-height:\s*170px/isu);
+  assert.match(phone, /\.picks-section\s*\{[^}]*margin-top:\s*34px/isu);
 });
 
 test('article page safely distinguishes licensed sections from summary-only content', async () => {
