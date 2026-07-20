@@ -14,16 +14,25 @@ const state = {
   selection: new Set(),
   mutating: false,
   requests: new Map(),
+  authGeneration: 0,
+  pagination: {
+    articles: { limit: 50, offset: 0, total: 0 },
+    sources: { limit: 50, offset: 0, total: 0 },
+    batches: { limit: 50, offset: 0, total: 0 },
+  },
 };
 
 const elements = Object.fromEntries([
   'loginShell', 'appShell', 'loginForm', 'loginSubmit', 'loginError', 'rateLimitStatus',
-  'appShell', 'adminIdentity', 'viewTitle', 'collectNow', 'logoutButton',
+  'adminIdentity', 'logoutStatus', 'viewTitle', 'collectNow', 'logoutButton',
   'reviewView', 'publishedView', 'sourcesView', 'batchesView',
   'batchIdentity', 'pendingCount', 'approvedCount', 'rejectedCount', 'errorCount',
   'reviewStatus', 'reviewGrid', 'selectVisible', 'selectedCount', 'bulkApprove', 'bulkReject',
   'publishedSearch', 'publishedFilter', 'publishedStatus', 'publishedList',
   'sourcesStatus', 'sourcesList', 'batchesStatus', 'batchesList',
+  'publishedPrev', 'publishedPage', 'publishedNext',
+  'sourcesPrev', 'sourcesPage', 'sourcesNext',
+  'batchesPrev', 'batchesPage', 'batchesNext',
   'previewDialog', 'previewEyebrow', 'previewTitle', 'previewSummary', 'previewMeta',
   'previewOriginal',
 ].map((id) => [id, document.getElementById(id)]));
@@ -46,17 +55,30 @@ function cleanText(value, fallback = '—') {
   return result || fallback;
 }
 
-function validDate(value) {
-  const timestamp = new Date(value).getTime();
-  return Number.isFinite(timestamp) && Math.abs(timestamp) <= 8.64e15;
+function timestampValue(value) {
+  if (value == null) return null;
+  if (typeof value === 'string' && value.trim() === '') return null;
+  const timestamp = Number(value);
+  if (!Number.isFinite(timestamp) || timestamp <= 0 || Math.abs(timestamp) > 8.64e15) return null;
+  const date = new Date(timestamp);
+  return date.getTime() === timestamp ? timestamp : null;
 }
 
 function formatDate(value, fallback = '时间未知') {
-  if (!validDate(value)) return fallback;
+  const timestamp = timestampValue(value);
+  if (timestamp == null) return fallback;
   return new Intl.DateTimeFormat('zh-CN', {
     dateStyle: 'medium',
     timeStyle: 'short',
-  }).format(new Date(value));
+  }).format(new Date(timestamp));
+}
+
+function firstTimestamp(...values) {
+  for (const value of values) {
+    const timestamp = timestampValue(value);
+    if (timestamp != null) return timestamp;
+  }
+  return null;
 }
 
 function readingTime(summary) {
@@ -124,6 +146,22 @@ function isCurrentRequest(key, request) {
   return state.requests.get(key) === request && !request.controller.signal.aborted;
 }
 
+function beginAuthRequest() {
+  const request = beginRequest('auth');
+  state.authGeneration += 1;
+  request.authGeneration = state.authGeneration;
+  return request;
+}
+
+function isCurrentAuthRequest(request) {
+  return request.authGeneration === state.authGeneration && isCurrentRequest('auth', request);
+}
+
+function abortAllRequests() {
+  for (const request of state.requests.values()) request.controller.abort();
+  state.requests.clear();
+}
+
 async function parsePayload(response) {
   const type = response.headers.get('content-type') || '';
   if (!type.includes('application/json')) return {};
@@ -132,6 +170,7 @@ async function parsePayload(response) {
 
 async function apiRequest(path, options = {}) {
   const method = options.method || 'GET';
+  const authGeneration = state.authGeneration;
   const mutationHeaders = method !== 'GET' && path !== '/login'
     ? { 'X-CSRF-Token': state.csrf }
     : {};
@@ -150,13 +189,15 @@ async function apiRequest(path, options = {}) {
     request.body = JSON.stringify(options.body);
   }
   const response = await fetch(`${API_BASE}${path}`, request);
-  if (response.status === 401 && path !== '/login') {
+  if (response.status === 401 && path !== '/login'
+    && options.handleUnauthorized !== false && authGeneration === state.authGeneration) {
     showLogin('登录已失效，请重新登录。');
   }
   return response;
 }
 
 function showLogin(message = '') {
+  abortAllRequests();
   state.csrf = null;
   state.adminId = '';
   state.selection.clear();
@@ -165,12 +206,15 @@ function showLogin(message = '') {
   elements.loginError.hidden = !message;
   elements.loginError.textContent = message;
   loginFields.password.value = '';
+  if (!rateLimitTimer) elements.loginSubmit.disabled = false;
 }
 
 function showApp() {
   elements.loginShell.hidden = true;
   elements.appShell.hidden = false;
   elements.loginError.hidden = true;
+  elements.logoutStatus.hidden = true;
+  elements.logoutStatus.textContent = '';
   elements.adminIdentity.textContent = state.adminId ? `管理员 · ${state.adminId}` : '管理员';
   switchView('review');
 }
@@ -219,14 +263,14 @@ function startRateLimit(rawSeconds) {
 }
 
 async function restoreSession() {
-  const request = beginRequest('session');
+  const request = beginAuthRequest();
   try {
     const response = await fetch(SESSION_ENDPOINT, {
       credentials: 'same-origin',
       signal: request.controller.signal,
       headers: { Accept: 'application/json' },
     });
-    if (!isCurrentRequest('session', request)) return;
+    if (!isCurrentAuthRequest(request)) return;
     if (response.status === 401) {
       showLogin();
       return;
@@ -246,24 +290,29 @@ async function restoreSession() {
     showApp();
     await loadReview();
   } catch (error) {
-    if (error.name !== 'AbortError') showLogin('无法连接控制台，请检查网络后重试。');
+    if (error.name !== 'AbortError' && isCurrentAuthRequest(request)) {
+      showLogin('无法连接控制台，请检查网络后重试。');
+    }
   }
 }
 
 elements.loginForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   if (elements.loginSubmit.disabled) return;
+  const request = beginAuthRequest();
   elements.loginSubmit.disabled = true;
   elements.loginError.hidden = true;
   elements.rateLimitStatus.textContent = '正在验证…';
   try {
     const response = await apiRequest('/login', {
       method: 'POST',
+      signal: request.controller.signal,
       body: {
         username: loginFields.username.value.trim(),
         password: loginFields.password.value,
       },
     });
+    if (!isCurrentAuthRequest(request)) return;
     if (response.status === 401) {
       showLogin('账号或密码不正确。');
       return;
@@ -286,10 +335,12 @@ elements.loginForm.addEventListener('submit', async (event) => {
     elements.rateLimitStatus.textContent = '';
     showApp();
     await loadReview();
-  } catch {
-    showLogin('登录请求失败，请检查网络后重试。');
+  } catch (error) {
+    if (error.name !== 'AbortError' && isCurrentAuthRequest(request)) {
+      showLogin('登录请求失败，请检查网络后重试。');
+    }
   } finally {
-    if (!rateLimitTimer) elements.loginSubmit.disabled = false;
+    if (!rateLimitTimer && isCurrentAuthRequest(request)) elements.loginSubmit.disabled = false;
   }
 });
 
@@ -349,7 +400,10 @@ function renderReviewCard(candidate) {
   const meta = createElement('div', 'review-meta');
   meta.append(
     createElement('span', 'review-source', `来源 ${cleanText(candidate.source_id)}`),
-    createElement('span', 'review-time', formatDate(candidate.source_published_at || candidate.created_at)),
+    createElement('span', 'review-time', formatDate(firstTimestamp(
+      candidate.source_published_at,
+      candidate.created_at,
+    ))),
     createElement('span', 'review-read-time', readingTime(candidate.summary)),
   );
   const actions = createElement('div', 'review-card-actions');
@@ -429,7 +483,7 @@ function previewCandidate(candidate) {
     ['来源', candidate.source_id],
     ['版权模式', candidate.rights_mode_snapshot],
     ['评分', candidate.score],
-    ['发布时间', formatDate(candidate.source_published_at || candidate.created_at)],
+    ['发布时间', formatDate(firstTimestamp(candidate.source_published_at, candidate.created_at))],
   ].map(([term, value]) => {
     const row = document.createDocumentFragment();
     row.append(createElement('dt', '', term), createElement('dd', '', cleanText(String(value ?? ''))));
@@ -520,6 +574,50 @@ function renderErrorRetry(container, message, retry) {
   replaceChildren(container, [wrap]);
 }
 
+const paginationElements = {
+  articles: { prev: elements.publishedPrev, label: elements.publishedPage, next: elements.publishedNext },
+  sources: { prev: elements.sourcesPrev, label: elements.sourcesPage, next: elements.sourcesNext },
+  batches: { prev: elements.batchesPrev, label: elements.batchesPage, next: elements.batchesNext },
+};
+
+function nonNegativeInteger(value, fallback) {
+  const number = Number(value);
+  return Number.isSafeInteger(number) && number >= 0 ? number : fallback;
+}
+
+function applyPagePayload(name, payload) {
+  const page = state.pagination[name];
+  page.total = nonNegativeInteger(payload.total, 0);
+  page.limit = Math.max(1, nonNegativeInteger(payload.limit, page.limit));
+  page.offset = nonNegativeInteger(payload.offset, page.offset);
+  const lastOffset = page.total > 0 ? Math.floor((page.total - 1) / page.limit) * page.limit : 0;
+  if (page.offset > lastOffset) {
+    page.offset = lastOffset;
+    return false;
+  }
+  renderPagination(name);
+  return true;
+}
+
+function renderPagination(name) {
+  const page = state.pagination[name];
+  const controls = paginationElements[name];
+  const totalPages = Math.max(1, Math.ceil(page.total / page.limit));
+  const currentPage = Math.min(totalPages, Math.floor(page.offset / page.limit) + 1);
+  controls.label.textContent = `第 ${currentPage} / ${totalPages} 页 · 共 ${page.total} 条`;
+  controls.prev.disabled = state.mutating || page.offset === 0;
+  controls.next.disabled = state.mutating || page.offset + page.limit >= page.total;
+}
+
+function changePage(name, direction) {
+  if (state.mutating) return;
+  const page = state.pagination[name];
+  const nextOffset = Math.max(0, page.offset + (direction * page.limit));
+  if (nextOffset === page.offset || nextOffset >= page.total) return;
+  page.offset = nextOffset;
+  ({ articles: loadPublished, sources: loadSources, batches: loadBatches })[name]();
+}
+
 function articleMatches(article) {
   const query = elements.publishedSearch.value.trim().toLocaleLowerCase('zh-CN');
   const status = elements.publishedFilter.value;
@@ -559,15 +657,22 @@ function renderPublished() {
 }
 
 async function loadPublished() {
+  const page = state.pagination.articles;
   const request = beginRequest('articles');
   setStatus(elements.publishedStatus, '正在加载已发布内容…');
   try {
-    const response = await apiRequest('/articles?limit=50&offset=0', { signal: request.controller.signal });
+    const response = await apiRequest(`/articles?limit=${page.limit}&offset=${page.offset}`, {
+      signal: request.controller.signal,
+    });
     if (!response.ok) throw new Error('articles');
     const payload = await parsePayload(response);
     if (!isCurrentRequest('articles', request)) return;
     state.articles = Array.isArray(payload.items) ? payload.items : [];
-    setStatus(elements.publishedStatus, `共 ${state.articles.length} 条记录。`);
+    if (!applyPagePayload('articles', payload)) {
+      await loadPublished();
+      return;
+    }
+    setStatus(elements.publishedStatus, `本页 ${state.articles.length} 条，共 ${page.total} 条记录。`);
     renderPublished();
   } catch (error) {
     if (error.name !== 'AbortError' && isCurrentRequest('articles', request)) {
@@ -594,7 +699,7 @@ async function unpublishArticle(article) {
 function sourceHealth(source) {
   if (!source.enabled) return ['已停用', 'health-muted'];
   if (source.last_error) return ['需关注', 'health-error'];
-  if (source.last_success_at) return ['健康', 'health-good'];
+  if (timestampValue(source.last_success_at) != null) return ['健康', 'health-good'];
   return ['等待首次采集', 'health-muted'];
 }
 
@@ -609,7 +714,7 @@ function renderSources() {
     card.append(
       createElement('span', `health-pill ${healthClass}`, health),
       createElement('h3', '', cleanText(source.name, source.id)),
-      createElement('p', 'muted-copy', `语言 ${cleanText(source.language)} · 固定版权 ${cleanText(source.rights_mode)}`),
+      createElement('p', 'muted-copy', `语言 ${cleanText(source.language)} · 固定版权 ${cleanText(source.rights_mode)} · 优先级 ${countOrDash(source.priority_weight)}`),
       createElement('p', 'detail-line', `最近成功：${formatDate(source.last_success_at, '尚无成功记录')}`),
       createElement('p', 'detail-line', `最近错误：${formatDate(source.last_error_at, '无')} · ${cleanText(source.last_error, '无')}`),
     );
@@ -624,15 +729,22 @@ function renderSources() {
 }
 
 async function loadSources() {
+  const page = state.pagination.sources;
   const request = beginRequest('sources');
   setStatus(elements.sourcesStatus, '正在检查来源健康…');
   try {
-    const response = await apiRequest('/sources', { signal: request.controller.signal });
+    const response = await apiRequest(`/sources?limit=${page.limit}&offset=${page.offset}`, {
+      signal: request.controller.signal,
+    });
     if (!response.ok) throw new Error('sources');
     const payload = await parsePayload(response);
     if (!isCurrentRequest('sources', request)) return;
     state.sources = Array.isArray(payload.items) ? payload.items : [];
-    setStatus(elements.sourcesStatus, `已检查 ${state.sources.length} 个来源。`);
+    if (!applyPagePayload('sources', payload)) {
+      await loadSources();
+      return;
+    }
+    setStatus(elements.sourcesStatus, `本页 ${state.sources.length} 个，共 ${page.total} 个来源。`);
     renderSources();
   } catch (error) {
     if (error.name !== 'AbortError' && isCurrentRequest('sources', request)) {
@@ -685,7 +797,7 @@ function renderBatches() {
     copy.append(
       createElement('p', 'eyebrow', `${cleanText(batch.status)} · 批次 ${cleanText(batch.id)}`),
       createElement('h3', '', `候选 ${countOrDash(batch.candidate_count)} / 目标 ${countOrDash(batch.target_count)}`),
-      createElement('p', 'muted-copy', `批准 ${countOrDash(batch.approved_count)} · 拒绝 ${countOrDash(batch.rejected_count)} · 错误 ${countOrDash(batch.error_count)}`),
+      createElement('p', 'muted-copy', `待审核 ${countOrDash(batch.pending_count)} · 批准 ${countOrDash(batch.approved_count)} · 拒绝 ${countOrDash(batch.rejected_count)} · 错误 ${countOrDash(batch.error_count)}`),
       createElement('p', 'detail-line', `采集：${formatDate(batch.collected_at)} · 关闭：${formatDate(batch.closed_at, '仍开放')}`),
       createElement('p', 'warning-line', `警告：${warningText(batch.warnings_json)}`),
     );
@@ -695,15 +807,22 @@ function renderBatches() {
 }
 
 async function loadBatches() {
+  const page = state.pagination.batches;
   const request = beginRequest('batches');
   setStatus(elements.batchesStatus, '正在加载采集历史…');
   try {
-    const response = await apiRequest('/batches?limit=50&offset=0', { signal: request.controller.signal });
+    const response = await apiRequest(`/batches?limit=${page.limit}&offset=${page.offset}`, {
+      signal: request.controller.signal,
+    });
     if (!response.ok) throw new Error('batches');
     const payload = await parsePayload(response);
     if (!isCurrentRequest('batches', request)) return;
     state.batches = Array.isArray(payload.items) ? payload.items : [];
-    setStatus(elements.batchesStatus, `共 ${state.batches.length} 个批次。`);
+    if (!applyPagePayload('batches', payload)) {
+      await loadBatches();
+      return;
+    }
+    setStatus(elements.batchesStatus, `本页 ${state.batches.length} 个，共 ${page.total} 个批次。`);
     renderBatches();
   } catch (error) {
     if (error.name !== 'AbortError' && isCurrentRequest('batches', request)) {
@@ -741,6 +860,12 @@ document.querySelector('.sidebar-nav').addEventListener('click', (event) => {
 
 elements.publishedSearch.addEventListener('input', renderPublished);
 elements.publishedFilter.addEventListener('change', renderPublished);
+elements.publishedPrev.addEventListener('click', () => changePage('articles', -1));
+elements.publishedNext.addEventListener('click', () => changePage('articles', 1));
+elements.sourcesPrev.addEventListener('click', () => changePage('sources', -1));
+elements.sourcesNext.addEventListener('click', () => changePage('sources', 1));
+elements.batchesPrev.addEventListener('click', () => changePage('batches', -1));
+elements.batchesNext.addEventListener('click', () => changePage('batches', 1));
 
 elements.collectNow.addEventListener('click', async () => {
   if (state.currentBatch || state.mutating) return;
@@ -759,16 +884,42 @@ elements.collectNow.addEventListener('click', async () => {
   }
 });
 
-elements.logoutButton.addEventListener('click', async () => {
+async function logout() {
   if (state.mutating) return;
+  const request = beginAuthRequest();
   state.mutating = true;
+  elements.logoutButton.disabled = true;
+  elements.logoutStatus.hidden = true;
+  elements.logoutStatus.textContent = '';
   try {
-    await apiRequest('/logout', { method: 'POST' });
+    const response = await apiRequest('/logout', {
+      method: 'POST',
+      signal: request.controller.signal,
+      handleUnauthorized: false,
+    });
+    if (!isCurrentAuthRequest(request)) return;
+    if (response.ok || response.status === 401) {
+      state.mutating = false;
+      showLogin();
+      elements.rateLimitStatus.textContent = response.ok ? '已安全退出。' : '登录状态已结束。';
+      return;
+    }
+    elements.logoutStatus.textContent = '退出未完成，请稍后重试。';
+    elements.logoutStatus.hidden = false;
+  } catch (error) {
+    if (error.name !== 'AbortError' && isCurrentAuthRequest(request)) {
+      elements.logoutStatus.textContent = '退出未完成，请检查网络后重试。';
+      elements.logoutStatus.hidden = false;
+    }
   } finally {
-    state.mutating = false;
-    showLogin('已安全退出。');
+    if (request.authGeneration === state.authGeneration) {
+      state.mutating = false;
+      elements.logoutButton.disabled = false;
+    }
   }
-});
+}
+
+elements.logoutButton.addEventListener('click', logout);
 
 restoreUsernamePreference();
 restoreSession();

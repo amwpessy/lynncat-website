@@ -236,3 +236,63 @@ test('admin views cover publication sources and batches with safe session-bound 
   assert.match(app, /processing_error|last_success_at|last_error|rights_mode|warnings_json/u);
   assert.match(app, /collectNow\.disabled\s*=\s*Boolean\(state\.currentBatch\)/u);
 });
+
+test('admin logout preserves a valid app session unless the server confirms logout', async () => {
+  const [html, app] = await Promise.all([
+    source('itnew/admin/index.html'), source('itnew/admin/app.js'),
+  ]);
+  assert.match(html, /id=["']logoutStatus["'][^>]*role=["']alert["']/iu);
+  const start = app.indexOf('async function logout()');
+  const end = app.indexOf('\nrestoreUsernamePreference()', start);
+  assert.ok(start >= 0 && end > start, 'named logout workflow must be inspectable');
+  const logout = app.slice(start, end);
+  assert.match(logout, /response\.ok\s*\|\|\s*response\.status\s*===\s*401/u);
+  assert.match(logout, /退出未完成/u);
+  assert.doesNotMatch(logout, /finally\s*\{[\s\S]*?showLogin/iu);
+});
+
+test('admin auth requests share one generation so stale session recovery cannot replace login', async () => {
+  const app = await source('itnew/admin/app.js');
+  assert.match(app, /authGeneration:\s*0/u);
+  assert.match(app, /function beginAuthRequest\(\)[\s\S]*?beginRequest\(['"]auth['"]\)[\s\S]*?authGeneration\s*\+=\s*1/iu);
+  assert.match(app, /function isCurrentAuthRequest/u);
+  assert.match(app, /async function restoreSession\(\)[\s\S]*?beginAuthRequest\(\)[\s\S]*?isCurrentAuthRequest\(request\)[\s\S]*?response\.status\s*===\s*401/iu);
+  const loginStart = app.indexOf("elements.loginForm.addEventListener('submit'");
+  const loginEnd = app.indexOf('\nfunction updateProgress()', loginStart);
+  const login = app.slice(loginStart, loginEnd);
+  assert.match(login, /beginAuthRequest\(\)[\s\S]*?apiRequest\(['"]\/login['"]/iu);
+  assert.match(login, /isCurrentAuthRequest\(request\)[\s\S]*?response\.status\s*===\s*401/iu);
+});
+
+test('admin dates reject nullable and blank values before applying the Date TimeClip', async () => {
+  const app = await source('itnew/admin/app.js');
+  assert.match(app, /function timestampValue\(value\)\s*\{[\s\S]*?value\s*==\s*null[\s\S]*?value\.trim\(\)\s*===\s*['"]['"][\s\S]*?Number\.isFinite[\s\S]*?8\.64e15/iu);
+  const helperStart = app.indexOf('function timestampValue(value)');
+  const helperEnd = app.indexOf('\nfunction readingTime(', helperStart);
+  const helpers = Function(`${app.slice(helperStart, helperEnd)}; return { timestampValue, formatDate };`)();
+  for (const value of [null, undefined, '', '   ', 0, -1, 1e300, Number.NaN, 1.5]) {
+    assert.equal(helpers.timestampValue(value), null, String(value));
+  }
+  assert.equal(helpers.timestampValue(1_000), 1_000);
+  assert.equal(helpers.formatDate(null, 'fallback'), 'fallback');
+  assert.match(app, /formatDate\(source\.last_success_at,\s*['"]尚无成功记录['"]\)/u);
+  assert.match(app, /formatDate\(source\.last_error_at,\s*['"]无['"]\)/u);
+  assert.match(app, /formatDate\(batch\.closed_at,\s*['"]仍开放['"]\)/u);
+});
+
+test('admin list views expose accessible server-backed pagination and source priority', async () => {
+  const [html, css, app] = await Promise.all([
+    source('itnew/admin/index.html'), source('itnew/admin/styles.css'), source('itnew/admin/app.js'),
+  ]);
+  for (const name of ['published', 'sources', 'batches']) {
+    for (const suffix of ['Prev', 'Page', 'Next']) {
+      assert.match(html, new RegExp(`id=["']${name}${suffix}["']`, 'u'));
+    }
+  }
+  assert.match(css, /\.pagination-controls\s*\{/u);
+  assert.match(app, /pagination:\s*\{[\s\S]*?articles:[\s\S]*?sources:[\s\S]*?batches:/iu);
+  assert.match(app, /payload\.total[\s\S]*?payload\.limit[\s\S]*?payload\.offset/iu);
+  assert.match(app, /\/sources\?limit=\$\{page\.limit\}&offset=\$\{page\.offset\}/u);
+  assert.match(app, /priority_weight/u);
+  assert.match(app, /function changePage/u);
+});

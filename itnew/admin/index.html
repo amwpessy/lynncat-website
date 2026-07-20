@@ -82,6 +82,7 @@
         </div>
         <div class="header-actions">
           <span id="adminIdentity" class="admin-identity"></span>
+          <p id="logoutStatus" class="header-error" role="alert" hidden></p>
           <button id="collectNow" class="primary-button compact-button" type="button" disabled>立即采集</button>
         </div>
       </header>
@@ -134,6 +135,11 @@
           </div>
           <div id="publishedStatus" class="status-region" role="status" aria-live="polite"></div>
           <div id="publishedList" class="management-list"></div>
+          <nav class="pagination-controls" aria-label="已发布文章分页">
+            <button id="publishedPrev" class="secondary-button" type="button" aria-label="上一页已发布文章">上一页</button>
+            <span id="publishedPage" role="status" aria-live="polite">第 1 / 1 页 · 共 0 条</span>
+            <button id="publishedNext" class="secondary-button" type="button" aria-label="下一页已发布文章">下一页</button>
+          </nav>
         </section>
 
         <section id="sourcesView" class="view-panel" data-view="sources" aria-labelledby="sourcesHeading" hidden>
@@ -145,6 +151,11 @@
           </div>
           <div id="sourcesStatus" class="status-region" role="status" aria-live="polite"></div>
           <div id="sourcesList" class="management-grid"></div>
+          <nav class="pagination-controls" aria-label="采集来源分页">
+            <button id="sourcesPrev" class="secondary-button" type="button" aria-label="上一页采集来源">上一页</button>
+            <span id="sourcesPage" role="status" aria-live="polite">第 1 / 1 页 · 共 0 条</span>
+            <button id="sourcesNext" class="secondary-button" type="button" aria-label="下一页采集来源">下一页</button>
+          </nav>
         </section>
 
         <section id="batchesView" class="view-panel" data-view="batches" aria-labelledby="batchesHeading" hidden>
@@ -156,6 +167,11 @@
           </div>
           <div id="batchesStatus" class="status-region" role="status" aria-live="polite"></div>
           <div id="batchesList" class="management-list"></div>
+          <nav class="pagination-controls" aria-label="采集批次分页">
+            <button id="batchesPrev" class="secondary-button" type="button" aria-label="上一页采集批次">上一页</button>
+            <span id="batchesPage" role="status" aria-live="polite">第 1 / 1 页 · 共 0 条</span>
+            <button id="batchesNext" class="secondary-button" type="button" aria-label="下一页采集批次">下一页</button>
+          </nav>
         </section>
       </main>
     </div>

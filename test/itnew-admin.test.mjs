@@ -150,11 +150,14 @@ function changes(count = 1) {
 class FakeStatement {
   constructor(db, sql, bindings = []) {
     this.db = db;
+    this.sql = sql;
     this.operation = operationFrom(sql);
     this.bindings = bindings;
   }
 
-  bind(...bindings) { return new FakeStatement(this.db, '', bindings).withOperation(this.operation); }
+  bind(...bindings) {
+    return new FakeStatement(this.db, this.sql, bindings).withOperation(this.operation);
+  }
   withOperation(operation) { this.operation = operation; return this; }
   async first() { return this.db.execute(this, this.db.state); }
   async all() { return { success: true, results: this.db.execute(this, this.db.state) }; }
@@ -165,9 +168,13 @@ class FakeAdminDb {
   constructor({ batches = [], candidates = [], sources = [], articles = [] } = {}) {
     this.state = structuredClone({ batches, candidates, sources, articles, audits: [] });
     this.batchCalls = [];
+    this.preparedSql = [];
   }
 
-  prepare(sql) { return new FakeStatement(this, sql); }
+  prepare(sql) {
+    this.preparedSql.push(sql);
+    return new FakeStatement(this, sql);
+  }
 
   async batch(statements) {
     if (this.beforeBatch) {
@@ -339,7 +346,18 @@ class FakeAdminDb {
       case 'admin_batch_list':
         return structuredClone([...state.batches]
           .sort((a, b) => b.collected_at - a.collected_at || a.id.localeCompare(b.id))
-          .slice(bindings[1], bindings[1] + bindings[0]));
+          .slice(bindings[1], bindings[1] + bindings[0])
+          .map((batch) => {
+            const counts = { pending_count: 0, approved_count: 0, rejected_count: 0,
+              error_count: 0 };
+            for (const candidate of state.candidates.filter(({ batch_id }) => batch_id === batch.id)) {
+              if (candidate.status === 'pending') counts.pending_count += 1;
+              if (candidate.status === 'approved') counts.approved_count += 1;
+              if (candidate.status === 'rejected') counts.rejected_count += 1;
+              if (candidate.status === 'processing_error') counts.error_count += 1;
+            }
+            return { ...batch, ...counts };
+          }));
       case 'admin_batch_total': return { total: state.batches.length };
       default: throw new Error(`unsupported fake operation: ${operation}`);
     }
@@ -675,6 +693,56 @@ test('review, articles, sources, and batches enforce bounded pagination and stab
     assert.deepEqual({ total: result.body.total, limit: result.body.limit, offset: result.body.offset },
       { total: 2, limit: 50, offset: 0 });
   }
+});
+
+test('batch history returns real per-status candidate counts from one grouped left join', async () => {
+  const env = environment({
+    batches: [
+      batchRow({ id: 'batch-empty', collected_at: 20 }),
+      batchRow({ id: 'batch-counted', collected_at: 10 }),
+    ],
+    candidates: [
+      candidateRow('pending', { batch_id: 'batch-counted', status: 'pending' }),
+      candidateRow('approved', { batch_id: 'batch-counted', status: 'approved' }),
+      candidateRow('rejected', { batch_id: 'batch-counted', status: 'rejected' }),
+      candidateRow('error', { batch_id: 'batch-counted', status: 'processing_error' }),
+    ],
+  });
+
+  const result = await callAdmin(env, 'GET', '/itnew/admin/api/batches?limit=2&offset=0');
+  assert.equal(result.response.status, 200);
+  assert.deepEqual(result.body.items.map((batch) => ({
+    id: batch.id,
+    pending_count: batch.pending_count,
+    approved_count: batch.approved_count,
+    rejected_count: batch.rejected_count,
+    error_count: batch.error_count,
+  })), [
+    { id: 'batch-empty', pending_count: 0, approved_count: 0, rejected_count: 0,
+      error_count: 0 },
+    { id: 'batch-counted', pending_count: 1, approved_count: 1, rejected_count: 1,
+      error_count: 1 },
+  ]);
+  assert.deepEqual({ total: result.body.total, limit: result.body.limit, offset: result.body.offset },
+    { total: 2, limit: 2, offset: 0 });
+
+  const paged = await callAdmin(env, 'GET', '/itnew/admin/api/batches?limit=1&offset=1');
+  assert.deepEqual(paged.body.items.map(({ id, pending_count, approved_count,
+    rejected_count, error_count }) => ({ id, pending_count, approved_count,
+    rejected_count, error_count })), [
+    { id: 'batch-counted', pending_count: 1, approved_count: 1, rejected_count: 1,
+      error_count: 1 },
+  ]);
+  assert.deepEqual({ total: paged.body.total, limit: paged.body.limit, offset: paged.body.offset },
+    { total: 2, limit: 1, offset: 1 });
+
+  const sql = env.ITNEW_DB.preparedSql.find((statement) => statement.includes('itnew:admin_batch_list'));
+  assert.match(sql, /FROM\s+itnew_batches\s+(?:AS\s+)?b\s+LEFT\s+JOIN\s+itnew_candidates\s+(?:AS\s+)?c/iu);
+  for (const status of ['pending', 'approved', 'rejected', 'processing_error']) {
+    assert.match(sql, new RegExp(`SUM\\s*\\(\\s*CASE\\s+WHEN\\s+c\\.status\\s*=\\s*'${status}'`, 'iu'));
+  }
+  assert.match(sql, /GROUP\s+BY\s+b\.id/iu);
+  assert.match(sql, /ORDER\s+BY\s+b\.collected_at\s+DESC\s*,\s*b\.id\s+ASC/iu);
 });
 
 test('article unpublish maps not_found and preserves publisher idempotency', async () => {

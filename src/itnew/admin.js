@@ -383,8 +383,16 @@ async function listBatchesService({ request, env }) {
   const [result, total] = await Promise.all([
     db.prepare(`
       /* itnew:admin_batch_list */
-      SELECT * FROM itnew_batches
-      ORDER BY collected_at DESC, id ASC
+      SELECT
+        b.*,
+        COALESCE(SUM(CASE WHEN c.status = 'pending' THEN 1 ELSE 0 END), 0) AS pending_count,
+        COALESCE(SUM(CASE WHEN c.status = 'approved' THEN 1 ELSE 0 END), 0) AS approved_count,
+        COALESCE(SUM(CASE WHEN c.status = 'rejected' THEN 1 ELSE 0 END), 0) AS rejected_count,
+        COALESCE(SUM(CASE WHEN c.status = 'processing_error' THEN 1 ELSE 0 END), 0) AS error_count
+      FROM itnew_batches b
+      LEFT JOIN itnew_candidates c ON c.batch_id = b.id
+      GROUP BY b.id
+      ORDER BY b.collected_at DESC, b.id ASC
       LIMIT ? OFFSET ?
     `).bind(limit, offset).all(),
     db.prepare(`
