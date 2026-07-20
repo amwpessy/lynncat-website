@@ -8,6 +8,7 @@
   --mint: #58c8a4;
   --line: #e4e7f0;
   --danger: #d85b67;
+  --focus: #4b3ca7;
   --radius-card: 22px;
   --shadow-card: 0 18px 50px rgba(31, 38, 74, .09);
   --shell: min(1180px, calc(100% - 48px));
@@ -71,7 +72,7 @@ img {
 }
 
 :focus-visible {
-  outline: 3px solid var(--mint);
+  outline: 3px solid var(--focus);
   outline-offset: 3px;
 }
 
@@ -220,6 +221,11 @@ img {
   outline: 0;
   color: var(--ink);
   background: transparent;
+}
+
+.search-control:focus-within {
+  border-color: var(--focus);
+  box-shadow: 0 0 0 3px var(--focus);
 }
 
 .search-button,
@@ -820,8 +826,9 @@ img {
 }
 
 @media (max-width: 440px) {
-  .latest-meta span:nth-last-child(-n+2) {
-    display: none;
+  .latest-meta {
+    gap: 3px 8px;
+    font-size: .68rem;
   }
 
   .article-meta {

@@ -78,3 +78,46 @@ test('article page safely distinguishes licensed sections from summary-only cont
   assert.match(css, /\.article-hero-media\s*\{[^}]*aspect-ratio:/isu);
   assert.match(css, /figcaption/iu);
 });
+
+test('nullable timestamps fall back safely instead of rendering the Unix epoch', async () => {
+  const [app, article] = await Promise.all([
+    source('itnew/app.js'), source('itnew/article.js'),
+  ]);
+
+  for (const script of [app, article]) {
+    assert.match(script, /function validTimestamp\(value\)/u);
+    assert.match(script, /value\s*==\s*null\s*\|\|\s*value\s*===\s*['"]['"]/u);
+    assert.match(script, /Number\.isFinite\(timestamp\)\s*&&\s*timestamp\s*>\s*0/u);
+  }
+  assert.match(app, /sourcePublishedAt:\s*validTimestamp\(value\.sourcePublishedAt\)/u);
+  assert.match(app, /publishedAt:\s*validTimestamp\(value\.publishedAt\)/u);
+  assert.match(app, /return\s+item\.sourcePublishedAt\s*\?\?\s*item\.publishedAt/u);
+  assert.match(article, /validTimestamp\(article\.sourcePublishedAt\)\s*\?\?\s*validTimestamp\(article\.publishedAt\)/u);
+  assert.doesNotMatch(app, /sourcePublishedAt:\s*Number\(/u);
+});
+
+test('mobile metadata remains visible and keyboard focus has a high-contrast search ring', async () => {
+  const css = await source('itnew/styles.css');
+
+  assert.match(css, /--focus:\s*#4b3ca7/iu);
+  assert.match(css, /:focus-visible\s*\{[^}]*outline:\s*3px solid var\(--focus\)/isu);
+  assert.match(css, /\.search-control:focus-within\s*\{[^}]*(?:border-color|box-shadow):\s*[^;}]*var\(--focus\)/isu);
+  assert.ok(css.indexOf('.search-control:focus-within') > css.indexOf('.search-control input'));
+  assert.doesNotMatch(css, /\.latest-meta[^{}]*span[^{}]*\{[^}]*display:\s*none/isu);
+  const phone = css.slice(css.indexOf('@media (max-width: 440px)'));
+  assert.match(phone, /\.latest-meta\s*\{[^}]*gap:[^}]*font-size:/isu);
+  assert.match(css, /prefers-reduced-motion:\s*reduce/iu);
+
+  const luminance = (hex) => hex.match(/[0-9a-f]{2}/giu)
+    .map((component) => Number.parseInt(component, 16) / 255)
+    .map((component) => (component <= .04045
+      ? component / 12.92 : ((component + .055) / 1.055) ** 2.4))
+    .reduce((total, component, index) => total + component * [.2126, .7152, .0722][index], 0);
+  const contrast = (left, right) => {
+    const values = [luminance(left), luminance(right)].sort((a, b) => b - a);
+    return (values[0] + .05) / (values[1] + .05);
+  };
+  for (const background of ['#ffffff', '#f7f8fc', '#ece9ff']) {
+    assert.ok(contrast('#4b3ca7', background) >= 3, background);
+  }
+});

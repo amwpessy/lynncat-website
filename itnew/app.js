@@ -35,6 +35,12 @@ function text(value, fallback = '') {
   return typeof value === 'string' && value.trim() ? value.trim() : fallback;
 }
 
+function validTimestamp(value) {
+  if (value == null || value === '' || (typeof value === 'string' && !value.trim())) return null;
+  const timestamp = Number(value);
+  return Number.isFinite(timestamp) && timestamp > 0 ? timestamp : null;
+}
+
 function topicFallback(category) {
   return FALLBACK_IMAGES[category] || FALLBACK_IMAGES.frontier;
 }
@@ -65,8 +71,8 @@ function normalizedItem(value) {
     language: value.language === 'zh' ? 'zh' : 'en',
     category: text(value.category, 'frontier'),
     sourceName: text(value.sourceName, 'ITNEW'),
-    sourcePublishedAt: Number(value.sourcePublishedAt),
-    publishedAt: Number(value.publishedAt),
+    sourcePublishedAt: validTimestamp(value.sourcePublishedAt),
+    publishedAt: validTimestamp(value.publishedAt),
     heroImageUrl: safeImageUrl(value.heroImageUrl, value.category),
   };
 }
@@ -81,12 +87,13 @@ function readTime(item) {
 }
 
 function dateValue(item) {
-  return Number.isFinite(item.sourcePublishedAt) ? item.sourcePublishedAt : item.publishedAt;
+  return item.sourcePublishedAt ?? item.publishedAt;
 }
 
 function formatDate(value, includeTime = false) {
-  if (!Number.isFinite(value)) return '时间待确认';
-  const date = new Date(value);
+  const timestamp = validTimestamp(value);
+  if (timestamp == null) return '时间待确认';
+  const date = new Date(timestamp);
   if (Number.isNaN(date.getTime())) return '时间待确认';
   return new Intl.DateTimeFormat('zh-CN', {
     month: 'short',
@@ -217,7 +224,7 @@ function createLatestRow(item) {
   const timestamp = dateValue(item);
   time.className = 'latest-time';
   time.textContent = formatDate(timestamp, true);
-  if (Number.isFinite(timestamp)) time.dateTime = new Date(timestamp).toISOString();
+  if (timestamp != null) time.dateTime = new Date(timestamp).toISOString();
 
   const image = document.createElement('img');
   image.className = 'latest-thumb';

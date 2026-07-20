@@ -35,6 +35,12 @@ function text(value, fallback = '') {
   return typeof value === 'string' && value.trim() ? value.trim() : fallback;
 }
 
+function validTimestamp(value) {
+  if (value == null || value === '' || (typeof value === 'string' && !value.trim())) return null;
+  const timestamp = Number(value);
+  return Number.isFinite(timestamp) && timestamp > 0 ? timestamp : null;
+}
+
 function slugFromPath() {
   const prefix = '/itnew/article/';
   if (!location.pathname.startsWith(prefix)) return null;
@@ -79,8 +85,8 @@ function safeExternalUrl(value) {
 }
 
 function formatDate(value) {
-  const timestamp = Number(value);
-  if (!Number.isFinite(timestamp)) return '时间待确认';
+  const timestamp = validTimestamp(value);
+  if (timestamp == null) return '时间待确认';
   const date = new Date(timestamp);
   if (Number.isNaN(date.getTime())) return '时间待确认';
   return new Intl.DateTimeFormat('zh-CN', {
@@ -103,7 +109,9 @@ function renderMeta(article) {
   elements.meta.replaceChildren();
   appendMeta('来源', text(article.sourceName, '来源待确认'));
   appendMeta('语言', article.language === 'zh' ? '中文' : 'English');
-  appendMeta('发布时间', formatDate(article.sourcePublishedAt ?? article.publishedAt));
+  appendMeta('发布时间', formatDate(
+    validTimestamp(article.sourcePublishedAt) ?? validTimestamp(article.publishedAt),
+  ));
 }
 
 function appendLicenseLine(label, value) {
