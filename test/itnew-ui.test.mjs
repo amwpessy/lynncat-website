@@ -55,6 +55,22 @@ test('public home has the accessible editorial structure and strict single-colum
   }
 });
 
+test('public masthead keeps discovery compact before the first story', async () => {
+  const [html, css] = await Promise.all([
+    source('itnew/index.html'), source('itnew/styles.css'),
+  ]);
+
+  assert.match(html, /class=["']filter-rail["'][\s\S]*id=["']categoryFilters["'][\s\S]*id=["']languageFilters["']/iu);
+  assert.match(html, /<label[^>]+class=["']visually-hidden["'][^>]+for=["']searchInput["']/iu);
+  assert.match(css, /\.site-header\s*\{[^}]*padding:\s*16px 0 4px/isu);
+  assert.match(css, /\.discovery-bar\s*\{[^}]*margin-top:\s*10px[^}]*padding:\s*8px 10px/isu);
+  assert.match(css, /\.page-shell\s*\{[^}]*padding:\s*28px 0 84px/isu);
+  const phone = css.match(/@media\s*\(max-width:\s*720px\)[\s\S]*?(?=@media|$)/iu)?.[0] || '';
+  assert.match(phone, /\.discovery-bar\s*\{[^}]*grid-template-columns:\s*1fr[^}]*margin-top:\s*8px/isu);
+  assert.match(phone, /\.page-shell\s*\{[^}]*padding-top:\s*18px/isu);
+  assert.match(phone, /\.focus-copy\s*\{[^}]*min-height:\s*210px/isu);
+});
+
 test('article page safely distinguishes licensed sections from summary-only content', async () => {
   const [html, css, script] = await Promise.all([
     source('itnew/article.html'), source('itnew/styles.css'), source('itnew/article.js'),
