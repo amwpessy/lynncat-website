@@ -13,7 +13,7 @@ Configure the following names in Cloudflare and the release environment. Keep al
 | `APPLE_PRIVATE_KEY` | Secret | Required |
 | `APPLE_CLIENT_IDS` | Secret | Required |
 | `APPLE_TOKEN_ENCRYPTION_KEY` | Secret | Required |
-| `APPLE_TOKEN_ENCRYPTION_KEYS` | Secret | Optional; required only while rotating token-encryption keys |
+| `APPLE_TOKEN_ENCRYPTION_KEYS` | Secret | Required while historical key versions remain referenced by live data or recoverable backups |
 | `APPLE_TOKEN_KEY_VERSION` | Configuration | Required |
 | `APPLE_SUBJECT_HASH_SALT` | Secret | Required |
 | `INSTALLATION_HASH_SALT` | Secret | Required |
