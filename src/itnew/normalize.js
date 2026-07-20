@@ -1,5 +1,6 @@
 const TRACKING_PARAMETERS = new Set(['fbclid', 'gclid', 'spm', 'ref']);
 const HOUR_MS = 60 * 60 * 1000;
+const SUMMARY_MAX_CHARACTERS = 600;
 
 const CATEGORY_KEYWORDS = [
   ['security', ['security', 'secure', 'vulnerability', 'breach', 'malware', 'ransomware', 'cyber', 'patch', '安全', '漏洞', '攻击', '勒索', '恶意软件', '补丁']],
@@ -22,6 +23,25 @@ function decodeXml(value = '') {
     .replace(/&apos;/gi, "'")
     .replace(/&amp;/gi, '&')
     .trim();
+}
+
+export function normalizeSummary(value = '') {
+  const plain = decodeXml(value)
+    .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, ' ')
+    .replace(/<br\s*\/?\s*>/gi, ' ')
+    .replace(/<\/(?:p|div|li|h[1-6]|blockquote)\s*>/gi, ' ')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&(?:nbsp|ensp|emsp);/gi, ' ')
+    .replace(/&hellip;/gi, '…')
+    .replace(/&(?:mdash|ndash);/gi, '—')
+    .replace(/&(?:ldquo|rdquo);/gi, '"')
+    .replace(/&(?:lsquo|rsquo);/gi, "'")
+    .replace(/\s+/gu, ' ')
+    .replace(/\s+([.,!?;:，。！？；：])/gu, '$1')
+    .trim();
+  const characters = Array.from(plain);
+  if (characters.length <= SUMMARY_MAX_CHARACTERS) return plain;
+  return `${characters.slice(0, SUMMARY_MAX_CHARACTERS - 1).join('').trimEnd()}…`;
 }
 
 function elementValue(block, names) {
@@ -150,7 +170,7 @@ function classify(text) {
 
 export function normalizeEntry(entry, source = {}, now = Date.now()) {
   const title = String(entry?.title || '').trim();
-  const summary = String(entry?.summary || entry?.description || '').trim();
+  const summary = normalizeSummary(entry?.summary || entry?.description || '');
   const content = String(entry?.content || '').trim();
   const publishedAt = typeof entry?.publishedAt === 'number'
     ? entry.publishedAt

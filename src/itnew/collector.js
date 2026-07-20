@@ -16,7 +16,9 @@ import {
 import { SOURCE_REGISTRY } from './sources.js';
 
 const FETCH_TIMEOUT_MS = 12_000;
-const HN_ITEM_LIMIT = 60;
+// Keep the invocation below Cloudflare's subrequest ceiling after feed fetches
+// and redirects while still leaving enough HN stories for the per-source cap.
+const HN_ITEM_LIMIT = 20;
 const HN_CONCURRENCY = 10;
 const BATCH_LIMIT = 30;
 

@@ -270,12 +270,15 @@ function imageResponse(bytes, contentType = 'image/png', headers = {}) {
 }
 
 test('summary publication never reads body or image and uses category fallback', async () => {
-  const db = new PublisherD1({ sources: [source()] });
+  const durable = candidate({
+    summary: `<p>Editor <strong>summary</strong>.</p><script>unsafe()</script><p>${'界'.repeat(700)}</p>`,
+    staged_body_key: 'staged/should-not-read', remote_image_url: 'https://img.example/x.png',
+  });
+  const db = new PublisherD1({ sources: [source()], candidates: [durable] });
   const images = r2({ staged: new Map([['staged/should-not-read', '<p>secret</p>']]) });
   let fetched = false;
-  const result = await publishCandidate(env(db, images), candidate({
-    staged_body_key: 'staged/should-not-read', remote_image_url: 'https://img.example/x.png',
-  }), { ...context(), fetchImpl: async () => { fetched = true; } });
+  const result = await publishCandidate(env(db, images), durable,
+    { ...context(), fetchImpl: async () => { fetched = true; } });
 
   assert.equal(result.status, 'published');
   assert.deepEqual(images.calls, { get: [], head: [], put: [], delete: [] });
@@ -284,6 +287,8 @@ test('summary publication never reads body or image and uses category fallback',
   assert.equal(db.state.articles[0].article_permission_verified, 0);
   assert.equal(db.state.articles[0].hero_image_kind, 'fallback');
   assert.equal(db.state.articles[0].hero_image_key, '/itnew/assets/fallback/development.png');
+  assert.doesNotMatch(db.state.articles[0].summary, /<[^>]+>|unsafe/u);
+  assert.equal(Array.from(db.state.articles[0].summary).length, 600);
   assert.equal(db.state.sections.length, 0);
   assert.equal(db.state.images.length, 0);
 });

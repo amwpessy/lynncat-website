@@ -1,4 +1,5 @@
 import { BODY_SECTION_MAX_BYTES, fallbackForCategory } from './constants.js';
+import { normalizeSummary } from './normalize.js';
 import { sanitizeArticleHtml, splitArticleSections } from './sanitize.js';
 
 const IMAGE_TIMEOUT_MS = 12_000;
@@ -501,7 +502,7 @@ export async function prepareCandidatePublication(env, candidate, context = {}) 
   const article = {
     id: articleId, candidateId, slug, sourceId, canonicalUrl,
     title: String(value(candidate, 'title', 'title') ?? ''),
-    summary: String(value(candidate, 'summary', 'summary') ?? ''),
+    summary: normalizeSummary(value(candidate, 'summary', 'summary') ?? ''),
     language: value(candidate, 'language', 'language'), category,
     rightsMode: fullPermission ? 'licensed_full' : 'summary_link',
     articlePermissionVerified: fullPermission ? 1 : 0,

@@ -35,6 +35,13 @@ function text(value, fallback = '') {
   return typeof value === 'string' && value.trim() ? value.trim() : fallback;
 }
 
+function summaryText(value, fallback = '') {
+  const raw = text(value);
+  if (!raw) return fallback;
+  const documentValue = new DOMParser().parseFromString(raw, 'text/html');
+  return text(documentValue.body.textContent?.replace(/\s+/gu, ' '), fallback);
+}
+
 function validTimestamp(value) {
   if (value == null || value === '' || (typeof value === 'string' && !value.trim())) return null;
   const timestamp = Number(value);
@@ -69,7 +76,7 @@ function normalizedItem(value) {
   return {
     slug,
     title,
-    summary: text(value.summary, '暂无摘要。'),
+    summary: summaryText(value.summary, '暂无摘要。'),
     language: value.language === 'zh' ? 'zh' : 'en',
     category: text(value.category, 'frontier'),
     sourceName: text(value.sourceName, 'ITNEW'),

@@ -538,7 +538,7 @@ test('stored canonical and fingerprint duplicates plus near-title duplicates are
   assert.ok(titles.includes('Unique security bulletin'));
 });
 
-test('HN hydrates no more than 60 numeric IDs with concurrency capped at 10', async () => {
+test('HN hydrates no more than 20 numeric IDs with concurrency capped at 10', async () => {
   const db = createFakeD1({ sources: [enabledSource('hacker-news')] });
   let active = 0;
   let maximumActive = 0;
@@ -559,7 +559,7 @@ test('HN hydrates no more than 60 numeric IDs with concurrency capped at 10', as
 
   await collectNextBatch(collectorEnv(db), { now, fetchImpl, uuid: uuidSequence() });
 
-  assert.equal(itemRequests, 60);
+  assert.equal(itemRequests, 20);
   assert.ok(maximumActive > 1);
   assert.ok(maximumActive <= 10);
 });

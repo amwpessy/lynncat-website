@@ -179,6 +179,8 @@ test('admin login and application shells are separate accessible states without 
   assert.match(app, /response\.status\s*===\s*401/u);
   assert.match(app, /response\.status\s*===\s*429[\s\S]*?Retry-After/u);
   assert.match(app, /response\.status\s*===\s*503/u);
+  assert.match(app, /function\s+summaryText[\s\S]*?DOMParser/u);
+  assert.match(app, /review-summary summary['"],\s*summaryText\(/u);
   assert.doesNotMatch(app, /(?:localStorage|sessionStorage)[\s\S]{0,100}csrf/iu);
 });
 

@@ -137,6 +137,18 @@ test('normalizeEntry trusts configured language and classifies bilingual keyword
   assert.equal(normalizeEntry({ title: 'Unmapped research milestone', url: 'https://x.test/5' }, enSource, now).category, 'frontier');
 });
 
+test('normalizeEntry stores a bounded plain-text summary instead of feed HTML', () => {
+  const normalized = normalizeEntry({
+    title: 'Developer update',
+    url: 'https://x.test/summary',
+    summary: `<p>Hello <strong>developers</strong>.</p><script>unsafe()</script><p>${'界'.repeat(700)}</p>`,
+  }, enSource, now);
+  assert.doesNotMatch(normalized.summary, /<[^>]+>|unsafe/u);
+  assert.match(normalized.summary, /^Hello developers\. /u);
+  assert.equal(Array.from(normalized.summary).length, 600);
+  assert.match(normalized.summary, /…$/u);
+});
+
 test('normalizeEntry accepts snake-case source fields returned by itnew_sources', () => {
   const normalized = normalizeEntry(
     { title: 'Critical patch', url: 'https://x.test/6' },

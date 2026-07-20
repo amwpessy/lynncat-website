@@ -55,6 +55,13 @@ function cleanText(value, fallback = '—') {
   return result || fallback;
 }
 
+function summaryText(value, fallback = '—') {
+  const raw = cleanText(value, '');
+  if (!raw) return fallback;
+  const documentValue = new DOMParser().parseFromString(raw, 'text/html');
+  return cleanText(documentValue.body.textContent?.replace(/\s+/gu, ' '), fallback);
+}
+
 function timestampValue(value) {
   if (value == null) return null;
   if (typeof value === 'string' && value.trim() === '') return null;
@@ -82,7 +89,7 @@ function firstTimestamp(...values) {
 }
 
 function readingTime(summary) {
-  const length = cleanText(summary, '').replace(/\s+/gu, '').length;
+  const length = summaryText(summary, '').replace(/\s+/gu, '').length;
   return `${Math.max(1, Math.ceil(length / 350))} 分钟阅读`;
 }
 
@@ -396,7 +403,7 @@ function renderReviewCard(candidate) {
     makeBadge(candidate.rights_mode_snapshot, 'review-rights rights'),
   );
   const title = createElement('h3', 'review-title', cleanText(candidate.title, '无标题候选'));
-  const summary = createElement('p', 'review-summary summary', cleanText(candidate.summary, '暂无摘要'));
+  const summary = createElement('p', 'review-summary summary', summaryText(candidate.summary, '暂无摘要'));
   const meta = createElement('div', 'review-meta');
   meta.append(
     createElement('span', 'review-source', `来源 ${cleanText(candidate.source_id)}`),
@@ -478,7 +485,7 @@ async function loadReview() {
 function previewCandidate(candidate) {
   elements.previewEyebrow.textContent = `${cleanText(candidate.category)} · ${cleanText(candidate.language)}`;
   elements.previewTitle.textContent = cleanText(candidate.title, '无标题候选');
-  elements.previewSummary.textContent = cleanText(candidate.summary, '暂无摘要');
+  elements.previewSummary.textContent = summaryText(candidate.summary, '暂无摘要');
   const meta = [
     ['来源', candidate.source_id],
     ['版权模式', candidate.rights_mode_snapshot],

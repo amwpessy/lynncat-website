@@ -35,6 +35,13 @@ function text(value, fallback = '') {
   return typeof value === 'string' && value.trim() ? value.trim() : fallback;
 }
 
+function summaryText(value, fallback = '') {
+  const raw = text(value);
+  if (!raw) return fallback;
+  const documentValue = new DOMParser().parseFromString(raw, 'text/html');
+  return text(documentValue.body.textContent?.replace(/\s+/gu, ' '), fallback);
+}
+
 function validTimestamp(value) {
   if (value == null || value === '' || (typeof value === 'string' && !value.trim())) return null;
   const timestamp = Number(value);
@@ -164,7 +171,7 @@ function renderLicensedBody(article) {
 function renderSummaryBody(article) {
   elements.body.replaceChildren();
   const summaryElement = document.createElement('p');
-  summaryElement.textContent = text(article.summary, '暂无摘要。');
+  summaryElement.textContent = summaryText(article.summary, '暂无摘要。');
   elements.body.append(summaryElement);
 }
 
@@ -185,7 +192,7 @@ function renderArticle(article) {
   document.documentElement.lang = article.language === 'en' ? 'en' : 'zh-CN';
   elements.eyebrow.textContent = `${category.toUpperCase()} · ${licensed ? 'LICENSED FULL' : 'SUMMARY'}`;
   elements.title.textContent = title;
-  elements.summary.textContent = text(article.summary, '暂无摘要。');
+  elements.summary.textContent = summaryText(article.summary, '暂无摘要。');
   elements.summary.hidden = !licensed;
   renderMeta(article);
 
