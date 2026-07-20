@@ -20,26 +20,28 @@
     </div>
 
     <div class="discovery-bar" aria-label="资讯筛选">
-      <div class="filter-scroll" id="categoryFilters" aria-label="按主题筛选">
-        <button type="button" class="filter-button" data-category="" aria-pressed="true">全部</button>
-        <button type="button" class="filter-button" data-category="AI" aria-pressed="false">AI</button>
-        <button type="button" class="filter-button" data-category="chips" aria-pressed="false">芯片</button>
-        <button type="button" class="filter-button" data-category="security" aria-pressed="false">安全</button>
-        <button type="button" class="filter-button" data-category="internet" aria-pressed="false">云与互联网</button>
-        <button type="button" class="filter-button" data-category="hardware" aria-pressed="false">硬件设备</button>
-        <button type="button" class="filter-button" data-category="development" aria-pressed="false">开发</button>
-        <button type="button" class="filter-button" data-category="robotics" aria-pressed="false">机器人</button>
-        <button type="button" class="filter-button" data-category="frontier" aria-pressed="false">前沿</button>
-      </div>
+      <div class="filter-rail">
+        <div class="filter-scroll" id="categoryFilters" aria-label="按主题筛选">
+          <button type="button" class="filter-button" data-category="" aria-pressed="true">全部</button>
+          <button type="button" class="filter-button" data-category="AI" aria-pressed="false">AI</button>
+          <button type="button" class="filter-button" data-category="chips" aria-pressed="false">芯片</button>
+          <button type="button" class="filter-button" data-category="security" aria-pressed="false">安全</button>
+          <button type="button" class="filter-button" data-category="internet" aria-pressed="false">云与互联网</button>
+          <button type="button" class="filter-button" data-category="hardware" aria-pressed="false">硬件设备</button>
+          <button type="button" class="filter-button" data-category="development" aria-pressed="false">开发</button>
+          <button type="button" class="filter-button" data-category="robotics" aria-pressed="false">机器人</button>
+          <button type="button" class="filter-button" data-category="frontier" aria-pressed="false">前沿</button>
+        </div>
 
-      <div class="language-filters" id="languageFilters" aria-label="按语言筛选">
-        <button type="button" class="language-button" data-language="" aria-pressed="true">双语</button>
-        <button type="button" class="language-button" data-language="zh" aria-pressed="false">中文</button>
-        <button type="button" class="language-button" data-language="en" aria-pressed="false">EN</button>
+        <div class="language-filters" id="languageFilters" aria-label="按语言筛选">
+          <button type="button" class="language-button" data-language="" aria-pressed="true">双语</button>
+          <button type="button" class="language-button" data-language="zh" aria-pressed="false">中文</button>
+          <button type="button" class="language-button" data-language="en" aria-pressed="false">EN</button>
+        </div>
       </div>
 
       <form class="search-form" id="searchForm" role="search">
-        <label for="searchInput">搜索资讯 / Search news</label>
+        <label class="visually-hidden" for="searchInput">搜索资讯 / Search news</label>
         <div class="search-control">
           <input id="searchInput" name="q" type="search" maxlength="160" autocomplete="off"
             placeholder="关键词 · Keyword">
@@ -50,34 +52,6 @@
   </header>
 
   <main id="mainContent" class="page-shell">
-    <section id="focus" class="focus-section" aria-labelledby="focusHeading" aria-busy="true">
-      <div class="section-kicker">TODAY'S FOCUS · 今日焦点</div>
-      <h1 id="focusHeading" class="visually-hidden">今日焦点</h1>
-      <div id="focusStory" class="focus-story skeleton-shell" aria-live="polite">
-        <div class="skeleton skeleton-media"></div>
-        <div class="skeleton-copy" aria-hidden="true">
-          <span class="skeleton skeleton-line short"></span>
-          <span class="skeleton skeleton-line"></span>
-          <span class="skeleton skeleton-line medium"></span>
-        </div>
-      </div>
-    </section>
-
-    <section id="editorPicks" class="picks-section" aria-labelledby="picksHeading" aria-busy="true">
-      <div class="section-heading">
-        <div>
-          <p class="section-kicker">EDITOR'S PICKS · 编辑精选</p>
-          <h2 id="picksHeading">值得慢下来读的信号</h2>
-        </div>
-        <p>由审核流程确认后发布</p>
-      </div>
-      <div id="picksList" class="picks-list" aria-live="polite">
-        <div class="pick-card skeleton-card" aria-hidden="true"></div>
-        <div class="pick-card skeleton-card" aria-hidden="true"></div>
-        <div class="pick-card skeleton-card" aria-hidden="true"></div>
-      </div>
-    </section>
-
     <section id="latest" class="latest-section" aria-labelledby="latestHeading" aria-busy="true">
       <div class="section-heading latest-heading">
         <div>
