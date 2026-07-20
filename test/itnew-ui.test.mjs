@@ -22,10 +22,10 @@ test('public home has the accessible editorial structure and strict single-colum
     assert.match(html, new RegExp(`data-category=["']${category}["']`, 'u'));
   }
 
-  const focus = html.indexOf('id="focus"');
-  const picks = html.indexOf('id="editorPicks"');
   const latest = html.indexOf('LATEST SIGNALS · 最新资讯');
-  assert.ok(focus >= 0 && picks > focus && latest > picks);
+  assert.ok(latest >= 0);
+  assert.doesNotMatch(html, /id=["'](?:focus|editorPicks|focusStory|picksList)["']/iu);
+  assert.doesNotMatch(html, /TODAY'S FOCUS|EDITOR'S PICKS|今日焦点|编辑精选/iu);
 
   for (const token of [
     '--ink: #17213d', '--muted: #65708b', '--paper: #f7f8fc', '--surface: #ffffff',
@@ -68,24 +68,21 @@ test('public masthead keeps discovery compact before the first story', async () 
   const phone = css.match(/@media\s*\(max-width:\s*720px\)[\s\S]*?(?=@media|$)/iu)?.[0] || '';
   assert.match(phone, /\.discovery-bar\s*\{[^}]*grid-template-columns:\s*1fr[^}]*margin-top:\s*8px/isu);
   assert.match(phone, /\.page-shell\s*\{[^}]*padding-top:\s*18px/isu);
-  assert.match(phone, /\.focus-copy\s*\{[^}]*min-height:\s*170px/isu);
 });
 
-test('focus and editor picks stay compact without the removed slow-reading headline', async () => {
-  const [html, css] = await Promise.all([
-    source('itnew/index.html'), source('itnew/styles.css'),
+test('public feed removes focus and editor picks and renders every article in latest', async () => {
+  const [html, css, app] = await Promise.all([
+    source('itnew/index.html'), source('itnew/styles.css'), source('itnew/app.js'),
   ]);
 
-  assert.doesNotMatch(html, /值得慢下来读的信号/u);
-  assert.match(html, /<h2[^>]+id=["']picksHeading["'][^>]+class=["']visually-hidden["']>编辑精选<\/h2>/iu);
-  assert.match(css, /\.focus-story\s*\{[^}]*min-height:\s*340px[^}]*margin-top:\s*4px/isu);
-  assert.match(css, /\.focus-media,\s*\.skeleton-media\s*\{[^}]*min-height:\s*340px/isu);
-  assert.match(css, /\.picks-section\s*\{[^}]*margin-top:\s*42px/isu);
-  assert.match(css, /\.pick-card\s*\{[^}]*min-height:\s*188px[^}]*padding:\s*20px/isu);
-  assert.match(css, /\.pick-card p\s*\{[^}]*-webkit-line-clamp:\s*2/isu);
-  const phone = css.match(/@media\s*\(max-width:\s*720px\)[\s\S]*?(?=@media|$)/iu)?.[0] || '';
-  assert.match(phone, /\.focus-copy\s*\{[^}]*min-height:\s*170px/isu);
-  assert.match(phone, /\.picks-section\s*\{[^}]*margin-top:\s*34px/isu);
+  assert.doesNotMatch(html, /id=["'](?:focus|editorPicks|focusStory|picksList)["']/iu);
+  assert.doesNotMatch(html, /TODAY'S FOCUS|EDITOR'S PICKS|今日焦点|编辑精选|值得慢下来读的信号/iu);
+  assert.doesNotMatch(css, /\.(?:focus-story|focus-media|focus-copy|picks-section|picks-list|pick-card)\b/iu);
+  assert.doesNotMatch(app, /renderFocus|renderPicks|createPickCard|focusStory|picksList/u);
+  assert.match(css, /\.latest-section\s*\{[^}]*margin-top:\s*0/isu);
+  const renderItems = app.match(/function renderItems\(items\)\s*\{[\s\S]*?\n\}/u)?.[0] || '';
+  assert.match(renderItems, /renderLatest\(items\)/u);
+  assert.doesNotMatch(renderItems, /slice\(/u);
 });
 
 test('article page safely distinguishes licensed sections from summary-only content', async () => {
@@ -169,26 +166,6 @@ test('mobile metadata remains visible and keyboard focus has a high-contrast sea
   };
   for (const background of ['#ffffff', '#f7f8fc', '#ece9ff']) {
     assert.ok(contrast('#4b3ca7', background) >= 3, background);
-  }
-});
-
-test('focus inside the dark editorial hero uses a dedicated contrasting token', async () => {
-  const css = await source('itnew/styles.css');
-  assert.match(css, /--focus-on-dark:\s*#58c8a4/iu);
-  assert.match(css, /\.focus-copy\s+:focus-visible\s*\{[^}]*outline-color:\s*var\(--focus-on-dark\)/isu);
-  assert.ok(css.indexOf('.focus-copy :focus-visible') > css.indexOf(':focus-visible'));
-
-  const luminance = (hex) => hex.match(/[0-9a-f]{2}/giu)
-    .map((component) => Number.parseInt(component, 16) / 255)
-    .map((component) => (component <= .04045
-      ? component / 12.92 : ((component + .055) / 1.055) ** 2.4))
-    .reduce((total, component, index) => total + component * [.2126, .7152, .0722][index], 0);
-  const contrast = (left, right) => {
-    const values = [luminance(left), luminance(right)].sort((a, b) => b - a);
-    return (values[0] + .05) / (values[1] + .05);
-  };
-  for (const background of ['#1a2445', '#252b58']) {
-    assert.ok(contrast('#58c8a4', background) >= 3, background);
   }
 });
 

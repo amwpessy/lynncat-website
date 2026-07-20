@@ -18,10 +18,6 @@ const state = {
 };
 
 const elements = {
-  focus: document.querySelector('#focus'),
-  focusStory: document.querySelector('#focusStory'),
-  picks: document.querySelector('#editorPicks'),
-  picksList: document.querySelector('#picksList'),
   latest: document.querySelector('#latest'),
   latestList: document.querySelector('#latestList'),
   feedStatus: document.querySelector('#feedStatus'),
@@ -146,29 +142,11 @@ function createSkeletonLine(className = '') {
 }
 
 function renderLoading() {
-  elements.focus.setAttribute('aria-busy', 'true');
-  elements.picks.setAttribute('aria-busy', 'true');
   elements.latest.setAttribute('aria-busy', 'true');
   elements.feedStatus.className = 'feed-status';
   elements.feedStatus.textContent = '正在读取最新信号… / Loading reviewed stories…';
   elements.retryButton.hidden = true;
   elements.resultCount.textContent = '';
-
-  const media = document.createElement('div');
-  media.className = 'skeleton skeleton-media';
-  const copy = document.createElement('div');
-  copy.className = 'skeleton-copy';
-  copy.append(createSkeletonLine('short'), createSkeletonLine(), createSkeletonLine('medium'));
-  elements.focusStory.className = 'focus-story skeleton-shell';
-  elements.focusStory.replaceChildren(media, copy);
-
-  const cards = Array.from({ length: 3 }, () => {
-    const card = document.createElement('div');
-    card.className = 'pick-card skeleton-card';
-    card.setAttribute('aria-hidden', 'true');
-    return card;
-  });
-  elements.picksList.replaceChildren(...cards);
 
   const rows = Array.from({ length: 4 }, () => {
     const row = document.createElement('li');
@@ -180,53 +158,7 @@ function renderLoading() {
   elements.latestList.replaceChildren(...rows);
 }
 
-function renderFocus(item) {
-  const image = document.createElement('img');
-  image.className = 'focus-media';
-  configureImage(image, item, true);
-
-  const copy = document.createElement('div');
-  copy.className = 'focus-copy';
-  const kicker = document.createElement('p');
-  kicker.className = 'section-kicker';
-  kicker.textContent = `${item.category.toUpperCase()} · ${formatDate(dateValue(item))}`;
-  const link = document.createElement('a');
-  link.className = 'story-link';
-  link.href = articleHref(item);
-  const heading = document.createElement('h2');
-  heading.textContent = item.title;
-  link.append(heading);
-  const summary = document.createElement('p');
-  summary.textContent = item.summary;
-  copy.append(kicker, link, summary, createMeta(item, 'story-meta'));
-
-  elements.focusStory.className = 'focus-story';
-  elements.focusStory.replaceChildren(image, copy);
-}
-
-function createPickCard(item, index) {
-  const card = document.createElement('article');
-  card.className = 'pick-card';
-  const number = document.createElement('span');
-  number.className = 'section-kicker';
-  number.textContent = `0${index + 1} · ${item.category.toUpperCase()}`;
-  const link = document.createElement('a');
-  link.className = 'story-link';
-  link.href = articleHref(item);
-  const heading = document.createElement('h3');
-  heading.textContent = item.title;
-  link.append(heading);
-  const summary = document.createElement('p');
-  summary.textContent = item.summary;
-  card.append(number, link, summary, createMeta(item, 'pick-meta'));
-  return card;
-}
-
-function renderPicks(items) {
-  elements.picksList.replaceChildren(...items.slice(1, 4).map(createPickCard));
-}
-
-function createLatestRow(item) {
+function createLatestRow(item, index) {
   const row = document.createElement('li');
   row.className = 'latest-row';
 
@@ -238,7 +170,7 @@ function createLatestRow(item) {
 
   const image = document.createElement('img');
   image.className = 'latest-thumb';
-  configureImage(image, item);
+  configureImage(image, item, index === 0);
   image.alt = `${item.title} 对应的主题图片`;
 
   const copy = document.createElement('div');
@@ -261,15 +193,11 @@ function renderLatest(items) {
 }
 
 function clearBusyState() {
-  elements.focus.setAttribute('aria-busy', 'false');
-  elements.picks.setAttribute('aria-busy', 'false');
   elements.latest.setAttribute('aria-busy', 'false');
 }
 
 function renderEmpty() {
   clearBusyState();
-  elements.focusStory.replaceChildren();
-  elements.picksList.replaceChildren();
   elements.latestList.replaceChildren();
   elements.resultCount.textContent = '0 条资讯';
   elements.feedStatus.className = 'feed-status';
@@ -279,8 +207,6 @@ function renderEmpty() {
 
 function renderError() {
   clearBusyState();
-  elements.focusStory.replaceChildren();
-  elements.picksList.replaceChildren();
   elements.latestList.replaceChildren();
   elements.resultCount.textContent = '';
   elements.feedStatus.className = 'feed-status error';
@@ -292,8 +218,6 @@ function renderItems(items) {
   clearBusyState();
   elements.feedStatus.textContent = '';
   elements.retryButton.hidden = true;
-  renderFocus(items[0]);
-  renderPicks(items);
   renderLatest(items);
 }
 
