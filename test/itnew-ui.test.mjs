@@ -87,13 +87,30 @@ test('nullable timestamps fall back safely instead of rendering the Unix epoch',
   for (const script of [app, article]) {
     assert.match(script, /function validTimestamp\(value\)/u);
     assert.match(script, /value\s*==\s*null\s*\|\|\s*value\s*===\s*['"]['"]/u);
-    assert.match(script, /Number\.isFinite\(timestamp\)\s*&&\s*timestamp\s*>\s*0/u);
+    assert.match(script, /!Number\.isFinite\(timestamp\)\s*\|\|\s*timestamp\s*<=\s*0/u);
   }
   assert.match(app, /sourcePublishedAt:\s*validTimestamp\(value\.sourcePublishedAt\)/u);
   assert.match(app, /publishedAt:\s*validTimestamp\(value\.publishedAt\)/u);
   assert.match(app, /return\s+item\.sourcePublishedAt\s*\?\?\s*item\.publishedAt/u);
   assert.match(article, /validTimestamp\(article\.sourcePublishedAt\)\s*\?\?\s*validTimestamp\(article\.publishedAt\)/u);
   assert.doesNotMatch(app, /sourcePublishedAt:\s*Number\(/u);
+});
+
+test('timestamp validation enforces the Date TimeClip range before ISO formatting', async () => {
+  const scripts = await Promise.all([source('itnew/app.js'), source('itnew/article.js')]);
+  for (const script of scripts) {
+    const match = script.match(/function validTimestamp\(value\)\s*\{([\s\S]*?)\n\}/u);
+    assert.ok(match);
+    const validTimestamp = Function('value', match[1]);
+    for (const invalid of [null, undefined, '', ' ', 'invalid', 0, -1, 1e300, 8.64e15 + 1]) {
+      assert.equal(validTimestamp(invalid), null, String(invalid));
+    }
+    for (const valid of [1, 1_700_000_000_000, 8.64e15]) {
+      assert.equal(validTimestamp(valid), valid, String(valid));
+      assert.doesNotThrow(() => new Date(validTimestamp(valid)).toISOString());
+    }
+    assert.match(script, /new Date\(timestamp\)\.getTime\(\)/u);
+  }
 });
 
 test('mobile metadata remains visible and keyboard focus has a high-contrast search ring', async () => {
@@ -119,5 +136,25 @@ test('mobile metadata remains visible and keyboard focus has a high-contrast sea
   };
   for (const background of ['#ffffff', '#f7f8fc', '#ece9ff']) {
     assert.ok(contrast('#4b3ca7', background) >= 3, background);
+  }
+});
+
+test('focus inside the dark editorial hero uses a dedicated contrasting token', async () => {
+  const css = await source('itnew/styles.css');
+  assert.match(css, /--focus-on-dark:\s*#58c8a4/iu);
+  assert.match(css, /\.focus-copy\s+:focus-visible\s*\{[^}]*outline-color:\s*var\(--focus-on-dark\)/isu);
+  assert.ok(css.indexOf('.focus-copy :focus-visible') > css.indexOf(':focus-visible'));
+
+  const luminance = (hex) => hex.match(/[0-9a-f]{2}/giu)
+    .map((component) => Number.parseInt(component, 16) / 255)
+    .map((component) => (component <= .04045
+      ? component / 12.92 : ((component + .055) / 1.055) ** 2.4))
+    .reduce((total, component, index) => total + component * [.2126, .7152, .0722][index], 0);
+  const contrast = (left, right) => {
+    const values = [luminance(left), luminance(right)].sort((a, b) => b - a);
+    return (values[0] + .05) / (values[1] + .05);
+  };
+  for (const background of ['#1a2445', '#252b58']) {
+    assert.ok(contrast('#58c8a4', background) >= 3, background);
   }
 });

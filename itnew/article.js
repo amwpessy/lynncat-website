@@ -38,7 +38,9 @@ function text(value, fallback = '') {
 function validTimestamp(value) {
   if (value == null || value === '' || (typeof value === 'string' && !value.trim())) return null;
   const timestamp = Number(value);
-  return Number.isFinite(timestamp) && timestamp > 0 ? timestamp : null;
+  if (!Number.isFinite(timestamp) || timestamp <= 0) return null;
+  const clippedTimestamp = new Date(timestamp).getTime();
+  return Number.isFinite(clippedTimestamp) ? clippedTimestamp : null;
 }
 
 function slugFromPath() {
