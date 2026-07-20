@@ -158,3 +158,81 @@ test('focus inside the dark editorial hero uses a dedicated contrasting token', 
     assert.ok(contrast('#58c8a4', background) >= 3, background);
   }
 });
+
+test('admin login and application shells are separate accessible states without preset credentials', async () => {
+  const [html, css, app] = await Promise.all([
+    source('itnew/admin/index.html'), source('itnew/admin/styles.css'), source('itnew/admin/app.js'),
+  ]);
+
+  assert.match(html, /id=["']loginShell["'][\s\S]*id=["']appShell["'][^>]*hidden/iu);
+  assert.match(html, /<form[^>]+id=["']loginForm["']/iu);
+  assert.match(html, /<input[^>]+name=["']username["'][^>]+autocomplete=["']username["'][^>]+value=["']admin["']/iu);
+  assert.match(html, /<input[^>]+name=["']password["'][^>]+type=["']password["'][^>]+autocomplete=["']current-password["']/iu);
+  const passwordInput = html.match(/<input[^>]+name=["']password["'][^>]*>/iu)?.[0] || '';
+  assert.doesNotMatch(passwordInput, /\svalue=/iu);
+  assert.match(html, /<input[^>]+name=["']remember["'][^>]+type=["']checkbox["']/iu);
+  assert.match(html, /id=["']loginError["']/u);
+  assert.match(html, /id=["']rateLimitStatus["']/u);
+  assert.match(css, /\.login-shell\s*\{[^}]*grid-template-columns:/isu);
+  assert.match(css, /\.technology-visual/iu);
+  assert.match(app, /\/itnew\/admin\/api\/session/u);
+  assert.match(app, /response\.status\s*===\s*401/u);
+  assert.match(app, /response\.status\s*===\s*429[\s\S]*?Retry-After/u);
+  assert.match(app, /response\.status\s*===\s*503/u);
+  assert.doesNotMatch(app, /(?:localStorage|sessionStorage)[\s\S]{0,100}csrf/iu);
+});
+
+test('admin review uses a fatigue-reducing responsive card grid and guarded batch actions', async () => {
+  const [html, css, app] = await Promise.all([
+    source('itnew/admin/index.html'), source('itnew/admin/styles.css'), source('itnew/admin/app.js'),
+  ]);
+
+  assert.match(html, /id=["']reviewGrid["']/u);
+  assert.match(css, /\.review-grid\s*\{[^}]*display:\s*grid[^}]*grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)[^}]*gap:\s*22px/isu);
+  assert.match(css, /@media\s*\(max-width:\s*1100px\)[\s\S]*?\.review-grid\s*\{[^}]*repeat\(2,\s*minmax\(0,\s*1fr\)\)/iu);
+  assert.match(css, /@media\s*\(max-width:\s*700px\)[\s\S]*?\.review-grid\s*\{[^}]*grid-template-columns:\s*1fr/iu);
+  assert.match(css, /\.review-main\s*\{[^}]*padding-bottom:\s*112px/isu);
+  assert.match(css, /\.summary\s*\{[^}]*-webkit-line-clamp:\s*2[^}]*overflow:\s*hidden/isu);
+  assert.match(css, /\.bulk-toolbar\s*\{[^}]*(?:position:\s*sticky|position:\s*fixed)/isu);
+  for (const id of ['selectedCount', 'bulkApprove', 'bulkReject', 'selectVisible', 'collectNow']) {
+    assert.match(html, new RegExp(`id=["']${id}["']`, 'u'));
+  }
+  assert.match(app, /new Set\(\)/u);
+  assert.match(app, /status\s*===\s*['"]pending['"]/u);
+  assert.match(app, /status\s*===\s*['"]processing_error['"][\s\S]*?retry/iu);
+  for (const label of ['cover', 'score', 'category', 'language', 'rights', 'title', 'summary', 'source', 'time', 'read-time']) {
+    assert.match(app, new RegExp(`review-${label}`, 'u'));
+  }
+  for (const action of ['preview', 'approve', 'reject']) {
+    assert.match(app, new RegExp(`data-action[^\n]+${action}`, 'u'));
+  }
+  assert.match(html, /<dialog[^>]+id=["']previewDialog["']/iu);
+  assert.match(app, /window\.confirm\([^)]*count/iu);
+  assert.match(app, /state\.mutating/u);
+  assert.match(app, /loadReview\(\)/u);
+});
+
+test('admin views cover publication sources and batches with safe session-bound mutations', async () => {
+  const [html, app] = await Promise.all([
+    source('itnew/admin/index.html'), source('itnew/admin/app.js'),
+  ]);
+
+  for (const view of ['review', 'published', 'sources', 'batches']) {
+    assert.match(html, new RegExp(`data-view=["']${view}["']`, 'u'));
+    assert.match(html, new RegExp(`id=["']${view}View["']`, 'u'));
+  }
+  assert.match(html, /id=["']logoutButton["']/u);
+  for (const route of ['/articles', '/sources', '/batches', '/collect', '/logout']) {
+    assert.match(app, new RegExp(route, 'u'));
+  }
+  assert.match(app, /credentials:\s*['"]same-origin['"]/u);
+  assert.match(app, /['"]X-CSRF-Token['"]\s*:\s*state\.csrf/u);
+  assert.match(app, /method\s*!==\s*['"]GET['"][\s\S]*?path\s*!==\s*['"]\/login['"]/u);
+  assert.doesNotMatch(app, /\.innerHTML\s*=/u);
+  assert.match(app, /\.textContent\s*=/u);
+  assert.match(app, /function safeExternalUrl/u);
+  assert.match(app, /rel\s*=\s*['"]noopener noreferrer['"]/u);
+  assert.match(app, /AbortController/u);
+  assert.match(app, /processing_error|last_success_at|last_error|rights_mode|warnings_json/u);
+  assert.match(app, /collectNow\.disabled\s*=\s*Boolean\(state\.currentBatch\)/u);
+});
