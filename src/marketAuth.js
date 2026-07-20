@@ -1,4 +1,5 @@
 import {
+  currentAppleTokenKeyVersion,
   encryptRefreshToken,
   exchangeAppleAuthorizationCode,
   verifyAppleIdentityToken,
@@ -35,6 +36,7 @@ export async function handleMarketAuth(request, env) {
     }
     const appleSubjectHash = await secretHash(env.APPLE_SUBJECT_HASH_SALT, payload.sub, env);
     const installationHash = await secretHash(env.INSTALLATION_HASH_SALT, installationId, env);
+    const tokenKeyVersion = currentAppleTokenKeyVersion(env);
     const encryptedRefreshToken = await sealRefreshToken(JSON.stringify({
       version: 1,
       refreshToken: tokens.refresh_token,
@@ -64,7 +66,7 @@ export async function handleMarketAuth(request, env) {
     await repository.saveAppleCredential({
       userId: user.id,
       encryptedRefreshToken,
-      tokenKeyVersion: positiveInteger(env.APPLE_TOKEN_KEY_VERSION, 1),
+      tokenKeyVersion,
       updatedAt: now,
     });
 

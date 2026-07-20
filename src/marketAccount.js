@@ -1,5 +1,9 @@
 import { authenticateMarketRequest } from './marketAuth.js';
-import { revokeAppleRefreshToken } from './marketCrypto.js';
+import {
+  currentAppleTokenKeyVersion,
+  decryptRefreshToken,
+  revokeAppleRefreshToken,
+} from './marketCrypto.js';
 import { classifyText } from './messages.js';
 
 const MAX_NICKNAME_CHARACTERS = 14;
@@ -111,10 +115,17 @@ export async function handleDeleteMarketAccount(request, env) {
       const stored = await repository.findAppleCredential(principal.userId);
       if (!stored?.encryptedRefreshToken) throw new Error('missing Apple credential');
       const decrypt = env?.DECRYPT_APPLE_CREDENTIAL || decryptAppleCredential;
-      const credential = await decrypt(stored.encryptedRefreshToken, env);
+      const credential = await decrypt(
+        stored.encryptedRefreshToken, stored.tokenKeyVersion, env,
+      );
       const revoke = env?.REVOKE_APPLE_REFRESH_TOKEN || revokeAppleRefreshToken;
       await revoke(credential.refreshToken, credential.clientId, env);
-      await repository.deleteAccountData(principal.userId);
+      const deleted = await repository.deleteAccountData(principal.userId, {
+        encryptedRefreshToken: stored.encryptedRefreshToken,
+        tokenKeyVersion: stored.tokenKeyVersion,
+        deletedAt: nowFor(env),
+      });
+      if (!deleted) throw new Error('Apple credential changed during deletion');
     } catch {
       throw marketError('account_deletion_retry', 503);
     }
@@ -135,21 +146,14 @@ export function toPublicAccount(row) {
   };
 }
 
-export async function decryptAppleCredential(encrypted, env) {
+export async function decryptAppleCredential(encrypted, tokenKeyVersion, env) {
+  if (env === undefined) {
+    env = tokenKeyVersion;
+    tokenKeyVersion = currentAppleTokenKeyVersion(env);
+  }
   try {
-    const parts = String(encrypted || '').split('.');
-    if (parts.length !== 3 || parts[0] !== 'v1') throw new Error('invalid envelope');
-    const rawKey = decodeBase64Url(String(env?.APPLE_TOKEN_ENCRYPTION_KEY || '').trim());
-    if (rawKey.byteLength !== 32) throw new Error('invalid key');
-    const iv = decodeBase64Url(parts[1]);
-    if (iv.byteLength !== 12) throw new Error('invalid iv');
-    const key = await cryptoFor(env).subtle.importKey(
-      'raw', rawKey, { name: 'AES-GCM' }, false, ['decrypt'],
-    );
-    const plaintext = await cryptoFor(env).subtle.decrypt(
-      { name: 'AES-GCM', iv }, key, decodeBase64Url(parts[2]),
-    );
-    const credential = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(plaintext));
+    const plaintext = await decryptRefreshToken(encrypted, tokenKeyVersion, env);
+    const credential = JSON.parse(plaintext);
     if (credential?.version !== 1
       || !isCredentialString(credential.refreshToken)
       || !isCredentialString(credential.clientId)) {
@@ -259,24 +263,81 @@ function d1Repository(db) {
       } : null;
     },
 
-    async deleteAccountData(userId) {
-      await db.batch([
+    async deleteAccountData(userId, expectedCredential) {
+      const results = await db.batch([
+        db.prepare(`
+          UPDATE market_users
+          SET status = 'deleted', deleted_at = ?, updated_at = ?
+          WHERE id = ? AND status = 'active'
+            AND EXISTS (
+              SELECT 1 FROM market_apple_credentials
+              WHERE user_id = market_users.id
+                AND encrypted_refresh_token = ? AND token_key_version = ?
+            )
+        `).bind(
+          expectedCredential.deletedAt,
+          expectedCredential.deletedAt,
+          userId,
+          expectedCredential.encryptedRefreshToken,
+          expectedCredential.tokenKeyVersion,
+        ),
         db.prepare(`
           DELETE FROM market_reports
           WHERE message_id IN (
             SELECT id FROM market_messages WHERE user_id = ? AND status = 'active'
           )
+            AND EXISTS (
+              SELECT 1 FROM market_users WHERE id = ? AND status = 'deleted'
+            )
+        `).bind(userId, userId),
+        db.prepare(`
+          DELETE FROM market_messages
+          WHERE user_id = ? AND status = 'active'
+            AND EXISTS (
+              SELECT 1 FROM market_users WHERE id = ? AND status = 'deleted'
+            )
+        `).bind(userId, userId),
+        db.prepare(`
+          DELETE FROM market_user_sessions
+          WHERE user_id = ? AND EXISTS (
+            SELECT 1 FROM market_users WHERE id = ? AND status = 'deleted'
+          )
+        `).bind(userId, userId),
+        db.prepare(`
+          DELETE FROM market_online_leases
+          WHERE user_id = ? AND EXISTS (
+            SELECT 1 FROM market_users WHERE id = ? AND status = 'deleted'
+          )
+        `).bind(userId, userId),
+        db.prepare(`
+          DELETE FROM market_point_ledger
+          WHERE user_id = ? AND EXISTS (
+            SELECT 1 FROM market_users WHERE id = ? AND status = 'deleted'
+          )
+        `).bind(userId, userId),
+        db.prepare(`
+          DELETE FROM market_user_devices
+          WHERE user_id = ? AND EXISTS (
+            SELECT 1 FROM market_users WHERE id = ? AND status = 'deleted'
+          )
+        `).bind(userId, userId),
+        db.prepare(`
+          DELETE FROM market_apple_credentials
+          WHERE user_id = ? AND encrypted_refresh_token = ? AND token_key_version = ?
+            AND EXISTS (
+              SELECT 1 FROM market_users WHERE id = ? AND status = 'deleted'
+            )
+        `).bind(
+          userId,
+          expectedCredential.encryptedRefreshToken,
+          expectedCredential.tokenKeyVersion,
+          userId,
+        ),
+        db.prepare(`
+          DELETE FROM market_users WHERE id = ? AND status = 'deleted'
         `).bind(userId),
-        db.prepare(
-          `DELETE FROM market_messages WHERE user_id = ? AND status = 'active'`,
-        ).bind(userId),
-        db.prepare(`DELETE FROM market_user_sessions WHERE user_id = ?`).bind(userId),
-        db.prepare(`DELETE FROM market_online_leases WHERE user_id = ?`).bind(userId),
-        db.prepare(`DELETE FROM market_point_ledger WHERE user_id = ?`).bind(userId),
-        db.prepare(`DELETE FROM market_user_devices WHERE user_id = ?`).bind(userId),
-        db.prepare(`DELETE FROM market_apple_credentials WHERE user_id = ?`).bind(userId),
-        db.prepare(`DELETE FROM market_users WHERE id = ?`).bind(userId),
       ]);
+      return Number(results[0]?.meta?.changes) === 1;
     },
   };
 }
@@ -297,13 +358,29 @@ function profileUpdates(body) {
 function cleanNickname(value) {
   if (typeof value !== 'string') throw marketError('nickname_rejected', 422);
   const nickname = value.normalize('NFKC').replace(/\s+/gu, ' ').trim();
-  if (!nickname || Array.from(nickname).length > MAX_NICKNAME_CHARACTERS
-    || /[\p{Cc}\p{Cf}]/u.test(nickname)) {
+  if (!nickname || graphemeCount(nickname) > MAX_NICKNAME_CHARACTERS
+    || hasInvalidNicknameCharacters(nickname)) {
     throw marketError('nickname_rejected', 422);
   }
   const classified = classifyText(nickname);
   if (!classified.allowed) throw marketError('nickname_rejected', 422);
-  return classified.text;
+  return nickname;
+}
+
+function graphemeCount(value) {
+  if (typeof globalThis.Intl?.Segmenter === 'function') {
+    const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+    return Array.from(segmenter.segment(value)).length;
+  }
+  return Array.from(value).length;
+}
+
+function hasInvalidNicknameCharacters(value) {
+  if (/\p{Cc}/u.test(value)) return true;
+  for (const character of value) {
+    if (/\p{Cf}/u.test(character) && character !== '\u200D') return true;
+  }
+  return !value.replace(/[\s\u200D\uFE0E\uFE0F\p{M}]/gu, '');
 }
 
 function ledgerLimit(value) {
@@ -389,10 +466,6 @@ function encodeBase64Url(value) {
   let binary = '';
   for (const byte of value) binary += String.fromCharCode(byte);
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
-}
-
-function cryptoFor(env) {
-  return env?.CRYPTO || globalThis.crypto;
 }
 
 function nowFor(env) {

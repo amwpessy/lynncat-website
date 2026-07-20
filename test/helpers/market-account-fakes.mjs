@@ -14,9 +14,14 @@ function deterministicBytes() {
   };
 }
 
+function compareBinary(left, right) {
+  return left < right ? -1 : (left > right ? 1 : 0);
+}
+
 export function createAccountEnv(options = {}) {
   let now = options.now ?? DEFAULT_NOW;
   let encryptedCredentialPayload = null;
+  let encryptedCredentialKeyVersion = null;
   const operationLog = [];
   const apple = { revocationAttempts: [], revokedTokens: [] };
   const repo = createAccountRepository(operationLog);
@@ -43,12 +48,15 @@ export function createAccountEnv(options = {}) {
       refresh_token: 'raw-refresh-token',
       id_token: 'exchanged-id-token',
     }),
-    ENCRYPT_REFRESH_TOKEN: async (value) => {
+    ENCRYPT_REFRESH_TOKEN: async (value, encryptionEnv) => {
       encryptedCredentialPayload = value;
+      encryptedCredentialKeyVersion = Number(encryptionEnv.APPLE_TOKEN_KEY_VERSION ?? 1);
       return 'sealed-refresh-token';
     },
-    DECRYPT_APPLE_CREDENTIAL: async (value) => {
-      if (value !== 'sealed-refresh-token' || !encryptedCredentialPayload) {
+    DECRYPT_APPLE_CREDENTIAL: async (value, tokenKeyVersion) => {
+      if (value !== 'sealed-refresh-token'
+        || !encryptedCredentialPayload
+        || tokenKeyVersion !== encryptedCredentialKeyVersion) {
         throw new Error('unreadable credential');
       }
       return JSON.parse(encryptedCredentialPayload);
@@ -226,7 +234,7 @@ function createAccountRepository(operationLog) {
         .sort((left, right) => (
           right.pointsBalance - left.pointsBalance
           || left.balanceChangedAt - right.balanceChangedAt
-          || left.id.localeCompare(right.id)
+          || compareBinary(left.id, right.id)
         ))
         .map((user, index) => ({ ...user, rank: index + 1 }));
       return ranked.filter((user) => user.rank <= 100 || user.publicId === currentPublicId);
@@ -238,7 +246,9 @@ function createAccountRepository(operationLog) {
         .filter((entry) => beforeCreatedAt == null
           || entry.createdAt < beforeCreatedAt
           || (entry.createdAt === beforeCreatedAt && entry.id < beforeId))
-        .sort((left, right) => right.createdAt - left.createdAt || right.id.localeCompare(left.id))
+        .sort((left, right) => (
+          right.createdAt - left.createdAt || compareBinary(right.id, left.id)
+        ))
         .slice(0, limit);
     },
 
@@ -253,8 +263,21 @@ function createAccountRepository(operationLog) {
       return credentials.get(userId) ?? null;
     },
 
-    async deleteAccountData(userId) {
+    async deleteAccountData(userId, expectedCredential) {
+      const currentCredential = credentials.get(userId);
+      if (!currentCredential
+        || currentCredential.encryptedRefreshToken !== expectedCredential.encryptedRefreshToken
+        || currentCredential.tokenKeyVersion !== expectedCredential.tokenKeyVersion) {
+        operationLog.push('account-delete-guard-miss');
+        return false;
+      }
+      const user = users.get(userId);
+      if (!user || user.status !== 'active') {
+        operationLog.push('account-delete-guard-miss');
+        return false;
+      }
       operationLog.push('account-delete-batch');
+      user.status = 'deleted';
       const activeMessageIds = new Set(
         [...messages.values()]
           .filter((message) => message.userId === userId && message.status === 'active')
@@ -278,6 +301,7 @@ function createAccountRepository(operationLog) {
       }
       credentials.delete(userId);
       users.delete(userId);
+      return true;
     },
 
     async loadPointState(userId, deviceId) {

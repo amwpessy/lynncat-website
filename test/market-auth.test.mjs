@@ -107,6 +107,22 @@ test('Apple authentication rejects invalid platform, installation ID and nonce b
   }
 });
 
+test('invalid current credential key version fails before any account persistence', async () => {
+  const env = createAccountEnv();
+  env.APPLE_TOKEN_KEY_VERSION = 'invalid';
+
+  const response = await handleMarketAuth(appleCredentialRequest(), env);
+
+  assert.equal(response.status, 503);
+  assert.deepEqual(await response.json(), { error: 'apple_configuration_unavailable' });
+  assert.deepEqual({
+    users: env.repo.users.size,
+    credentials: env.repo.credentials.size,
+    devices: env.repo.devices.size,
+    sessions: env.repo.sessions.size,
+  }, { users: 0, credentials: 0, devices: 0, sessions: 0 });
+});
+
 test('a valid bearer session returns the complete principal and updates last use', async () => {
   const env = createAccountEnv();
   const login = await handleMarketAuth(appleCredentialRequest(), env);

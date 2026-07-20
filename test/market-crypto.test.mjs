@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import * as marketCrypto from '../src/marketCrypto.js';
 import {
   encryptRefreshToken,
   exchangeAppleAuthorizationCode,
@@ -118,6 +119,84 @@ test('refresh-token encryption uses AES-GCM and never returns plaintext', async 
 
   assert.match(encrypted, /^v1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/);
   assert.doesNotMatch(encrypted, /apple-refresh-token/);
+});
+
+test('AES-GCM credentials accept strict standard Base64 and Base64URL keys with optional padding', async () => {
+  const key = new Uint8Array(32).fill(251);
+  const standard = Buffer.from(key).toString('base64');
+  const url = Buffer.from(key).toString('base64url');
+  const encodings = [standard, standard.replace(/=+$/g, ''), url, `${url}=`];
+  assert.match(standard, /\+/);
+  assert.match(standard, /\//);
+
+  for (const encodedKey of encodings) {
+    const env = {
+      APPLE_TOKEN_ENCRYPTION_KEY: encodedKey,
+      APPLE_TOKEN_KEY_VERSION: 3,
+      RANDOM_BYTES: (length) => new Uint8Array(length).fill(5),
+    };
+    const encrypted = await encryptRefreshToken('symmetric-secret', env);
+    assert.equal(await marketCrypto.decryptRefreshToken(encrypted, 3, env), 'symmetric-secret');
+  }
+});
+
+test('AES-GCM credentials reject malformed and incorrect-length encoded keys', async () => {
+  const invalidKeys = [
+    'not*base64',
+    'AAAA=',
+    Buffer.alloc(31, 1).toString('base64'),
+    Buffer.alloc(33, 1).toString('base64url'),
+  ];
+
+  for (const encodedKey of invalidKeys) {
+    await assert.rejects(
+      encryptRefreshToken('secret', {
+        APPLE_TOKEN_ENCRYPTION_KEY: encodedKey,
+        APPLE_TOKEN_KEY_VERSION: 4,
+      }),
+      (error) => error.code === 'apple_configuration_unavailable' && error.status === 503,
+    );
+  }
+});
+
+test('versioned keyrings decrypt old credentials and accept object or JSON mappings', async () => {
+  const oldKey = new Uint8Array(32).fill(1);
+  const currentKey = new Uint8Array(32).fill(2);
+  const oldEnv = {
+    APPLE_TOKEN_KEY_VERSION: 1,
+    APPLE_TOKEN_ENCRYPTION_KEYS: { 1: Buffer.from(oldKey).toString('base64') },
+    RANDOM_BYTES: (length) => new Uint8Array(length).fill(6),
+  };
+  const oldCiphertext = await encryptRefreshToken('old-secret', oldEnv);
+
+  for (const keyring of [
+    { 1: Buffer.from(oldKey).toString('base64'), 2: Buffer.from(currentKey).toString('base64url') },
+    JSON.stringify({
+      1: Buffer.from(oldKey).toString('base64'),
+      2: Buffer.from(currentKey).toString('base64url'),
+    }),
+  ]) {
+    const rotatedEnv = { APPLE_TOKEN_KEY_VERSION: 2, APPLE_TOKEN_ENCRYPTION_KEYS: keyring };
+    assert.equal(
+      await marketCrypto.decryptRefreshToken(oldCiphertext, 1, rotatedEnv),
+      'old-secret',
+    );
+  }
+});
+
+test('single encryption key is available only for the configured current key version', async () => {
+  const env = {
+    APPLE_TOKEN_KEY_VERSION: 2,
+    APPLE_TOKEN_ENCRYPTION_KEY: Buffer.alloc(32, 8).toString('base64'),
+    RANDOM_BYTES: (length) => new Uint8Array(length).fill(7),
+  };
+  const encrypted = await encryptRefreshToken('current-secret', env);
+
+  assert.equal(await marketCrypto.decryptRefreshToken(encrypted, 2, env), 'current-secret');
+  await assert.rejects(
+    marketCrypto.decryptRefreshToken(encrypted, 1, env),
+    (error) => error.code === 'apple_configuration_unavailable' && error.status === 503,
+  );
 });
 
 async function appleTokenFixture(options = {}) {

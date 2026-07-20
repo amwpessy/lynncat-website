@@ -88,8 +88,8 @@ export async function revokeAppleRefreshToken(refreshToken, clientId, env) {
 
 export async function encryptRefreshToken(refreshToken, env) {
   if (!isConfiguredString(refreshToken)) throw marketError('invalid_apple_credential', 400);
-  const rawKey = decodeBase64Url(String(env?.APPLE_TOKEN_ENCRYPTION_KEY || '').trim());
-  if (rawKey.byteLength !== 32) throw marketError('apple_configuration_unavailable', 503);
+  const keyVersion = currentAppleTokenKeyVersion(env);
+  const rawKey = appleTokenEncryptionKey(keyVersion, env);
 
   const cryptoApi = cryptoFor(env);
   const key = await cryptoApi.subtle.importKey('raw', rawKey, { name: 'AES-GCM' }, false, ['encrypt']);
@@ -98,6 +98,38 @@ export async function encryptRefreshToken(refreshToken, env) {
     { name: 'AES-GCM', iv }, key, new TextEncoder().encode(refreshToken),
   );
   return `v1.${encodeBase64Url(iv)}.${encodeBase64Url(ciphertext)}`;
+}
+
+export async function decryptRefreshToken(encryptedRefreshToken, tokenKeyVersion, env) {
+  const rawKey = appleTokenEncryptionKey(tokenKeyVersion, env);
+  try {
+    const parts = String(encryptedRefreshToken || '').split('.');
+    if (parts.length !== 3 || parts[0] !== 'v1' || !parts[1] || !parts[2]) {
+      throw new Error('invalid encrypted credential');
+    }
+    const iv = decodeBase64(parts[1]);
+    if (iv.byteLength !== 12) throw new Error('invalid iv');
+    const cryptoApi = cryptoFor(env);
+    const key = await cryptoApi.subtle.importKey(
+      'raw', rawKey, { name: 'AES-GCM' }, false, ['decrypt'],
+    );
+    const plaintext = await cryptoApi.subtle.decrypt(
+      { name: 'AES-GCM', iv }, key, decodeBase64(parts[2]),
+    );
+    return new TextDecoder('utf-8', { fatal: true }).decode(plaintext);
+  } catch (error) {
+    if (error?.code === 'apple_configuration_unavailable') throw error;
+    throw marketError('invalid_apple_credential', 400);
+  }
+}
+
+export function currentAppleTokenKeyVersion(env) {
+  const configured = env?.APPLE_TOKEN_KEY_VERSION ?? 1;
+  const version = Number(configured);
+  if (!Number.isSafeInteger(version) || version < 1) {
+    throw marketError('apple_configuration_unavailable', 503);
+  }
+  return version;
 }
 
 async function importAppleKey(kid, env) {
@@ -196,12 +228,67 @@ function encodeJsonPart(value) {
 
 function decodeBase64Url(value) {
   try {
-    const normalized = String(value || '').replace(/-/g, '+').replace(/_/g, '/');
-    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
-    const binary = atob(padded);
-    return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+    return decodeBase64(value);
   } catch {
     return new Uint8Array();
+  }
+}
+
+function decodeBase64(value) {
+  const input = String(value || '');
+  const standard = /^[A-Za-z0-9+/]*={0,2}$/.test(input);
+  const url = /^[A-Za-z0-9_-]*={0,2}$/.test(input);
+  if (!input || (!standard && !url)) throw new Error('invalid base64');
+  const firstPadding = input.indexOf('=');
+  const unpadded = firstPadding < 0 ? input : input.slice(0, firstPadding);
+  if (firstPadding >= 0 && input.length % 4 !== 0) throw new Error('invalid base64 padding');
+  if (unpadded.length % 4 === 1) throw new Error('invalid base64 length');
+
+  const normalized = unpadded.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4);
+  const binary = atob(padded);
+  const canonical = btoa(binary).replace(/=+$/g, '');
+  if (canonical !== normalized) throw new Error('non-canonical base64');
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+}
+
+function appleTokenEncryptionKey(tokenKeyVersion, env) {
+  const version = Number(tokenKeyVersion);
+  if (!Number.isSafeInteger(version) || version < 1) {
+    throw marketError('apple_configuration_unavailable', 503);
+  }
+
+  const keyring = appleTokenEncryptionKeyring(env);
+  let encodedKey = keyring && Object.hasOwn(keyring, String(version))
+    ? keyring[String(version)]
+    : null;
+  if (!isConfiguredString(encodedKey) && version === currentAppleTokenKeyVersion(env)) {
+    encodedKey = env?.APPLE_TOKEN_ENCRYPTION_KEY;
+  }
+  if (!isConfiguredString(encodedKey)) {
+    throw marketError('apple_configuration_unavailable', 503);
+  }
+
+  try {
+    const rawKey = decodeBase64(encodedKey.trim());
+    if (rawKey.byteLength !== 32) throw new Error('incorrect AES key length');
+    return rawKey;
+  } catch {
+    throw marketError('apple_configuration_unavailable', 503);
+  }
+}
+
+function appleTokenEncryptionKeyring(env) {
+  const configured = env?.APPLE_TOKEN_ENCRYPTION_KEYS;
+  if (configured == null || configured === '') return null;
+  if (typeof configured === 'object' && !Array.isArray(configured)) return configured;
+  if (typeof configured !== 'string') throw marketError('apple_configuration_unavailable', 503);
+  try {
+    const parsed = JSON.parse(configured);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('invalid keyring');
+    return parsed;
+  } catch {
+    throw marketError('apple_configuration_unavailable', 503);
   }
 }
 
@@ -217,7 +304,7 @@ function pemToBytes(value) {
     .replace(/-----BEGIN PRIVATE KEY-----/g, '')
     .replace(/-----END PRIVATE KEY-----/g, '')
     .replace(/\s+/g, '');
-  const bytes = decodeBase64Url(base64.replace(/\+/g, '-').replace(/\//g, '_'));
+  const bytes = decodeBase64Url(base64);
   if (!bytes.byteLength) throw marketError('apple_configuration_unavailable', 503);
   return bytes;
 }

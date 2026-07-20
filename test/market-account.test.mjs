@@ -79,6 +79,22 @@ test('leaderboard is public without exposing an authenticated self entry', async
   assert.equal(body.me, null);
 });
 
+test('leaderboard fake matches SQLite binary ordering for stable ID ties', async () => {
+  const { env, sessionToken, user } = await signedInEnv({ points: 0 });
+  user.leaderboardVisible = false;
+  for (const id of ['a', 'Z', 'A', 'z']) {
+    env.repo.users.set(id, rankedFixture(id, 10, 100));
+  }
+
+  const body = await json(await handleMarketLeaderboard(
+    authenticatedRequest('/markets/leaderboard', sessionToken), env,
+  ));
+
+  assert.deepEqual(body.entries.map((entry) => entry.publicId), [
+    'public-A', 'public-Z', 'public-a', 'public-z',
+  ]);
+});
+
 test('profile reads and updates normalized nickname and leaderboard visibility', async () => {
   const { env, sessionToken, user } = await signedInEnv({ points: 42 });
   const response = await handleMarketProfile(authenticatedRequest(
@@ -118,6 +134,36 @@ test('profile rejects empty, overlong and unsafe nicknames without mutation', as
     assert.equal(response.status, 422);
     assert.deepEqual(await response.json(), { error: 'nickname_rejected' });
     assert.equal(user.nickname, original);
+  }
+});
+
+test('profile counts normalized user-perceived grapheme clusters', async () => {
+  const { env, sessionToken, user } = await signedInEnv({ points: 1 });
+  const family = '👩‍👩‍👧‍👦';
+  const accepted = [
+    ['🇨🇳'.repeat(14), '🇨🇳'.repeat(14)],
+    ['e\u0301'.repeat(14), 'é'.repeat(14)],
+    ['👍🏽'.repeat(14), '👍🏽'.repeat(14)],
+    [family.repeat(14), family.repeat(14)],
+  ];
+
+  for (const [nickname, normalized] of accepted) {
+    const response = await handleMarketProfile(authenticatedRequest(
+      '/markets/account/profile', sessionToken, { method: 'PUT', body: { nickname } },
+    ), env);
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).account.nickname, normalized);
+    assert.equal(user.nickname, normalized);
+  }
+
+  const lastAccepted = user.nickname;
+  for (const nickname of ['🇨🇳'.repeat(15), family.repeat(15), '\u200D', '\u200B', '\u0000']) {
+    const response = await handleMarketProfile(authenticatedRequest(
+      '/markets/account/profile', sessionToken, { method: 'PUT', body: { nickname } },
+    ), env);
+    assert.equal(response.status, 422);
+    assert.deepEqual(await response.json(), { error: 'nickname_rejected' });
+    assert.equal(user.nickname, lastAccepted);
   }
 });
 
@@ -168,6 +214,20 @@ test('ledger rejects a malformed cursor', async () => {
   assert.deepEqual(await response.json(), { error: 'invalid_cursor' });
 });
 
+test('ledger fake matches SQLite binary ordering for equal timestamps', async () => {
+  const { env, sessionToken, user } = await signedInEnv({ points: 9 });
+  for (const id of ['A', 'Z', 'a', 'z']) {
+    const entry = ledgerFixture(id, user.id, 100, 1);
+    env.repo.ledger.set(entry.idempotencyKey, entry);
+  }
+
+  const body = await json(await handlePointLedger(authenticatedRequest(
+    '/markets/points/ledger?limit=10', sessionToken,
+  ), env));
+
+  assert.deepEqual(body.entries.map((entry) => entry.id), ['z', 'a', 'Z', 'A']);
+});
+
 test('logout revokes only the current session', async () => {
   const env = createAccountEnv();
   const first = await login(env, 'ios', 'ios-install');
@@ -216,6 +276,65 @@ test('AES-GCM credential decryption restores only a valid versioned envelope', a
   );
 });
 
+test('account deletion decrypts a credential with its stored old key version', async () => {
+  const oldKey = new Uint8Array(32).fill(11);
+  const currentKey = new Uint8Array(32).fill(12);
+  const envelope = {
+    version: 1,
+    refreshToken: 'old-version-refresh',
+    clientId: 'com.lynncat.ios',
+  };
+  const encrypted = await encryptRefreshToken(JSON.stringify(envelope), {
+    APPLE_TOKEN_KEY_VERSION: 1,
+    APPLE_TOKEN_ENCRYPTION_KEY: Buffer.from(oldKey).toString('base64'),
+    RANDOM_BYTES: (length) => new Uint8Array(length).fill(9),
+  });
+  const { env, sessionToken, user } = await signedInEnv({ points: 4 });
+  env.APPLE_TOKEN_KEY_VERSION = 2;
+  env.APPLE_TOKEN_ENCRYPTION_KEYS = {
+    1: Buffer.from(oldKey).toString('base64'),
+    2: Buffer.from(currentKey).toString('base64url'),
+  };
+  delete env.DECRYPT_APPLE_CREDENTIAL;
+  env.repo.credentials.set(user.id, {
+    userId: user.id,
+    encryptedRefreshToken: encrypted,
+    tokenKeyVersion: 1,
+    updatedAt: env.NOW(),
+  });
+
+  const response = await handleDeleteMarketAccount(authenticatedRequest(
+    '/markets/account', sessionToken, { method: 'DELETE' },
+  ), env);
+
+  assert.equal(response.status, 204);
+  assert.deepEqual(env.apple.revokedTokens, [{
+    refreshToken: 'old-version-refresh', clientId: 'com.lynncat.ios',
+  }]);
+});
+
+test('unknown or missing stored credential key version preserves all state for retry', async () => {
+  for (const tokenKeyVersion of [99, undefined]) {
+    const { env, sessionToken, user, principal } = await signedInEnv({ points: 4 });
+    seedDeletableState(env, user, principal.deviceId);
+    env.APPLE_TOKEN_KEY_VERSION = 2;
+    env.APPLE_TOKEN_ENCRYPTION_KEYS = { 2: Buffer.alloc(32, 2).toString('base64') };
+    delete env.DECRYPT_APPLE_CREDENTIAL;
+    env.repo.credentials.get(user.id).tokenKeyVersion = tokenKeyVersion;
+    const before = snapshotState(env);
+
+    const response = await handleDeleteMarketAccount(authenticatedRequest(
+      '/markets/account', sessionToken, { method: 'DELETE' },
+    ), env);
+
+    assert.equal(response.status, 503);
+    assert.deepEqual(await response.json(), { error: 'account_deletion_retry' });
+    assert.deepEqual(snapshotState(env), before);
+    assert.deepEqual(env.apple.revocationAttempts, []);
+    assert.equal(env.operationLog.includes('account-delete-batch'), false);
+  }
+});
+
 test('deletion revokes the correct token and client ID before atomically removing account data', async () => {
   const { env, sessionToken, user, principal } = await signedInEnv({
     points: 42, appleClientId: 'com.lynncat.watchos', platform: 'watchos',
@@ -254,10 +373,47 @@ test('revocation failure returns retry and leaves account, sessions, messages an
   assert.equal(env.operationLog.includes('account-delete-batch'), false);
 });
 
+test('credential replacement after revocation prevents deletion and preserves replacement B', async () => {
+  const { env, sessionToken, user, principal } = await signedInEnv({ points: 42 });
+  seedDeletableState(env, user, principal.deviceId);
+  const credentialA = { ...env.repo.credentials.get(user.id) };
+  const credentialB = {
+    userId: user.id,
+    encryptedRefreshToken: 'sealed-replacement-B',
+    tokenKeyVersion: 2,
+    updatedAt: env.NOW() + 1,
+  };
+  env.REVOKE_APPLE_REFRESH_TOKEN = async (refreshToken, clientId) => {
+    env.apple.revocationAttempts.push({ refreshToken, clientId });
+    env.apple.revokedTokens.push({ refreshToken, clientId });
+    env.operationLog.push('apple-revocation');
+    env.repo.credentials.set(user.id, credentialB);
+  };
+
+  const response = await handleDeleteMarketAccount(authenticatedRequest(
+    '/markets/account', sessionToken, { method: 'DELETE' },
+  ), env);
+
+  assert.equal(response.status, 503);
+  assert.deepEqual(await response.json(), { error: 'account_deletion_retry' });
+  assert.deepEqual(env.repo.credentials.get(user.id), credentialB);
+  assert.notDeepEqual(env.repo.credentials.get(user.id), credentialA);
+  assert.deepEqual(env.apple.revokedTokens, [{
+    refreshToken: 'raw-refresh-token', clientId: 'com.lynncat.ios',
+  }]);
+  assert.deepEqual(stateSizes(env), {
+    users: 1, credentials: 1, devices: 1, sessions: 1, leases: 1,
+    ledger: 1, messages: 1, reports: 1,
+  });
+  assert.equal(env.repo.users.get(user.id).status, 'active');
+});
+
 test('D1 deletion is one batch with reports and active messages removed before the user', async () => {
   const source = await readFile(new URL('../src/marketAccount.js', import.meta.url), 'utf8');
 
   assert.match(source, /await db\.batch\(\[/);
+  assert.match(source, /UPDATE market_users[\s\S]*status = 'deleted'[\s\S]*encrypted_refresh_token = \?[\s\S]*token_key_version = \?/);
+  assert.ok((source.match(/status = 'deleted'/g) || []).length >= 9);
   const reports = source.indexOf('DELETE FROM market_reports');
   const messages = source.indexOf('DELETE FROM market_messages');
   const sessions = source.indexOf('DELETE FROM market_user_sessions');
