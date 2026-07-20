@@ -169,6 +169,7 @@ class FakeAdminDb {
     this.state = structuredClone({ batches, candidates, sources, articles, audits: [] });
     this.batchCalls = [];
     this.preparedSql = [];
+    this.executions = [];
   }
 
   prepare(sql) {
@@ -188,7 +189,8 @@ class FakeAdminDb {
     return results;
   }
 
-  execute({ operation, bindings }, state) {
+  execute({ operation, bindings, sql = '' }, state) {
+    this.executions.push({ operation, sql, bindings: [...bindings] });
     switch (operation) {
       case 'admin_current_batch':
       case 'blocking_open':
@@ -333,11 +335,38 @@ class FakeAdminDb {
         if (row) row.enabled = enabled;
         return changes(row ? 1 : 0);
       }
-      case 'admin_article_list':
-        return structuredClone([...state.articles]
+      case 'admin_article_list': {
+        const filterBindings = bindings.slice(0, -2);
+        let bindingIndex = 0;
+        let rows = [...state.articles];
+        if (/instr\s*\(\s*lower\s*\(\s*a\.title/iu.test(sql)) {
+          const query = String(filterBindings[bindingIndex]).toLowerCase();
+          bindingIndex += 2;
+          rows = rows.filter((row) => `${row.title || ''} ${row.source_id || ''}`
+            .toLowerCase().includes(query));
+        }
+        if (/a\.status\s*=\s*\?/iu.test(sql)) {
+          const status = filterBindings[bindingIndex];
+          rows = rows.filter((row) => row.status === status);
+        }
+        return structuredClone(rows
           .sort((a, b) => b.published_at - a.published_at || a.id.localeCompare(b.id))
-          .slice(bindings[1], bindings[1] + bindings[0]));
-      case 'admin_article_total': return { total: state.articles.length };
+          .slice(bindings.at(-1), bindings.at(-1) + bindings.at(-2)));
+      }
+      case 'admin_article_total': {
+        let bindingIndex = 0;
+        let rows = [...state.articles];
+        if (/instr\s*\(\s*lower\s*\(\s*a\.title/iu.test(sql)) {
+          const query = String(bindings[bindingIndex]).toLowerCase();
+          bindingIndex += 2;
+          rows = rows.filter((row) => `${row.title || ''} ${row.source_id || ''}`
+            .toLowerCase().includes(query));
+        }
+        if (/a\.status\s*=\s*\?/iu.test(sql)) {
+          rows = rows.filter((row) => row.status === bindings[bindingIndex]);
+        }
+        return { total: rows.length };
+      }
       case 'admin_source_list':
         return structuredClone([...state.sources]
           .sort((a, b) => b.priority_weight - a.priority_weight || a.id.localeCompare(b.id))
@@ -743,6 +772,52 @@ test('batch history returns real per-status candidate counts from one grouped le
   }
   assert.match(sql, /GROUP\s+BY\s+b\.id/iu);
   assert.match(sql, /ORDER\s+BY\s+b\.collected_at\s+DESC\s*,\s*b\.id\s+ASC/iu);
+});
+
+test('article management filters title or source and status with shared bound SQL', async () => {
+  const env = environment({ articles: [
+    { id: 'one', title: 'Cloud launch', source_id: 'wire', status: 'unpublished', published_at: 30 },
+    { id: 'two', title: 'Other title', source_id: 'cloud-weekly', status: 'unpublished', published_at: 20 },
+    { id: 'three', title: 'Cloud live', source_id: 'wire', status: 'published', published_at: 10 },
+  ] });
+  const q = encodeURIComponent('CLOUD');
+  const result = await callAdmin(env, 'GET',
+    `/itnew/admin/api/articles?q=${q}&status=unpublished&limit=1&offset=1`);
+
+  assert.equal(result.response.status, 200);
+  assert.deepEqual(result.body.items.map(({ id }) => id), ['two']);
+  assert.deepEqual({ total: result.body.total, limit: result.body.limit, offset: result.body.offset },
+    { total: 2, limit: 1, offset: 1 });
+
+  const list = env.ITNEW_DB.executions.find(({ operation }) => operation === 'admin_article_list');
+  const total = env.ITNEW_DB.executions.find(({ operation }) => operation === 'admin_article_total');
+  assert.match(list.sql, /instr\s*\(\s*lower\s*\(\s*a\.title\s*\)\s*,\s*lower\s*\(\s*\?\s*\)\s*\)/iu);
+  assert.match(list.sql, /instr\s*\(\s*lower\s*\(\s*a\.source_id\s*\)\s*,\s*lower\s*\(\s*\?\s*\)\s*\)/iu);
+  assert.match(list.sql, /a\.status\s*=\s*\?/iu);
+  assert.deepEqual(list.bindings, ['CLOUD', 'CLOUD', 'unpublished', 1, 1]);
+  assert.deepEqual(total.bindings, ['CLOUD', 'CLOUD', 'unpublished']);
+  assert.match(total.sql, /WHERE[\s\S]*instr[\s\S]*a\.status\s*=\s*\?/iu);
+});
+
+test('article management rejects unknown repeated oversized controlled and invalid filters before D1', async () => {
+  const invalidPaths = [
+    '/itnew/admin/api/articles?unknown=1',
+    '/itnew/admin/api/articles?q=a&q=b',
+    '/itnew/admin/api/articles?status=published&status=unpublished',
+    '/itnew/admin/api/articles?limit=1&limit=2',
+    '/itnew/admin/api/articles?offset=0&offset=1',
+    `/itnew/admin/api/articles?q=${'a'.repeat(201)}`,
+    '/itnew/admin/api/articles?q=cloud%00wire',
+    '/itnew/admin/api/articles?status=draft',
+    '/itnew/admin/api/articles?status=',
+  ];
+  for (const path of invalidPaths) {
+    const env = environment({ articles: [{ id: 'private' }] });
+    const result = await callAdmin(env, 'GET', path);
+    assert.equal(result.response.status, 400, path);
+    assert.deepEqual(result.body, { error: 'invalid_request' }, path);
+    assert.equal(env.ITNEW_DB.preparedSql.length, 0, path);
+  }
 });
 
 test('article unpublish maps not_found and preserves publisher idempotency', async () => {

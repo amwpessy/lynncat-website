@@ -618,15 +618,8 @@ function changePage(name, direction) {
   ({ articles: loadPublished, sources: loadSources, batches: loadBatches })[name]();
 }
 
-function articleMatches(article) {
-  const query = elements.publishedSearch.value.trim().toLocaleLowerCase('zh-CN');
-  const status = elements.publishedFilter.value;
-  const searchable = `${cleanText(article.title, '')} ${cleanText(article.source_id, '')}`.toLocaleLowerCase('zh-CN');
-  return (!query || searchable.includes(query)) && (!status || article.status === status);
-}
-
 function renderPublished() {
-  const articles = state.articles.filter(articleMatches);
+  const articles = state.articles;
   if (!articles.length) {
     replaceChildren(elements.publishedList, [createElement('p', 'empty-state', '没有符合当前条件的文章。')]);
     return;
@@ -656,12 +649,26 @@ function renderPublished() {
   }));
 }
 
+function publishedParameters() {
+  const page = state.pagination.articles;
+  const parameters = new URLSearchParams({
+    limit: String(page.limit),
+    offset: String(page.offset),
+  });
+  const q = elements.publishedSearch.value.trim();
+  const status = elements.publishedFilter.value;
+  if (q) parameters.set('q', q);
+  if (status) parameters.set('status', status);
+  return parameters;
+}
+
 async function loadPublished() {
   const page = state.pagination.articles;
+  const parameters = publishedParameters();
   const request = beginRequest('articles');
   setStatus(elements.publishedStatus, '正在加载已发布内容…');
   try {
-    const response = await apiRequest(`/articles?limit=${page.limit}&offset=${page.offset}`, {
+    const response = await apiRequest(`/articles?${parameters.toString()}`, {
       signal: request.controller.signal,
     });
     if (!response.ok) throw new Error('articles');
@@ -858,8 +865,20 @@ document.querySelector('.sidebar-nav').addEventListener('click', (event) => {
   if (button) switchView(button.dataset.view);
 });
 
-elements.publishedSearch.addEventListener('input', renderPublished);
-elements.publishedFilter.addEventListener('change', renderPublished);
+let publishedSearchTimer = null;
+
+function reloadPublishedFromFirstPage() {
+  window.clearTimeout(publishedSearchTimer);
+  publishedSearchTimer = null;
+  state.pagination.articles.offset = 0;
+  loadPublished();
+}
+
+elements.publishedSearch.addEventListener('input', () => {
+  window.clearTimeout(publishedSearchTimer);
+  publishedSearchTimer = window.setTimeout(reloadPublishedFromFirstPage, 250);
+});
+elements.publishedFilter.addEventListener('change', reloadPublishedFromFirstPage);
 elements.publishedPrev.addEventListener('click', () => changePage('articles', -1));
 elements.publishedNext.addEventListener('click', () => changePage('articles', 1));
 elements.sourcesPrev.addEventListener('click', () => changePage('sources', -1));

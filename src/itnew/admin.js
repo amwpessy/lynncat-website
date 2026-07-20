@@ -290,10 +290,7 @@ async function toggleSourceService({ request, env, params }) {
   return jsonResponse({ id: params.id, enabled: body.enabled });
 }
 
-function pagination(request) {
-  const search = new URL(request.url).searchParams;
-  const limitValue = search.get('limit') ?? '20';
-  const offsetValue = search.get('offset') ?? '0';
+function paginationValues(limitValue = '20', offsetValue = '0') {
   if (!/^\d+$/u.test(limitValue) || !/^\d+$/u.test(offsetValue)) {
     throw new AdminApiError('invalid_request', 400);
   }
@@ -304,6 +301,40 @@ function pagination(request) {
     throw new AdminApiError('invalid_request', 400);
   }
   return { limit, offset };
+}
+
+function pagination(request) {
+  const search = new URL(request.url).searchParams;
+  return paginationValues(search.get('limit') ?? '20', search.get('offset') ?? '0');
+}
+
+function oneQueryValue(search, name) {
+  const values = search.getAll(name);
+  if (values.length > 1) throw new AdminApiError('invalid_request', 400);
+  return values[0] ?? null;
+}
+
+function articleListParameters(request) {
+  const search = new URL(request.url).searchParams;
+  const allowed = new Set(['limit', 'offset', 'q', 'status']);
+  if ([...search.keys()].some((key) => !allowed.has(key))) {
+    throw new AdminApiError('invalid_request', 400);
+  }
+  const limitValue = oneQueryValue(search, 'limit') ?? '20';
+  const offsetValue = oneQueryValue(search, 'offset') ?? '0';
+  const qValue = oneQueryValue(search, 'q');
+  const status = oneQueryValue(search, 'status');
+  if (qValue != null && (qValue.length > 200 || /[\u0000-\u001f\u007f]/u.test(qValue))) {
+    throw new AdminApiError('invalid_request', 400);
+  }
+  if (status != null && !['published', 'unpublished'].includes(status)) {
+    throw new AdminApiError('invalid_request', 400);
+  }
+  return {
+    ...paginationValues(limitValue, offsetValue),
+    q: qValue?.trim() ?? '',
+    status,
+  };
 }
 
 async function reviewCurrentService({ request, env }) {
@@ -342,19 +373,32 @@ async function reviewCurrentService({ request, env }) {
 }
 
 async function listArticlesService({ request, env }) {
-  const { limit, offset } = pagination(request);
+  const { limit, offset, q, status } = articleListParameters(request);
   const db = env.ITNEW_DB;
+  const conditions = [];
+  const bindings = [];
+  if (q) {
+    conditions.push('(instr(lower(a.title), lower(?)) > 0 OR instr(lower(a.source_id), lower(?)) > 0)');
+    bindings.push(q, q);
+  }
+  if (status) {
+    conditions.push('a.status = ?');
+    bindings.push(status);
+  }
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
   const [result, total] = await Promise.all([
     db.prepare(`
       /* itnew:admin_article_list */
-      SELECT * FROM itnew_articles
-      ORDER BY published_at DESC, id ASC
+      SELECT a.* FROM itnew_articles AS a
+      ${where}
+      ORDER BY a.published_at DESC, a.id ASC
       LIMIT ? OFFSET ?
-    `).bind(limit, offset).all(),
+    `).bind(...bindings, limit, offset).all(),
     db.prepare(`
       /* itnew:admin_article_total */
-      SELECT COUNT(*) AS total FROM itnew_articles
-    `).first(),
+      SELECT COUNT(*) AS total FROM itnew_articles AS a
+      ${where}
+    `).bind(...bindings).first(),
   ]);
   return jsonResponse({ items: result.results, total: Number(total?.total ?? 0), limit, offset });
 }

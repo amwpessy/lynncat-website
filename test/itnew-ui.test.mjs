@@ -296,3 +296,17 @@ test('admin list views expose accessible server-backed pagination and source pri
   assert.match(app, /priority_weight/u);
   assert.match(app, /function changePage/u);
 });
+
+test('published search and status query the complete server result set from page one', async () => {
+  const [html, app] = await Promise.all([
+    source('itnew/admin/index.html'), source('itnew/admin/app.js'),
+  ]);
+  assert.match(html, /id=["']publishedSearch["'][^>]*maxlength=["']200["']/iu);
+  assert.doesNotMatch(app, /function articleMatches/u);
+  assert.match(app, /new URLSearchParams\(\{[\s\S]*?limit:[\s\S]*?offset:/iu);
+  assert.match(app, /parameters\.set\(['"]q['"]/u);
+  assert.match(app, /parameters\.set\(['"]status['"]/u);
+  assert.match(app, /function reloadPublishedFromFirstPage\(\)[\s\S]*?pagination\.articles\.offset\s*=\s*0[\s\S]*?loadPublished\(\)/iu);
+  assert.match(app, /publishedSearch[\s\S]*?setTimeout\([\s\S]*?250/iu);
+  assert.match(app, /publishedFilter[\s\S]*?reloadPublishedFromFirstPage/iu);
+});
