@@ -2,6 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { handleMessages, normalizeRoomId, classifyText, toPublicMessage } from '../src/messages.js';
 import marketWorker, { moderatorCredentialsMatch } from '../src/worker.js';
+import {
+  authenticatedPostMessage,
+  createMessageAccountEnv,
+} from './helpers/market-account-fakes.mjs';
 
 test('normalizeRoomId keeps a concrete room and rejects malformed input', () => {
   assert.equal(normalizeRoomId(' XAU '), 'XAU');
@@ -20,6 +24,7 @@ test('toPublicMessage never exposes private author fields', () => {
   const result = toPublicMessage({
     id: 'm1', room_id: 'XAU', nickname: 'A', text: '观察',
     created_at: 1, expires_at: 2, author_key: 'opaque', author_hash: 'secret',
+    user_id: 'private-user', point_ledger_id: 'private-ledger', request_key: 'private-key',
   });
   assert.deepEqual(result, {
     id: 'm1', roomId: 'XAU', nickname: 'A', text: '观察',
@@ -60,66 +65,220 @@ test('report responses return the final persisted message status', async () => {
   assert.equal((await response.json()).messageStatus, 'removed');
 });
 
-test('POST applies a guest cooldown independently to each room', async () => {
-  const db = createFakeD1();
-  const env = createEnv(db);
-  const clientId = '8b497a28-9b48-4a89-8ba3-48ecb0c59dfe';
+test('guest POST is rejected before publishing or debiting', async () => {
+  const env = createMessageAccountEnv({ points: 3 });
+  const response = await handleMessages(postMessage({
+    roomId: 'XAU', text: '关注实际利率', clientId: 'guest-client-1234',
+  }, { 'Idempotency-Key': 'guest-publish' }), env);
 
-  const first = await handleMessages(postMessage({ roomId: 'XAU', text: '关注实际利率', clientId }), env);
-  const second = await handleMessages(postMessage({ roomId: 'EURUSD', text: '关注欧洲央行', clientId }), env);
-
-  assert.equal(first.status, 201);
-  assert.equal(second.status, 201);
-  assert.equal(db.inserts.length, 2);
+  assert.equal(response.status, 401);
+  assert.deepEqual(await response.json(), { error: 'login_required' });
+  assert.equal(env.repo.messages.size, 0);
+  assert.equal(env.repo.ledger.size, 0);
 });
 
-test('POST atomically applies a guest cooldown to concurrent requests in one room', async () => {
-  const db = createFakeD1({ synchronizeCooldownReads: true });
-  const env = createEnv(db);
-  const clientId = '8b497a28-9b48-4a89-8ba3-48ecb0c59dfe';
+test('authenticated POST atomically debits three points and publishes once', async () => {
+  const env = createMessageAccountEnv({ points: 3, nickname: 'Server Name' });
+  const request = authenticatedPostMessage({
+    roomId: 'XAU', text: '关注实际利率', requestKey: 'publish-1',
+    nickname: 'Spoofed Name', clientId: 'spoofed-client-1234',
+  });
 
+  const first = await handleMessages(request, env);
+  const duplicate = await handleMessages(request, env);
+  const firstBody = await first.json();
+  const duplicateBody = await duplicate.json();
+  const message = [...env.repo.messages.values()][0];
+  const ledger = [...env.repo.ledger.values()][0];
+
+  assert.equal(first.status, 201);
+  assert.equal(duplicate.status, 200);
+  assert.deepEqual(duplicateBody, firstBody);
+  assert.equal(firstBody.pointsBalance, 0);
+  assert.equal(firstBody.message.nickname, 'Server Name');
+  assert.equal(firstBody.message.expiresAt - firstBody.message.createdAt, 60 * 60 * 1000);
+  assert.equal(env.repo.user.pointsBalance, 0);
+  assert.equal(env.repo.messages.size, 1);
+  assert.equal(env.repo.ledger.size, 1);
+  assert.equal(message.userId, env.repo.user.id);
+  assert.equal(message.pointLedgerId, ledger.id);
+  assert.equal(message.requestKey, 'publish-1');
+  assert.equal(ledger.userId, env.repo.user.id);
+  assert.equal(ledger.deviceId, env.defaultAccount.deviceId);
+  assert.equal(ledger.kind, 'message_debit');
+  assert.equal(ledger.amount, -3);
+  assert.equal(ledger.balanceAfter, 0);
+  assert.equal(ledger.referenceType, 'message');
+  assert.equal(ledger.referenceId, message.id);
+  assert.deepEqual(env.DB.publishBatches, [
+    ['message_insert', 'ledger_insert', 'balance_update'],
+    ['message_insert', 'ledger_insert', 'balance_update'],
+  ]);
+});
+
+test('another user cannot reveal or reuse an existing request key', async () => {
+  const env = createMessageAccountEnv({ points: 6 });
+  const other = env.addAccount({
+    userId: 'user-other', deviceId: 'device-other', token: 'other-session-token', points: 6,
+  });
+  const first = await handleMessages(authenticatedPostMessage({
+    roomId: 'XAU', text: '第一位用户观点', requestKey: 'shared-key',
+  }), env);
+  const second = await handleMessages(authenticatedPostMessage({
+    roomId: 'EURUSD', text: '第二位用户观点', requestKey: 'shared-key', token: other.token,
+  }), env);
+
+  assert.equal(first.status, 201);
+  assert.equal(second.status, 409);
+  assert.deepEqual(await second.json(), { error: 'publish_conflict' });
+  assert.equal(env.repo.messages.size, 1);
+  assert.equal(env.repo.ledger.size, 1);
+  assert.equal(env.repo.users.get(other.userId).pointsBalance, 6);
+});
+
+test('a request key already used by a non-message ledger cannot create an uncharged message', async () => {
+  const env = createMessageAccountEnv({ points: 3 });
+  env.repo.ledger.set('credit-key', {
+    id: 'credit-ledger',
+    userId: env.repo.user.id,
+    deviceId: env.defaultAccount.deviceId,
+    kind: 'online_credit',
+    amount: 1,
+    balanceAfter: 3,
+    idempotencyKey: 'credit-key',
+    createdAt: env.NOW() - 1_000,
+  });
+
+  const response = await handleMessages(authenticatedPostMessage({
+    roomId: 'XAU', text: '正常观点', requestKey: 'credit-key',
+  }), env);
+
+  assert.equal(response.status, 409);
+  assert.deepEqual(await response.json(), { error: 'publish_conflict' });
+  assert.equal(env.repo.messages.size, 0);
+  assert.equal(env.repo.ledger.size, 1);
+  assert.equal(env.repo.user.pointsBalance, 3);
+});
+
+test('moderation, cooldown, insufficient points and bans never debit', async () => {
+  const scenarios = [
+    {
+      name: 'moderation', points: 10, text: '加我微信', status: 422,
+      error: 'unsafe_financial_solicitation',
+    },
+    {
+      name: 'cooldown', points: 10, text: '正常观点', status: 429,
+      error: 'cooldown', existingMessage: true,
+    },
+    {
+      name: 'insufficient', points: 2, text: '正常观点', status: 422,
+      error: 'insufficient_points',
+    },
+    {
+      name: 'ban', points: 10, text: '正常观点', status: 403,
+      error: 'author_banned', banned: true,
+    },
+  ];
+
+  for (const scenario of scenarios) {
+    const env = createMessageAccountEnv({
+      points: scenario.points,
+      existingMessage: scenario.existingMessage,
+      banned: scenario.banned,
+    });
+    const originalMessageCount = env.repo.messages.size;
+    const response = await handleMessages(authenticatedPostMessage({
+      roomId: 'XAU', text: scenario.text, requestKey: scenario.name,
+    }), env);
+
+    assert.equal(response.status, scenario.status, scenario.name);
+    assert.equal((await response.json()).error, scenario.error, scenario.name);
+    assert.equal(env.repo.ledger.size, 0, scenario.name);
+    assert.equal(env.repo.messages.size, originalMessageCount, scenario.name);
+    assert.equal(env.repo.user.pointsBalance, scenario.points, scenario.name);
+  }
+});
+
+test('missing and malformed idempotency keys never debit or publish', async () => {
+  for (const requestKey of [undefined, ' ', 'bad key', 'x'.repeat(201)]) {
+    const env = createMessageAccountEnv({ points: 3 });
+    const response = await handleMessages(authenticatedPostMessage({
+      roomId: 'XAU', text: '正常观点', requestKey,
+    }), env);
+
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), { error: 'missing_idempotency_key' });
+    assert.equal(env.repo.ledger.size, 0);
+    assert.equal(env.repo.messages.size, 0);
+    assert.equal(env.repo.user.pointsBalance, 3);
+  }
+});
+
+test('expired and revoked authentication never debit or publish', async () => {
+  for (const sessionState of ['expired', 'revoked']) {
+    const env = createMessageAccountEnv({ points: 3, sessionState });
+    const response = await handleMessages(authenticatedPostMessage({
+      roomId: 'XAU', text: '正常观点', requestKey: sessionState,
+    }), env);
+
+    assert.equal(response.status, 401);
+    assert.deepEqual(await response.json(), { error: `session_${sessionState}` });
+    assert.equal(env.repo.ledger.size, 0);
+    assert.equal(env.repo.messages.size, 0);
+    assert.equal(env.repo.user.pointsBalance, 3);
+  }
+});
+
+test('concurrent requests cannot overspend a three-point balance', async () => {
+  const env = createMessageAccountEnv({ points: 3 });
   const responses = await Promise.all([
-    handleMessages(postMessage({ roomId: 'XAU', text: '关注实际利率', clientId }), env),
-    handleMessages(postMessage({ roomId: 'XAU', text: '关注美元指数', clientId }), env),
+    handleMessages(authenticatedPostMessage({ roomId: 'XAU', text: '观点一', requestKey: 'race-1' }), env),
+    handleMessages(authenticatedPostMessage({ roomId: 'EURUSD', text: '观点二', requestKey: 'race-2' }), env),
+  ]);
+
+  assert.deepEqual(responses.map((response) => response.status).sort(), [201, 422]);
+  assert.equal(env.repo.messages.size, 1);
+  assert.equal(env.repo.ledger.size, 1);
+  assert.equal(env.repo.user.pointsBalance, 0);
+});
+
+test('concurrent requests cannot bypass the same-user same-room cooldown', async () => {
+  const env = createMessageAccountEnv({ points: 6 });
+  const responses = await Promise.all([
+    handleMessages(authenticatedPostMessage({ roomId: 'XAU', text: '观点一', requestKey: 'cooldown-1' }), env),
+    handleMessages(authenticatedPostMessage({ roomId: 'XAU', text: '观点二', requestKey: 'cooldown-2' }), env),
   ]);
 
   assert.deepEqual(responses.map((response) => response.status).sort(), [201, 429]);
-  assert.equal(db.inserts.length, 1);
+  assert.equal(env.repo.messages.size, 1);
+  assert.equal(env.repo.ledger.size, 1);
+  assert.equal(env.repo.user.pointsBalance, 3);
 });
 
-test('POST requires a well-formed clientId and never falls back to request headers', async () => {
-  for (const clientId of [undefined, ' ', 'bad identity']) {
-    const db = createFakeD1();
-    const response = await handleMessages(postMessage(
-      { roomId: 'XAU', text: '关注实际利率', ...(clientId === undefined ? {} : { clientId }) },
-      { 'CF-Connecting-IP': '203.0.113.10' },
-    ), createEnv(db));
+test('cooldown is scoped per user and per room with stable user-derived author keys', async () => {
+  const env = createMessageAccountEnv({ points: 9 });
+  const other = env.addAccount({
+    userId: 'user-other', deviceId: 'device-other', token: 'other-session-token', points: 3,
+  });
+  const first = await handleMessages(authenticatedPostMessage({
+    roomId: 'XAU', text: '黄金观点', requestKey: 'scope-1', clientId: 'first-client-1234',
+  }), env);
+  const otherRoom = await handleMessages(authenticatedPostMessage({
+    roomId: 'EURUSD', text: '欧元观点', requestKey: 'scope-2', clientId: 'second-client-1234',
+  }), env);
+  const otherUser = await handleMessages(authenticatedPostMessage({
+    roomId: 'XAU', text: '另一用户观点', requestKey: 'scope-3', token: other.token,
+  }), env);
+  const sameRoom = await handleMessages(authenticatedPostMessage({
+    roomId: 'XAU', text: '冷却中观点', requestKey: 'scope-4',
+  }), env);
+  const ownMessages = [...env.repo.messages.values()].filter((message) => message.userId === env.repo.user.id);
 
-    assert.equal(response.status, 400);
-    assert.deepEqual(await response.json(), { error: 'missing_guest_identity' });
-    assert.equal(db.writeCount, 0);
-  }
-});
-
-test('POST fails closed when an identity secret is missing or empty', async () => {
-  const configurations = [
-    { AUTHOR_HASH_SALT: undefined, AUTHOR_KEY_SECRET: 'key-secret' },
-    { AUTHOR_HASH_SALT: 'hash-salt', AUTHOR_KEY_SECRET: ' ' },
-  ];
-
-  for (const configuration of configurations) {
-    const db = createFakeD1();
-    const response = await handleMessages(postMessage({
-      roomId: 'XAU',
-      text: '关注实际利率',
-      clientId: '8b497a28-9b48-4a89-8ba3-48ecb0c59dfe',
-    }), { DB: db, ...configuration });
-
-    assert.equal(response.status, 503);
-    assert.deepEqual(await response.json(), { error: 'identity_configuration_unavailable' });
-    assert.equal(db.writeCount, 0);
-    assert.equal(db.identityLookupCount, 0);
-  }
+  assert.deepEqual([first.status, otherRoom.status, otherUser.status, sameRoom.status], [201, 201, 201, 429]);
+  assert.equal(ownMessages.length, 2);
+  assert.equal(ownMessages[0].authorHash, ownMessages[1].authorHash);
+  assert.equal(ownMessages[0].authorKey, ownMessages[1].authorKey);
+  assert.notEqual(ownMessages[0].authorKey, [...env.repo.messages.values()].find((message) => message.userId === other.userId).authorKey);
 });
 
 test('moderation reports require Basic authentication', async () => {
@@ -215,43 +374,6 @@ test('moderator author bans batch every author mutation with the audit action', 
   assert.equal(db.batchCount, 1);
   assert.equal(db.bannedAuthors.size, 2);
   assert.equal(db.actions.at(-1)?.action, 'author_banned');
-});
-
-test('a moderator ban blocks future publishing by the matching author', async () => {
-  const db = createFakeD1();
-  const env = createEnv(db);
-  env.MODERATION_USERNAME = 'moderator';
-  env.MODERATION_PASSWORD = 'secret';
-  env.ASSETS = { fetch: async () => new Response('asset') };
-  const clientId = '8b497a28-9b48-4a89-8ba3-48ecb0c59dfe';
-
-  const published = await handleMessages(postMessage({
-    roomId: 'XAU', text: '关注实际利率', clientId,
-  }), env);
-  assert.equal(published.status, 201);
-  const authorKey = db.inserts[0].author_key;
-
-  const response = await marketWorker.fetch(new Request(
-    `https://unit.test/markets/moderation/api/authors/${authorKey}`,
-    {
-      method: 'PUT',
-      headers: {
-        Authorization: basicAuth('moderator', 'secret'),
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ action: 'ban', note: 'repeated spam' }),
-    },
-  ), env, {});
-
-  assert.equal(response.status, 200);
-  assert.deepEqual(await response.json(), { authorKey, action: 'ban', affectedAuthors: 1 });
-  assert.equal(db.bannedAuthors.has(db.inserts[0].author_hash), true);
-
-  const blocked = await handleMessages(postMessage({
-    roomId: 'EURUSD', text: '关注欧洲央行', clientId,
-  }), env);
-  assert.equal(blocked.status, 403);
-  assert.deepEqual(await blocked.json(), { error: 'author_banned' });
 });
 
 function createEnv(DB) {

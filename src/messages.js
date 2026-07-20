@@ -1,6 +1,8 @@
+import { authenticateMarketRequest } from './marketAuth.js';
+
 const MESSAGE_TTL_MS = 60 * 60 * 1000;
 const COOLDOWN_MS = 3 * 60 * 1000;
-const MAX_NICKNAME_LENGTH = 14;
+const MESSAGE_COST = 3;
 const REPORT_REASONS = new Set([
   'spam', 'harassment', 'sexual_or_violent', 'personal_information', 'scam', 'other',
 ]);
@@ -8,7 +10,7 @@ const REPORT_REASONS = new Set([
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Authorization, Content-Type, Idempotency-Key',
   'Cache-Control': 'no-store',
 };
 
@@ -72,64 +74,177 @@ async function handleGet(request, env) {
 }
 
 async function handlePost(request, env) {
-  const body = await parseJson(request);
-  if (!body) return json({ error: 'invalid_json' }, 400);
-  if (!hasIdentityConfiguration(env)) return json({ error: 'identity_configuration_unavailable' }, 503);
+  return handleAuthenticatedPost(request, env);
+}
 
-  const room = normalizeRoomId(body.roomId ?? body.boardSymbol);
-  const classifiedText = classifyText(body.text);
-  const nickname = cleanNickname(body.nickname);
-  const clientId = cleanClientId(body.clientId);
+export async function handleAuthenticatedPost(request, env) {
+  try {
+    const principal = await authenticateMarketRequest(request, env);
+    const requestKey = cleanIdempotencyKey(request.headers.get('Idempotency-Key'));
+    if (!requestKey) throw marketError('missing_idempotency_key', 400);
 
-  if (!clientId) return json({ error: 'missing_guest_identity' }, 400);
-  if (!room) return json({ error: 'missing_room' }, 400);
-  if (!classifiedText.allowed) {
-    return json({ error: classifiedText.code }, classifiedText.code === 'empty_text' ? 400 : 422);
+    const body = await parseJson(request.clone());
+    if (!body) throw marketError('invalid_json', 400);
+    if (!hasIdentityConfiguration(env)) {
+      throw marketError('identity_configuration_unavailable', 503);
+    }
+
+    const room = normalizeRoomId(body.roomId ?? body.boardSymbol);
+    const classifiedText = classifyText(body.text);
+    if (!room) throw marketError('missing_room', 400);
+    if (!classifiedText.allowed) {
+      throw marketError(classifiedText.code, classifiedText.code === 'empty_text' ? 400 : 422);
+    }
+
+    const authorHash = await hashGuestId(principal.userId, env.AUTHOR_HASH_SALT);
+    const banned = await env.DB.prepare(
+      'SELECT 1 FROM market_banned_authors WHERE author_hash = ? LIMIT 1',
+    ).bind(authorHash).first();
+    if (banned) throw marketError('author_banned', 403);
+
+    return publishWithPoints({
+      env,
+      principal,
+      room,
+      text: classifiedText.text,
+      requestKey,
+      authorHash,
+      authorKey: await authorKeyFor(principal.userId, env.AUTHOR_KEY_SECRET),
+      now: nowFor(env),
+    });
+  } catch (error) {
+    if (typeof error?.code === 'string' && Number.isInteger(error?.status)) {
+      return json({ error: error.code }, error.status);
+    }
+    return json({ error: 'publish_unavailable' }, 500);
   }
+}
 
-  const authorHash = await hashGuestId(clientId, env.AUTHOR_HASH_SALT);
-  const banned = await env.DB.prepare(
-    'SELECT 1 FROM market_banned_authors WHERE author_hash = ? LIMIT 1',
-  ).bind(authorHash).first();
-  if (banned) return json({ error: 'author_banned' }, 403);
-
-  const authorKey = await authorKeyFor(clientId, env.AUTHOR_KEY_SECRET);
-  const now = nowFor(env);
+async function publishWithPoints({
+  env, principal, room, text, requestKey, authorHash, authorKey, now,
+}) {
   await purgeExpired(env.DB, now);
-  const id = crypto.randomUUID();
+  const messageId = crypto.randomUUID();
+  const ledgerId = crypto.randomUUID();
   const expiresAt = now + MESSAGE_TTL_MS;
   const cooldownCutoff = now - COOLDOWN_MS;
-  const insertResult = await env.DB.prepare(`
-    INSERT INTO market_messages (id, room_id, nickname, text, author_hash, author_key, status, created_at, expires_at)
-    SELECT ?, ?, ?, ?, ?, ?, 'active', ?, ?
-    WHERE NOT EXISTS (
-      SELECT 1 FROM market_messages
-      WHERE author_hash = ? AND room_id = ? AND created_at > ?
-    )
-  `).bind(
-    id, room, nickname || null, classifiedText.text, authorHash, authorKey, now, expiresAt,
-    authorHash, room, cooldownCutoff,
-  ).run();
+  const statements = [
+    env.DB.prepare(`
+      INSERT INTO market_messages (
+        id, room_id, nickname, text, author_hash, author_key, status, created_at, expires_at,
+        user_id, point_ledger_id, request_key
+      )
+      SELECT ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?
+      FROM market_users
+      WHERE id = ? AND status = 'active' AND points_balance >= ?
+        AND NOT EXISTS (
+          SELECT 1 FROM market_messages WHERE request_key = ?
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM market_point_ledger WHERE idempotency_key = ?
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM market_messages
+          WHERE user_id = ? AND room_id = ? AND created_at > ?
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM market_banned_authors WHERE author_hash = ?
+        )
+    `).bind(
+      messageId, room, principal.nickname, text, authorHash, authorKey, now, expiresAt,
+      principal.userId, ledgerId, requestKey,
+      principal.userId, MESSAGE_COST, requestKey, requestKey,
+      principal.userId, room, cooldownCutoff, authorHash,
+    ),
+    env.DB.prepare(`
+      INSERT INTO market_point_ledger (
+        id, user_id, device_id, kind, amount, balance_after,
+        reference_type, reference_id, idempotency_key, created_at
+      )
+      SELECT ?, ?, ?, 'message_debit', -3, points_balance - 3,
+        'message', ?, ?, ?
+      FROM market_users
+      WHERE id = ? AND status = 'active' AND points_balance >= 3
+        AND EXISTS (
+          SELECT 1 FROM market_messages
+          WHERE id = ? AND user_id = ? AND point_ledger_id = ? AND request_key = ?
+        )
+      ON CONFLICT(idempotency_key) DO NOTHING
+    `).bind(
+      ledgerId, principal.userId, principal.deviceId, messageId, requestKey, now,
+      principal.userId, messageId, principal.userId, ledgerId, requestKey,
+    ),
+    env.DB.prepare(`
+      UPDATE market_users
+      SET points_balance = points_balance - 3, balance_changed_at = ?, updated_at = ?
+      WHERE id = ? AND status = 'active' AND points_balance >= 3
+        AND EXISTS (
+          SELECT 1 FROM market_point_ledger WHERE id = ? AND user_id = ?
+        )
+    `).bind(now, now, principal.userId, ledgerId, principal.userId),
+  ];
+  const [messageResult, ledgerResult, balanceResult] = await env.DB.batch(statements);
 
-  if (Number(insertResult.meta?.changes) === 0) {
-    const last = await env.DB.prepare(`
-      SELECT created_at FROM market_messages
-      WHERE author_hash = ? AND room_id = ?
-      ORDER BY created_at DESC
-      LIMIT 1
-    `).bind(authorHash, room).first();
-    const elapsed = last ? now - Number(last.created_at) : COOLDOWN_MS;
+  if (Number(messageResult?.meta?.changes) === 1
+    && Number(ledgerResult?.meta?.changes) === 1
+    && Number(balanceResult?.meta?.changes) === 1) {
+    const ledger = await env.DB.prepare(
+      'SELECT balance_after FROM market_point_ledger WHERE id = ? AND user_id = ? LIMIT 1',
+    ).bind(ledgerId, principal.userId).first();
+    return publishResponse({
+      id: messageId,
+      room_id: room,
+      nickname: principal.nickname,
+      text,
+      author_key: authorKey,
+      created_at: now,
+      expires_at: expiresAt,
+    }, Number(ledger?.balance_after), 201);
+  }
+
+  const existing = await env.DB.prepare(`
+    SELECT id, room_id, nickname, text, author_key, created_at, expires_at
+    FROM market_messages
+    WHERE request_key = ? AND user_id = ?
+    LIMIT 1
+  `).bind(requestKey, principal.userId).first();
+  if (existing) {
+    const account = await loadPublishingUser(env.DB, principal.userId);
+    return publishResponse(existing, Number(account?.points_balance ?? 0), 200);
+  }
+
+  const account = await loadPublishingUser(env.DB, principal.userId);
+  if (Number(account?.points_balance) < MESSAGE_COST) {
+    return json({ error: 'insufficient_points', pointsBalance: Number(account?.points_balance ?? 0) }, 422);
+  }
+
+  const last = await env.DB.prepare(`
+    SELECT created_at FROM market_messages
+    WHERE user_id = ? AND room_id = ?
+    ORDER BY created_at DESC
+    LIMIT 1
+  `).bind(principal.userId, room).first();
+  if (last && Number(last.created_at) > cooldownCutoff) {
+    const elapsed = now - Number(last.created_at);
     const remainingCooldown = Math.max(0, Math.ceil((COOLDOWN_MS - elapsed) / 1000));
     return json({ error: 'cooldown', remainingCooldown }, 429);
   }
 
+  return json({ error: 'publish_conflict' }, 409);
+}
+
+async function loadPublishingUser(db, userId) {
+  return db.prepare(
+    'SELECT points_balance, status FROM market_users WHERE id = ? LIMIT 1',
+  ).bind(userId).first();
+}
+
+function publishResponse(message, pointsBalance, status) {
   return json({
-    message: toPublicMessage({
-      id, room_id: room, nickname: nickname || null, text: classifiedText.text,
-      created_at: now, expires_at: expiresAt, author_key: authorKey,
-    }),
+    message: toPublicMessage(message),
     remainingCooldown: Math.ceil(COOLDOWN_MS / 1000),
-  }, 201);
+    pointsBalance,
+  }, status);
 }
 
 async function handleReport(request, env, messageId) {
@@ -235,14 +350,10 @@ function bytesToHex(buffer) {
   return Array.from(new Uint8Array(buffer), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
-function cleanNickname(value) {
-  return String(value || '').replace(/\s+/g, ' ').trim().slice(0, MAX_NICKNAME_LENGTH);
-}
-
-function cleanClientId(value) {
+function cleanIdempotencyKey(value) {
   if (typeof value !== 'string') return '';
-  const clientId = value.trim();
-  return /^[A-Za-z0-9][A-Za-z0-9._:-]{7,79}$/.test(clientId) ? clientId : '';
+  const key = value.trim();
+  return /^[A-Za-z0-9._:-]{1,200}$/.test(key) ? key : '';
 }
 
 function cleanReporterId(value) {
@@ -263,6 +374,10 @@ function hasIdentityConfiguration(env) {
 
 function isConfiguredSecret(value) {
   return typeof value === 'string' && value.trim().length > 0;
+}
+
+function marketError(code, status) {
+  return Object.assign(new Error(code), { code, status });
 }
 
 async function parseJson(request) {

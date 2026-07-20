@@ -128,6 +128,88 @@ export function authenticatedRequest(path, token, { method = 'GET', body } = {})
   });
 }
 
+export function authenticatedPostMessage({
+  roomId, text, requestKey, token = 'message-session-token', nickname, clientId,
+} = {}) {
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    'Content-Type': 'application/json',
+  };
+  if (requestKey !== undefined) headers['Idempotency-Key'] = requestKey;
+  return new Request('https://unit.test/markets/messages', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ roomId, text, nickname, clientId }),
+  });
+}
+
+export function createMessageAccountEnv(options = {}) {
+  const env = createAccountEnv({ now: options.now });
+  env.AUTHOR_HASH_SALT = 'hash-salt';
+  env.AUTHOR_KEY_SECRET = 'key-secret';
+  env.addAccount = ({
+    userId = 'message-user', deviceId = 'message-device', token = 'message-session-token',
+    points = 0, nickname = 'Lynncat 1234', sessionState = 'active',
+  } = {}) => {
+    const user = {
+      id: userId,
+      publicId: `public-${userId}`,
+      nickname,
+      pointsBalance: points,
+      pointsEarnedTotal: points,
+      balanceChangedAt: env.NOW(),
+      leaderboardVisible: true,
+      status: 'active',
+      createdAt: env.NOW(),
+      updatedAt: env.NOW(),
+    };
+    const device = {
+      id: deviceId,
+      userId,
+      platform: 'ios',
+      revokedAt: null,
+    };
+    const session = {
+      id: `session-${userId}`,
+      userId,
+      deviceId,
+      tokenHash: digest(env.SESSION_HASH_SALT, token),
+      expiresAt: sessionState === 'expired' ? env.NOW() - 1 : env.NOW() + 60_000,
+      revokedAt: sessionState === 'revoked' ? env.NOW() - 1 : null,
+      lastUsedAt: env.NOW(),
+    };
+    env.repo.users.set(userId, user);
+    env.repo.devices.set(deviceId, device);
+    env.repo.sessions.set(session.tokenHash, session);
+    return { userId, deviceId, token };
+  };
+  env.defaultAccount = env.addAccount({
+    points: options.points ?? 0,
+    nickname: options.nickname,
+    sessionState: options.sessionState,
+  });
+  env.DB = createMessageD1(env.repo);
+
+  if (options.existingMessage) {
+    env.repo.messages.set('existing-message', {
+      id: 'existing-message',
+      roomId: 'XAU',
+      nickname: env.repo.user.nickname,
+      text: '已有观点',
+      authorHash: null,
+      authorKey: null,
+      status: 'active',
+      createdAt: env.NOW() - 1_000,
+      expiresAt: env.NOW() + 60_000,
+      userId: env.repo.user.id,
+      pointLedgerId: 'existing-ledger',
+      requestKey: 'existing-request',
+    });
+  }
+  if (options.banned) env.DB.banUser(env.repo.user.id);
+  return env;
+}
+
 export function visibleUsers(count, options = {}) {
   return Array.from({ length: count }, (_, index) => ({
     id: `rank-user-${String(index + 1).padStart(3, '0')}`,
@@ -354,4 +436,176 @@ function createAccountRepository(operationLog) {
       return { removed: true, lease: current };
     },
   };
+}
+
+function createMessageD1(repo) {
+  const bannedAuthors = new Map();
+  let batchQueue = Promise.resolve();
+  const db = {
+    publishBatches: [],
+    bannedAuthors,
+    banUser(userId) {
+      const authorHash = digest('hash-salt', userId);
+      bannedAuthors.set(authorHash, { author_hash: authorHash });
+    },
+    batch(statements) {
+      const operation = batchQueue.then(async () => {
+        db.publishBatches.push(statements.map((statement) => statement.kind));
+        const results = [];
+        for (const statement of statements) results.push(await statement.run());
+        return results;
+      });
+      batchQueue = operation.catch(() => {});
+      return operation;
+    },
+    prepare(sql) {
+      return {
+        bind(...values) {
+          const kind = statementKind(sql);
+          return {
+            kind,
+            async run() {
+              if (/^\s*DELETE\s+FROM\s+market_messages/i.test(sql)) {
+                const [now] = values;
+                for (const [id, message] of repo.messages) {
+                  if (Number(message.expiresAt) < now) repo.messages.delete(id);
+                }
+                return changed(0);
+              }
+              if (/^\s*INSERT\s+INTO\s+market_messages/i.test(sql)) {
+                const [
+                  id, roomId, nickname, text, authorHash, authorKey, createdAt, expiresAt,
+                  userId, pointLedgerId, requestKey,
+                ] = values;
+                const user = repo.users.get(userId);
+                const duplicate = repo.ledger.has(requestKey)
+                  || [...repo.messages.values()].some((message) => message.requestKey === requestKey);
+                const coolingDown = [...repo.messages.values()].some((message) => (
+                  message.userId === userId && message.roomId === roomId
+                  && message.createdAt > createdAt - (3 * 60 * 1000)
+                ));
+                if (!user || user.status !== 'active' || user.pointsBalance < 3
+                  || duplicate || coolingDown || bannedAuthors.has(authorHash)) return changed(0);
+                repo.messages.set(id, {
+                  id, roomId, nickname, text, authorHash, authorKey, status: 'active',
+                  createdAt, expiresAt, userId, pointLedgerId, requestKey,
+                });
+                return changed(1);
+              }
+              if (/^\s*INSERT\s+INTO\s+market_point_ledger/i.test(sql)) {
+                const [ledgerId, userId, deviceId, messageId, requestKey, createdAt] = values;
+                const user = repo.users.get(userId);
+                const message = repo.messages.get(messageId);
+                if (!user || user.status !== 'active' || user.pointsBalance < 3
+                  || repo.ledger.has(requestKey) || !message
+                  || message.userId !== userId || message.pointLedgerId !== ledgerId
+                  || message.requestKey !== requestKey) return changed(0);
+                repo.ledger.set(requestKey, {
+                  id: ledgerId,
+                  userId,
+                  deviceId,
+                  kind: 'message_debit',
+                  amount: -3,
+                  balanceAfter: user.pointsBalance - 3,
+                  referenceType: 'message',
+                  referenceId: messageId,
+                  idempotencyKey: requestKey,
+                  createdAt,
+                });
+                return changed(1);
+              }
+              if (/^\s*UPDATE\s+market_users/i.test(sql)) {
+                const [balanceChangedAt, updatedAt, userId, ledgerId] = values;
+                const user = repo.users.get(userId);
+                const ledger = [...repo.ledger.values()].find((entry) => (
+                  entry.id === ledgerId && entry.userId === userId
+                ));
+                if (!user || !ledger || user.pointsBalance < 3) return changed(0);
+                user.pointsBalance -= 3;
+                user.balanceChangedAt = balanceChangedAt;
+                user.updatedAt = updatedAt;
+                return changed(1);
+              }
+              throw new Error(`Unsupported message fake write: ${sql}`);
+            },
+            async first() {
+              if (/FROM\s+market_banned_authors/i.test(sql)) {
+                return bannedAuthors.get(values[0]) ?? null;
+              }
+              if (/FROM\s+market_messages/i.test(sql) && /request_key\s*=\s*\?/i.test(sql)) {
+                const [requestKey, userId] = values;
+                const message = [...repo.messages.values()].find((candidate) => (
+                  candidate.requestKey === requestKey && candidate.userId === userId
+                ));
+                return message ? messageRow(message) : null;
+              }
+              if (/FROM\s+market_users/i.test(sql) && /points_balance/i.test(sql)) {
+                const user = repo.users.get(values[0]);
+                return user ? { points_balance: user.pointsBalance, status: user.status } : null;
+              }
+              if (/FROM\s+market_point_ledger/i.test(sql) && /balance_after/i.test(sql)) {
+                const [ledgerId, userId] = values;
+                const ledger = [...repo.ledger.values()].find((entry) => (
+                  entry.id === ledgerId && entry.userId === userId
+                ));
+                return ledger ? { balance_after: ledger.balanceAfter } : null;
+              }
+              if (/FROM\s+market_messages/i.test(sql) && /created_at/i.test(sql)) {
+                const [userId, roomId] = values;
+                const message = [...repo.messages.values()]
+                  .filter((candidate) => candidate.userId === userId && candidate.roomId === roomId)
+                  .sort((left, right) => right.createdAt - left.createdAt)[0];
+                return message ? { created_at: message.createdAt } : null;
+              }
+              return null;
+            },
+            async all() {
+              if (/FROM\s+market_messages/i.test(sql) && /room_id\s*=\s*\?/i.test(sql)) {
+                const [roomId, status, now] = values;
+                return {
+                  results: [...repo.messages.values()]
+                    .filter((message) => (
+                      message.roomId === roomId && message.status === status && message.expiresAt > now
+                    ))
+                    .sort((left, right) => right.createdAt - left.createdAt)
+                    .slice(0, 50)
+                    .map(messageRow),
+                };
+              }
+              return { results: [] };
+            },
+          };
+        },
+      };
+    },
+  };
+  return db;
+}
+
+function statementKind(sql) {
+  if (/^\s*INSERT\s+INTO\s+market_messages/i.test(sql)) return 'message_insert';
+  if (/^\s*INSERT\s+INTO\s+market_point_ledger/i.test(sql)) return 'ledger_insert';
+  if (/^\s*UPDATE\s+market_users/i.test(sql)) return 'balance_update';
+  return 'other';
+}
+
+function messageRow(message) {
+  return {
+    id: message.id,
+    room_id: message.roomId,
+    nickname: message.nickname,
+    text: message.text,
+    author_hash: message.authorHash,
+    author_key: message.authorKey,
+    status: message.status,
+    created_at: message.createdAt,
+    expires_at: message.expiresAt,
+    user_id: message.userId,
+    point_ledger_id: message.pointLedgerId,
+    request_key: message.requestKey,
+  };
+}
+
+function changed(changes) {
+  return { success: true, meta: { changes } };
 }
