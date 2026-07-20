@@ -59,7 +59,8 @@ function summaryText(value, fallback = '—') {
   const raw = cleanText(value, '');
   if (!raw) return fallback;
   const documentValue = new DOMParser().parseFromString(raw, 'text/html');
-  return cleanText(documentValue.body.textContent?.replace(/\s+/gu, ' '), fallback);
+  const result = cleanText(documentValue.body.textContent?.replace(/\s+/gu, ' '), '');
+  return result && !/^点击查看原文[>》]?[。.!！]?$/u.test(result) ? result : fallback;
 }
 
 function timestampValue(value) {

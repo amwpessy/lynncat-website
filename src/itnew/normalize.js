@@ -39,6 +39,7 @@ export function normalizeSummary(value = '') {
     .replace(/\s+/gu, ' ')
     .replace(/\s+([.,!?;:，。！？；：])/gu, '$1')
     .trim();
+  if (/^点击查看原文[>》]?[。.!！]?$/u.test(plain)) return '';
   const characters = Array.from(plain);
   if (characters.length <= SUMMARY_MAX_CHARACTERS) return plain;
   return `${characters.slice(0, SUMMARY_MAX_CHARACTERS - 1).join('').trimEnd()}…`;

@@ -39,7 +39,8 @@ function summaryText(value, fallback = '') {
   const raw = text(value);
   if (!raw) return fallback;
   const documentValue = new DOMParser().parseFromString(raw, 'text/html');
-  return text(documentValue.body.textContent?.replace(/\s+/gu, ' '), fallback);
+  const result = text(documentValue.body.textContent?.replace(/\s+/gu, ' '));
+  return result && !/^点击查看原文[>》]?[。.!！]?$/u.test(result) ? result : fallback;
 }
 
 function validTimestamp(value) {

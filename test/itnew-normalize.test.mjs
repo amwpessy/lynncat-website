@@ -147,6 +147,10 @@ test('normalizeEntry stores a bounded plain-text summary instead of feed HTML', 
   assert.match(normalized.summary, /^Hello developers\. /u);
   assert.equal(Array.from(normalized.summary).length, 600);
   assert.match(normalized.summary, /…$/u);
+  assert.equal(normalizeEntry({
+    title: 'InfoQ update', url: 'https://x.test/boilerplate',
+    summary: '<div><a href="https://x.test/original">点击查看原文></a></div>',
+  }, zhSource, now).summary, '');
 });
 
 test('normalizeEntry accepts snake-case source fields returned by itnew_sources', () => {
