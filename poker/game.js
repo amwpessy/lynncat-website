@@ -324,6 +324,12 @@
     els.status.textContent = "筹码已重置，准备发牌"; render(); toast("所有玩家恢复 2,500 筹码");
   });
   els.sound.addEventListener("click", () => { state.sound = !state.sound; els.sound.setAttribute("aria-pressed", String(state.sound)); els.sound.textContent = state.sound ? "♪" : "×"; toast(state.sound ? "音效已开启" : "音效已关闭"); });
+  const rulesDialog = $("rulesDialog");
+  $("rulesOpen").addEventListener("click", () => rulesDialog.showModal());
+  $("rulesClose").addEventListener("click", () => rulesDialog.close());
+  rulesDialog.addEventListener("click", (event) => { if (event.target === rulesDialog) rulesDialog.close(); });
+  $("logToggle").addEventListener("click", () => document.body.classList.add("log-open"));
+  $("logClose").addEventListener("click", () => document.body.classList.remove("log-open"));
   document.addEventListener("keydown", (event) => {
     if (/input/i.test(event.target.tagName)) return;
     const k = event.key.toLowerCase();
