@@ -9,6 +9,7 @@ const PLATFORMS = new Set(['macos', 'ios', 'watchos']);
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 export async function handleMarketAuth(request, env) {
+  let authenticationStage = 'request_validation';
   try {
     const body = await parseJson(request);
     if (!body) throw marketError('invalid_json', 400);
@@ -27,13 +28,19 @@ export async function handleMarketAuth(request, env) {
     const verifyIdentityToken = env?.VERIFY_APPLE_IDENTITY_TOKEN || verifyAppleIdentityToken;
     const exchangeAuthorizationCode = env?.EXCHANGE_APPLE_AUTHORIZATION_CODE || exchangeAppleAuthorizationCode;
     const sealRefreshToken = env?.ENCRYPT_REFRESH_TOKEN || encryptRefreshToken;
+    authenticationStage = 'initial_identity_token';
     const payload = await verifyIdentityToken(identityToken, nonce, env);
+    authenticationStage = 'authorization_code_exchange';
     const tokens = await exchangeAuthorizationCode(authorizationCode, payload.aud, env);
     if (!cleanCredential(tokens?.id_token)) throw marketError('invalid_apple_token', 401);
+    authenticationStage = 'exchanged_identity_token';
     const exchangedPayload = await verifyIdentityToken(tokens.id_token, nonce, env);
     if (exchangedPayload.sub !== payload.sub || exchangedPayload.aud !== payload.aud) {
-      throw marketError('invalid_apple_token', 401);
+      throw Object.assign(marketError('invalid_apple_token', 401), {
+        diagnostic: 'exchanged_claim_mismatch',
+      });
     }
+    authenticationStage = 'account_persistence';
     const appleSubjectHash = await secretHash(env.APPLE_SUBJECT_HASH_SALT, payload.sub, env);
     const installationHash = await secretHash(env.INSTALLATION_HASH_SALT, installationId, env);
     const tokenKeyVersion = currentAppleTokenKeyVersion(env);
@@ -100,6 +107,12 @@ export async function handleMarketAuth(request, env) {
 
     return json({ sessionToken, account: publicAccount(user) }, 201);
   } catch (error) {
+    if (typeof error?.code === 'string') {
+      console.warn('market_auth_rejected', {
+        stage: authenticationStage,
+        reason: typeof error?.diagnostic === 'string' ? error.diagnostic : error.code,
+      });
+    }
     if (typeof error?.code === 'string' && Number.isInteger(error?.status)) {
       return json({ error: error.code }, error.status);
     }

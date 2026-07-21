@@ -11,24 +11,29 @@ let cachedAppleKeysUntil = 0;
 export async function verifyAppleIdentityToken(token, expectedNonce, env) {
   try {
     const parts = String(token || '').split('.');
-    if (parts.length !== 3 || parts.some((part) => !part)) throw new Error('malformed JWT');
+    if (parts.length !== 3 || parts.some((part) => !part)) {
+      throw invalidAppleToken('malformed_jwt');
+    }
     const [head, body, signature] = parts;
     const header = decodeJsonPart(head);
     const payload = decodeJsonPart(body);
 
     if (header.alg !== 'ES256' || typeof header.kid !== 'string' || !header.kid) {
-      throw new Error('unsupported JWT header');
+      throw invalidAppleToken('unsupported_header');
     }
-    if (payload.iss !== APPLE_ISSUER || !audienceIsAllowed(payload.aud, env)) {
-      throw new Error('invalid JWT claims');
-    }
+    if (payload.iss !== APPLE_ISSUER) throw invalidAppleToken('invalid_issuer');
+    if (!audienceIsAllowed(payload.aud, env)) throw invalidAppleToken('invalid_audience');
     const expiresAt = Number(payload.exp) * 1000;
-    if (!Number.isFinite(expiresAt) || expiresAt <= nowFor(env)) throw new Error('expired JWT');
+    if (!Number.isFinite(expiresAt) || expiresAt <= nowFor(env)) {
+      throw invalidAppleToken('expired_token');
+    }
     const expectedNonceHash = await sha256Hex(expectedNonce, env);
     if (!expectedNonceHash || payload.nonce !== expectedNonceHash) {
-      throw new Error('invalid nonce');
+      throw invalidAppleToken('invalid_nonce');
     }
-    if (typeof payload.sub !== 'string' || !payload.sub) throw new Error('missing subject');
+    if (typeof payload.sub !== 'string' || !payload.sub) {
+      throw invalidAppleToken('missing_subject');
+    }
 
     const key = await importAppleKey(header.kid, env);
     const valid = await cryptoFor(env).subtle.verify(
@@ -37,11 +42,11 @@ export async function verifyAppleIdentityToken(token, expectedNonce, env) {
       joseSignatureToWebCrypto(signature),
       new TextEncoder().encode(`${head}.${body}`),
     );
-    if (!valid) throw new Error('invalid signature');
+    if (!valid) throw invalidAppleToken('invalid_signature');
     return payload;
   } catch (error) {
     if (error?.code === 'invalid_apple_token') throw error;
-    throw marketError('invalid_apple_token', 401);
+    throw invalidAppleToken('verification_failed');
   }
 }
 
@@ -217,6 +222,10 @@ function allowedAudiences(env) {
   const configured = env?.APPLE_CLIENT_IDS;
   const values = Array.isArray(configured) ? configured : String(configured || '').split(',');
   return new Set(values.map((value) => String(value).trim()).filter(Boolean));
+}
+
+function invalidAppleToken(diagnostic) {
+  return Object.assign(marketError('invalid_apple_token', 401), { diagnostic });
 }
 
 function joseSignatureToWebCrypto(value) {
