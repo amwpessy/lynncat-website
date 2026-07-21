@@ -18,7 +18,7 @@ export async function verifyAppleIdentityToken(token, expectedNonce, env) {
     const header = decodeJsonPart(head);
     const payload = decodeJsonPart(body);
 
-    if (header.alg !== 'ES256' || typeof header.kid !== 'string' || !header.kid) {
+    if (header.alg !== 'RS256' || typeof header.kid !== 'string' || !header.kid) {
       throw invalidAppleToken('unsupported_header');
     }
     if (payload.iss !== APPLE_ISSUER) throw invalidAppleToken('invalid_issuer');
@@ -37,9 +37,9 @@ export async function verifyAppleIdentityToken(token, expectedNonce, env) {
 
     const key = await importAppleKey(header.kid, env);
     const valid = await cryptoFor(env).subtle.verify(
-      { name: 'ECDSA', hash: 'SHA-256' },
+      { name: 'RSASSA-PKCS1-v1_5' },
       key,
-      joseSignatureToWebCrypto(signature),
+      decodeBase64Url(signature),
       new TextEncoder().encode(`${head}.${body}`),
     );
     if (!valid) throw invalidAppleToken('invalid_signature');
@@ -150,9 +150,9 @@ async function importAppleKey(kid, env) {
     jwks = await fetchAppleKeys(env, true);
     jwk = findAppleKey(jwks, kid);
   }
-  if (!jwk || jwk.kty !== 'EC' || jwk.crv !== 'P-256') throw new Error('unknown Apple key');
+  if (!jwk || jwk.kty !== 'RSA') throw invalidAppleToken('unknown_apple_key');
   return cryptoFor(env).subtle.importKey(
-    'jwk', jwk, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify'],
+    'jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify'],
   );
 }
 
@@ -226,12 +226,6 @@ function allowedAudiences(env) {
 
 function invalidAppleToken(diagnostic) {
   return Object.assign(marketError('invalid_apple_token', 401), { diagnostic });
-}
-
-function joseSignatureToWebCrypto(value) {
-  const signature = decodeBase64Url(value);
-  if (signature.byteLength !== 64) throw new Error('invalid ES256 signature');
-  return signature;
 }
 
 function decodeJsonPart(value) {

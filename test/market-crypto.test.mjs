@@ -11,7 +11,7 @@ import {
 const encoder = new TextEncoder();
 const NOW = 1_700_000_000_000;
 
-test('verifyAppleIdentityToken accepts a valid Apple ES256 identity token', async () => {
+test('verifyAppleIdentityToken accepts a valid Apple RS256 identity token', async () => {
   const fixture = await appleTokenFixture();
   const payload = await verifyAppleIdentityToken(fixture.token, 'nonce-123', fixture.env);
 
@@ -38,7 +38,7 @@ test('an unknown kid in cached fetched JWKS triggers exactly one fresh key fetch
 
 for (const [label, mutate] of [
   ['signature', async (fixture) => {
-    const other = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
+    const other = await appleIdentityKeyPair();
     return signedToken(fixture.header, fixture.payload, other.privateKey);
   }],
   ['iss', async (fixture) => signedToken(fixture.header, { ...fixture.payload, iss: 'https://attacker.test' }, fixture.privateKey)],
@@ -200,10 +200,8 @@ test('single encryption key is available only for the configured current key ver
 });
 
 async function appleTokenFixture(options = {}) {
-  const keyPair = await crypto.subtle.generateKey(
-    { name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify'],
-  );
-  const header = { alg: 'ES256', kid: options.kid ?? 'apple-key-1', typ: 'JWT' };
+  const keyPair = await appleIdentityKeyPair();
+  const header = { alg: 'RS256', kid: options.kid ?? 'apple-key-1', typ: 'JWT' };
   const payload = {
     iss: 'https://appleid.apple.com',
     aud: 'com.lynncat.ios',
@@ -220,9 +218,18 @@ async function appleTokenFixture(options = {}) {
     env: {
       NOW: () => NOW,
       APPLE_CLIENT_IDS: 'com.lynncat.ios,com.lynncat.macos,com.lynncat.watchos',
-      APPLE_JWKS: { keys: [{ ...publicJwk, kid: header.kid, alg: 'ES256', use: 'sig' }] },
+      APPLE_JWKS: { keys: [{ ...publicJwk, kid: header.kid, alg: 'RS256', use: 'sig' }] },
     },
   };
+}
+
+function appleIdentityKeyPair() {
+  return crypto.subtle.generateKey({
+    name: 'RSASSA-PKCS1-v1_5',
+    modulusLength: 2048,
+    publicExponent: new Uint8Array([1, 0, 1]),
+    hash: 'SHA-256',
+  }, true, ['sign', 'verify']);
 }
 
 async function sha256Hex(value) {
@@ -251,7 +258,7 @@ async function signedToken(header, payload, privateKey) {
   const head = base64url(encoder.encode(JSON.stringify(header)));
   const body = base64url(encoder.encode(JSON.stringify(payload)));
   const signature = await crypto.subtle.sign(
-    { name: 'ECDSA', hash: 'SHA-256' }, privateKey, encoder.encode(`${head}.${body}`),
+    { name: 'RSASSA-PKCS1-v1_5' }, privateKey, encoder.encode(`${head}.${body}`),
   );
   return `${head}.${body}.${base64url(signature)}`;
 }
