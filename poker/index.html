@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="一张免费、无需注册的中文德州扑克练习桌。学习牌型、位置与下注节奏，随时来一手。">
+  <meta name="theme-color" content="#071b16">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="翻牌俱乐部 · 德州扑克练习桌">
+  <meta property="og:description" content="想清楚，再下注。一张免费、无需注册的中文德州扑克练习桌。">
+  <meta property="og:image" content="https://lynncat.com/poker/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="628">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="翻牌俱乐部 · 德州扑克练习桌">
+  <meta name="twitter:description" content="想清楚，再下注。免费单机德州扑克练习桌。">
+  <meta name="twitter:image" content="https://lynncat.com/poker/og.png">
+  <title>翻牌俱乐部 · 德州扑克练习桌</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="../index.html" aria-label="返回 Lynncat 首页">
+      <span class="brand-mark" aria-hidden="true">♠</span>
+      <span>翻牌俱乐部</span>
+    </a>
+    <nav aria-label="主导航">
+      <a href="#table">牌桌</a>
+      <a href="#hands">牌型</a>
+      <a href="#guide">入门</a>
+    </nav>
+    <div class="header-actions">
+      <span class="online"><i></i> 单机练习</span>
+      <button class="sound-toggle" id="soundToggle" type="button" aria-label="切换音效" aria-pressed="true">♪</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <p class="eyebrow"><span></span> NO-LIMIT TEXAS HOLD'EM</p>
+        <h1 id="hero-title">想清楚，<br><em>再下注。</em></h1>
+        <p class="hero-lead">一张安静、讲究的中文练习桌。没有注册，没有广告，只有四位玩家和每一手都不同的选择。</p>
+        <div class="hero-cta">
+          <a class="primary-link" href="#table">坐下来玩一手 <span>↓</span></a>
+          <a class="text-link" href="#guide">先看 2 分钟入门</a>
+        </div>
+      </div>
+      <div class="hero-aside" aria-label="游戏信息">
+        <div class="stat">
+          <strong>2,500</strong>
+          <span>起始筹码</span>
+        </div>
+        <div class="stat">
+          <strong>25 / 50</strong>
+          <span>小盲 / 大盲</span>
+        </div>
+        <div class="stat">
+          <strong>4 人桌</strong>
+          <span>你与三位电脑玩家</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="game-section" id="table" aria-labelledby="table-title">
+      <div class="section-kicker">
+        <span>01</span>
+        <div><p>训练牌桌</p><h2 id="table-title">今晚的第一手</h2></div>
+        <p class="table-note">桌号 FC-052 · 休闲模式</p>
+      </div>
+
+      <div class="game-shell">
+        <div class="table-wrap">
+          <div class="poker-table">
+            <div class="felt-grain" aria-hidden="true"></div>
+
+            <div class="seat seat-top" data-seat="2">
+              <div class="player-avatar avatar-gold">高</div>
+              <div class="player-copy"><strong>高桥</strong><span class="player-chips">2,500</span></div>
+              <span class="dealer-chip" hidden>D</span>
+              <div class="mini-cards" aria-label="高桥的底牌"></div>
+              <span class="player-action"></span>
+            </div>
+
+            <div class="seat seat-left" data-seat="1">
+              <div class="player-avatar avatar-blue">林</div>
+              <div class="player-copy"><strong>林默</strong><span class="player-chips">2,500</span></div>
+              <span class="dealer-chip" hidden>D</span>
+              <div class="mini-cards" aria-label="林默的底牌"></div>
+              <span class="player-action"></span>
+            </div>
+
+            <div class="seat seat-right" data-seat="3">
+              <div class="player-avatar avatar-red">乔</div>
+              <div class="player-copy"><strong>乔安</strong><span class="player-chips">2,500</span></div>
+              <span class="dealer-chip" hidden>D</span>
+              <div class="mini-cards" aria-label="乔安的底牌"></div>
+              <span class="player-action"></span>
+            </div>
+
+            <div class="table-center">
+              <div class="pot-label"><span>底池</span><strong id="potAmount">0</strong></div>
+              <div class="community-cards" id="communityCards" aria-label="公共牌">
+                <div class="card-placeholder"></div><div class="card-placeholder"></div><div class="card-placeholder"></div><div class="card-placeholder"></div><div class="card-placeholder"></div>
+              </div>
+              <p class="round-status" id="roundStatus" aria-live="polite">准备好就发第一手牌</p>
+            </div>
+
+            <div class="seat seat-bottom is-you" data-seat="0">
+              <span class="you-label">你</span>
+              <div class="player-avatar avatar-you">猫</div>
+              <div class="player-copy"><strong>牌手</strong><span class="player-chips">2,500</span></div>
+              <span class="dealer-chip" hidden>D</span>
+              <div class="hole-cards" id="holeCards" aria-label="你的底牌">
+                <div class="card card-back"></div><div class="card card-back"></div>
+              </div>
+              <span class="player-action"></span>
+            </div>
+          </div>
+
+          <div class="action-bar">
+            <div class="hand-readout">
+              <span>当前牌力</span>
+              <strong id="handStrength">尚未发牌</strong>
+              <small id="outsText">—</small>
+            </div>
+            <div class="action-buttons" id="actionButtons">
+              <button class="btn btn-fold" id="foldBtn" type="button" disabled>弃牌 <kbd>F</kbd></button>
+              <button class="btn btn-call" id="callBtn" type="button" disabled>过牌 <kbd>C</kbd></button>
+              <div class="raise-control">
+                <button class="btn btn-raise" id="raiseBtn" type="button" disabled>加注 <span id="raiseValue">100</span> <kbd>R</kbd></button>
+                <input id="raiseRange" type="range" min="100" max="500" step="50" value="100" aria-label="加注金额" disabled>
+              </div>
+              <button class="btn btn-deal" id="dealBtn" type="button">发牌</button>
+            </div>
+          </div>
+        </div>
+
+        <aside class="game-sidebar" aria-label="牌局记录">
+          <div class="sidebar-head">
+            <div><span>牌局记录</span><strong id="handNumber">第 0 手</strong></div>
+            <button id="resetBtn" type="button">重置筹码</button>
+          </div>
+          <ol class="hand-log" id="handLog" aria-live="polite">
+            <li class="empty-log"><span>♣</span><p>每次下注与翻牌<br>都会记录在这里</p></li>
+          </ol>
+          <div class="table-tip">
+            <span>桌边提示</span>
+            <p id="tableTip">位置越靠后，你掌握的信息越多。按钮位通常可以打得稍宽一些。</p>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="hands-section" id="hands" aria-labelledby="hands-title">
+      <div class="section-heading">
+        <div><p>02 · 从大到小</p><h2 id="hands-title">十种牌型，一眼看懂</h2></div>
+        <p>最终从你的两张底牌与五张公共牌中，选出最强的五张组合。<br>若牌型相同，则依次比较其中点数最大的牌。</p>
+      </div>
+      <div class="hand-rankings">
+        <article class="rank-card featured"><span class="rank-no">01</span><div class="rank-mini"><b class="red">A♦</b><b class="red">K♦</b><b class="red">Q♦</b><b class="red">J♦</b><b class="red">10♦</b></div><h3>皇家同花顺</h3><p>同一花色的 A 到 10</p></article>
+        <article class="rank-card"><span class="rank-no">02</span><div class="rank-mini"><b>9♠</b><b>8♠</b><b>7♠</b><b>6♠</b><b>5♠</b></div><h3>同花顺</h3><p>同一花色的五张连续牌</p></article>
+        <article class="rank-card"><span class="rank-no">03</span><div class="rank-mini"><b>A♣</b><b class="red">A♥</b><b>A♠</b><b class="red">A♦</b><b>7♣</b></div><h3>四条</h3><p>四张相同点数</p></article>
+        <article class="rank-card"><span class="rank-no">04</span><div class="rank-mini"><b>K♣</b><b class="red">K♥</b><b>K♠</b><b class="red">8♦</b><b>8♣</b></div><h3>葫芦</h3><p>三条加一对</p></article>
+        <article class="rank-card"><span class="rank-no">05</span><div class="rank-mini"><b class="red">A♥</b><b class="red">J♥</b><b class="red">8♥</b><b class="red">5♥</b><b class="red">2♥</b></div><h3>同花</h3><p>五张相同花色</p></article>
+        <article class="rank-card"><span class="rank-no">06</span><div class="rank-mini"><b>9♣</b><b class="red">8♦</b><b>7♠</b><b class="red">6♥</b><b>5♣</b></div><h3>顺子</h3><p>五张连续点数</p></article>
+        <article class="rank-card"><span class="rank-no">07</span><div class="rank-mini"><b>Q♣</b><b class="red">Q♦</b><b>Q♠</b><b class="red">9♥</b><b>4♣</b></div><h3>三条</h3><p>三张相同点数</p></article>
+        <article class="rank-card"><span class="rank-no">08</span><div class="rank-mini"><b>J♣</b><b class="red">J♦</b><b>6♠</b><b class="red">6♥</b><b>A♣</b></div><h3>两对</h3><p>两组不同对子</p></article>
+        <article class="rank-card"><span class="rank-no">09</span><div class="rank-mini"><b>10♣</b><b class="red">10♦</b><b>A♠</b><b class="red">7♥</b><b>3♣</b></div><h3>一对</h3><p>两张相同点数</p></article>
+        <article class="rank-card"><span class="rank-no">10</span><div class="rank-mini"><b>A♣</b><b class="red">J♦</b><b>8♠</b><b class="red">5♥</b><b>2♣</b></div><h3>高牌</h3><p>没有组合时比较单张</p></article>
+      </div>
+    </section>
+
+    <section class="guide-section" id="guide" aria-labelledby="guide-title">
+      <div class="guide-intro">
+        <p>03 · 两分钟入门</p>
+        <h2 id="guide-title">一手牌，<br>四次决定。</h2>
+        <blockquote>好牌手不是每一手都赢，<br>而是知道什么时候值得继续。</blockquote>
+      </div>
+      <div class="street-list">
+        <article><span>01</span><div><p>PREFLOP</p><h3>翻牌前</h3><em>每人拿到两张底牌</em></div><p>先看起手牌，也看位置。大对子、同花大牌与相连牌更值得继续；边缘牌在前位要谨慎。</p></article>
+        <article><span>02</span><div><p>FLOP</p><h3>翻牌</h3><em>发出三张公共牌</em></div><p>你的牌第一次成形。判断是否击中对子或听牌，同时留意对手可能形成的更强组合。</p></article>
+        <article><span>03</span><div><p>TURN</p><h3>转牌</h3><em>第四张公共牌</em></div><p>底池已经变大，错误也更昂贵。重新计算提升牌，别为了“已经投入”而盲目跟注。</p></article>
+        <article><span>04</span><div><p>RIVER</p><h3>河牌</h3><em>最后一张公共牌</em></div><p>不再有牌可等。用价值下注让较弱牌跟注，或在合适时机用故事完整的诈唬拿下底池。</p></article>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <a class="brand footer-brand" href="../index.html"><span class="brand-mark">♠</span><span>翻牌俱乐部</span></a>
+    <p>免费单机练习 · 不涉及真实货币或赌博</p>
+    <p>© 2026 Lynncat</p>
+  </footer>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="game.js"></script>
+</body>
+</html>
