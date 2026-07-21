@@ -24,7 +24,8 @@ export async function verifyAppleIdentityToken(token, expectedNonce, env) {
     }
     const expiresAt = Number(payload.exp) * 1000;
     if (!Number.isFinite(expiresAt) || expiresAt <= nowFor(env)) throw new Error('expired JWT');
-    if (typeof expectedNonce !== 'string' || !expectedNonce || payload.nonce !== expectedNonce) {
+    const expectedNonceHash = await sha256Hex(expectedNonce, env);
+    if (!expectedNonceHash || payload.nonce !== expectedNonceHash) {
       throw new Error('invalid nonce');
     }
     if (typeof payload.sub !== 'string' || !payload.sub) throw new Error('missing subject');
@@ -204,6 +205,12 @@ function audienceIsAllowed(audience, env) {
   const allowed = allowedAudiences(env);
   return values.length > 0 && values.every((value) => typeof value === 'string')
     && values.some((value) => allowed.has(value));
+}
+
+async function sha256Hex(value, env) {
+  if (typeof value !== 'string' || !value) return '';
+  const digest = await cryptoFor(env).subtle.digest('SHA-256', new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
 function allowedAudiences(env) {

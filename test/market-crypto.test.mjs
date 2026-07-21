@@ -208,7 +208,7 @@ async function appleTokenFixture(options = {}) {
     iss: 'https://appleid.apple.com',
     aud: 'com.lynncat.ios',
     exp: Math.floor(NOW / 1000) + 300,
-    nonce: 'nonce-123',
+    nonce: await sha256Hex('nonce-123'),
     sub: options.sub ?? 'apple-user-1',
   };
   const publicJwk = await crypto.subtle.exportKey('jwk', keyPair.publicKey);
@@ -223,6 +223,11 @@ async function appleTokenFixture(options = {}) {
       APPLE_JWKS: { keys: [{ ...publicJwk, kid: header.kid, alg: 'ES256', use: 'sig' }] },
     },
   };
+}
+
+async function sha256Hex(value) {
+  const digest = await crypto.subtle.digest('SHA-256', encoder.encode(value));
+  return Buffer.from(digest).toString('hex');
 }
 
 async function appleClientFixture() {
