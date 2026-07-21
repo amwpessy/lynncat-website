@@ -66,16 +66,16 @@ test('itnew dispatcher sends admin APIs before public APIs and images', async ()
   assert.deepEqual(configured.requests, []);
 });
 
-test('article pages rewrite only non-empty slugs to article HTML without redirecting the browser URL', async () => {
+test('article pages rewrite non-empty slugs to the canonical extensionless asset without redirecting the browser URL', async () => {
   const configured = routeEnvironment();
   const original = request('/itnew/article/real-slug?language=zh');
   const response = await handleItnewRequest(original, configured.env, {}, routeHandlers([]));
 
   assert.equal(response.status, 200);
-  assert.equal(await response.text(), 'asset:/itnew/article.html');
+  assert.equal(await response.text(), 'asset:/itnew/article');
   assert.equal(original.url, `${ORIGIN}/itnew/article/real-slug?language=zh`);
   assert.equal(configured.requests.length, 1);
-  assert.equal(new URL(configured.requests[0].url).pathname, '/itnew/article.html');
+  assert.equal(new URL(configured.requests[0].url).pathname, '/itnew/article');
 
   await handleItnewRequest(request('/itnew/article/'), configured.env, {}, routeHandlers([]));
   assert.equal(new URL(configured.requests[1].url).pathname, '/itnew/article/');
