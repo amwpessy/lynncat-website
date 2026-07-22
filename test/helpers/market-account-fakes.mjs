@@ -175,7 +175,7 @@ export function createMessageAccountEnv(options = {}) {
       userId,
       deviceId,
       tokenHash: digest(env.SESSION_HASH_SALT, token),
-      expiresAt: sessionState === 'expired' ? env.NOW() - 1 : env.NOW() + (24 * 60 * 60 * 1000),
+      expiresAt: sessionState === 'expired' ? env.NOW() - 1 : env.NOW() + (30 * 24 * 60 * 60 * 1000),
       revokedAt: sessionState === 'revoked' ? env.NOW() - 1 : null,
       lastUsedAt: env.NOW(),
     };

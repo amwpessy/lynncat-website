@@ -1,6 +1,6 @@
 import { authenticateMarketRequest } from './marketAuth.js';
 
-const MESSAGE_TTL_MS = 60 * 60 * 1000;
+const MESSAGE_TTL_MS = 24 * 60 * 60 * 1000;
 const COOLDOWN_MS = 3 * 60 * 1000;
 const MESSAGE_COST = 3;
 const MAX_NICKNAME_LENGTH = 14;

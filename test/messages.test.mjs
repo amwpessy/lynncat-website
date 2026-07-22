@@ -168,7 +168,7 @@ test('optional mode authenticated POST atomically debits three points and publis
   assert.deepEqual(duplicateBody, firstBody);
   assert.equal(firstBody.pointsBalance, 0);
   assert.equal(firstBody.message.nickname, 'Server Name');
-  assert.equal(firstBody.message.expiresAt - firstBody.message.createdAt, 60 * 60 * 1000);
+  assert.equal(firstBody.message.expiresAt - firstBody.message.createdAt, 24 * 60 * 60 * 1000);
   assert.equal(env.repo.user.pointsBalance, 0);
   assert.equal(env.repo.messages.size, 1);
   assert.equal(env.repo.ledger.size, 1);
@@ -194,7 +194,7 @@ test('a retained owner replay returns before purge or another publish batch', as
   });
   const first = await handleMessages(request, env);
   const firstBody = await first.json();
-  env.advance((60 * 60 * 1000) - 1);
+  env.advance((24 * 60 * 60 * 1000) - 1);
   const batchCount = env.DB.publishBatches.length;
 
   const replay = await handleMessages(request, env);
@@ -214,7 +214,7 @@ test('an owner replay at expiresAt returns publish_conflict and removes expired 
   });
   const first = await handleMessages(request, env);
   assert.equal(first.status, 201);
-  env.advance(60 * 60 * 1000);
+  env.advance(24 * 60 * 60 * 1000);
   const batchCount = env.DB.publishBatches.length;
 
   const replay = await handleMessages(request, env);
