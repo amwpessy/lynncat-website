@@ -1,215 +1,512 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="zh-Hans">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Lynncat Markets — real-time gold, precious metals, crypto, US stocks, US Treasury data, crude oil, economic events, and bilingual news for iPhone, Mac, and Apple Watch.">
-<title>Lynncat Markets — Gold, Markets & Global News</title>
-<style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root { --bg:#0f0f0f; --surface:#1a1a1a; --border:#2a2a2a; --text:#f0f0f0; --muted:#888; --accent:#f5a623; --accent2:#e07020; --radius:16px; }
-  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height: 1.6; }
-  a { color: var(--accent-ink); }
-
-  body[data-lang='en'] [data-zh]{ display:none; }
-  body[data-lang='zh'] [data-en]{ display:none; }
-  .lang-toggle{ background:none; border:1px solid var(--border); color:var(--muted); font-size:13px; padding:6px 14px; border-radius:100px; cursor:pointer; transition:all .2s; font-family:inherit; }
-  .lang-toggle:hover{ color:var(--text); border-color: var(--accent-ink); }
-
-  nav { display:flex; align-items:center; justify-content:space-between; padding:20px 40px; border-bottom:1px solid var(--border); position:sticky; top:0; background:var(--nav-bg); backdrop-filter:blur(12px); z-index:100; }
-  .nav-logo { font-size:18px; font-weight:700; color: var(--accent-ink); text-decoration:none; }
-  .nav-right { display:flex; align-items:center; gap:18px; }
-  .nav-back { color:var(--muted); text-decoration:none; font-size:14px; }
-  .nav-back:hover { color:var(--text); }
-
-  .hero { max-width:800px; margin:0 auto; padding:80px 24px 60px; text-align:center; }
-  .app-icon-large { width:120px; height:120px; border-radius:28px; background:linear-gradient(135deg,#6a5210,#1a1406); display:flex; align-items:center; justify-content:center; font-size:60px; margin:0 auto 28px; box-shadow:0 20px 60px rgba(245,166,35,0.18); }
-  .hero h1 { font-size:clamp(32px,5vw,48px); font-weight:800; letter-spacing:-1px; margin-bottom:16px; }
-  .hero p { font-size:18px; color:var(--muted); max-width:540px; margin:0 auto 32px; }
-  .cta-group { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
-  .btn { display:inline-block; padding:14px 28px; border-radius:100px; font-size:16px; font-weight:600; text-decoration:none; transition:transform .15s, opacity .15s; }
-  .btn:hover { transform:translateY(-1px); opacity:.9; }
-  .btn-primary { background:var(--accent); color:#000; }
-  .btn-secondary { border:1px solid var(--border); color:var(--text); }
-  .release-note { font-size:13px; color:var(--muted); margin-top:14px; }
-
-  .section { max-width:900px; margin:0 auto; padding:60px 24px; }
-  .section h2 { font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:1.5px; color:var(--muted); margin-bottom:32px; }
-  .features { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px,1fr)); gap:16px; }
-  .feat { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:24px; }
-  .feat-icon { font-size:28px; margin-bottom:12px; }
-  .feat h3 { font-size:16px; font-weight:600; margin-bottom:6px; }
-  .feat p { font-size:14px; color:var(--muted); }
-
-  .forces-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
-  .force { border-radius:10px; padding:16px 10px; text-align:center; }
-  .force .nm { font-size:14px; font-weight:800; margin-bottom:3px; }
-  .force .rl { font-size:11.5px; opacity:.85; }
-  .f1{background:rgba(245,200,60,0.12);color:#f5c83c;} .f2{background:rgba(190,200,210,0.14);color:#c3ccd6;}
-  .f3{background:rgba(120,184,255,0.12);color:#78b8ff;} .f4{background:rgba(80,200,170,0.12);color:#50c8aa;}
-  .f5{background:rgba(255,150,60,0.12);color:#ff963c;} .f6{background:rgba(150,120,255,0.14);color:#9678ff;}
-  /* 浅色主题下加深资产色，保证白底可读 */
-  :root[data-theme='light'] .f1{color:#9a7400;} :root[data-theme='light'] .f2{color:#5f6b78;}
-  :root[data-theme='light'] .f3{color:#1d6fd0;} :root[data-theme='light'] .f4{color:#11876e;}
-  :root[data-theme='light'] .f5{color:#c2570a;} :root[data-theme='light'] .f6{color:#6a4bd0;}
-
-  .platforms { display:flex; gap:16px; flex-wrap:wrap; justify-content:center; }
-  .plat { display:flex; align-items:center; gap:10px; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px 22px; }
-  .plat-icon { font-size:24px; }
-  .plat-name { font-size:14px; font-weight:600; }
-  .plat-note { font-size:12px; color:var(--muted); }
-
-  .disclaimer { max-width:760px; margin:0 auto; padding:0 24px 40px; text-align:center; }
-  .disclaimer p { font-size:12.5px; color:var(--muted); line-height:1.7; }
-
-  footer { border-top:1px solid var(--border); padding:40px 24px; text-align:center; }
-  footer p { font-size:13px; color:var(--muted); margin-bottom:8px; }
-  .footer-links { display:flex; gap:20px; justify-content:center; margin-top:12px; flex-wrap:wrap; }
-  .footer-links a { color:var(--muted); text-decoration:none; font-size:13px; }
-  .footer-links a:hover { color:var(--text); }
-
-  @media (max-width:600px){ nav{padding:16px 20px;} .forces-grid{grid-template-columns:repeat(2,1fr);} }
-:root{--accent-ink:#f5a623;--accent2-ink:#e07020;--nav-bg:rgba(15,15,15,0.92);--tag-bg:rgba(255,255,255,0.06);}
-:root[data-theme='light']{--bg:#f6f6f8;--surface:#ffffff;--surface2:#f0f0f3;--border:#e3e3e8;--text:#1b1b1f;--muted:#6a6a72;--accent-ink:#b35e09;--accent2-ink:#8f4408;--green:#1f9d63;--red:#cf3a28;--nav-bg:rgba(246,246,248,0.9);--tag-bg:rgba(0,0,0,0.05);}
-</style>
-<script>/* 按北京时间自动切换主题：白天(6-18)浅色，夜间深色 */
-(function(){function a(){var h;try{h=parseInt(new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Shanghai',hour:'numeric',hour12:false}).format(new Date()),10);}catch(e){h=new Date().getHours();}if(h===24)h=0;document.documentElement.setAttribute('data-theme',(h>=6&&h<18)?'light':'dark');}a();setInterval(a,300000);})();</script>
-</head>
-<body data-lang="en">
-
-<nav>
-  <a class="nav-logo" href="../index.html">🐱 Lynncat</a>
-  <div class="nav-right">
-    <a class="nav-back" href="../index.html"><span data-en>← All Apps</span><span data-zh>← 全部作品</span></a>
-    <button class="lang-toggle" onclick="toggleLang()"><span data-en>繁體中文</span><span data-zh>English</span></button>
-  </div>
-</nav>
-
-<section class="hero">
-  <div class="app-icon-large">📈</div>
-  <h1><span data-en>Lynncat Markets</span><span data-zh>靈貓行情</span></h1>
-  <p><span data-en>Gold, US markets, macro signals and bilingual news — calm real-time market watching across your Mac, iPhone and wrist.</span><span data-zh>黃金、美股、宏觀訊號與中英雙語資訊——在 Mac、iPhone 與手腕上安靜追蹤市場。</span></p>
-  <div class="cta-group">
-    <a class="btn btn-primary" href="support.html">
-      <span data-en>Support & Feature Guide</span><span data-zh>支援與功能說明</span>
-    </a>
-    <a class="btn btn-secondary" href="#features"><span data-en>See Features</span><span data-zh>查看特色</span></a>
-  </div>
-  <p class="release-note"><span data-en>Free · No ads · No tracking · Version 1.0</span><span data-zh>免費 · 無廣告 · 不追蹤 · 版本 1.0</span></p>
-</section>
-
-<section class="section" id="features">
-  <h2><span data-en>Latest Features</span><span data-zh>最新功能</span></h2>
-  <div class="features">
-    <div class="feat">
-      <div class="feat-icon">🥇</div>
-      <h3><span data-en>Gold Center</span><span data-zh>黃金中心</span></h3>
-      <p><span data-en>Live gold prices, smoother historical charts, China central bank monthly gold reserve changes, US gold ETF daily holding changes, ratios and Gold ⇄ Bitcoin conversion.</span><span data-zh>即時金價、更順滑的歷年走势图、中國央行每月黃金儲備增減、美國黃金 ETF 每日持倉增減、比值分析與黃金 ⇄ 比特幣換算。</span></p>
-    </div>
-    <div class="feat">
-      <div class="feat-icon">🇺🇸</div>
-      <h3><span data-en>US Stocks</span><span data-zh>美股看板</span></h3>
-      <p><span data-en>Dow Jones, Nasdaq and S&amp;P 500 on one row, index history charts, compact stock price and change columns, plus market value data.</span><span data-zh>道瓊斯、納斯達克、標普 500 同行展示，提供指數歷年走势图、緊湊股票價格與漲跌幅列表，以及總市值數據。</span></p>
-    </div>
-    <div class="feat">
-      <div class="feat-icon">🛢️</div>
-      <h3><span data-en>Macro Pages</span><span data-zh>宏觀頁面</span></h3>
-      <p><span data-en>Dedicated pages for US Treasury data, crude oil prices and recent economic events, designed to fetch fresh events whenever opened.</span><span data-zh>新增美国国债、原油價格與近期重要經濟事件子頁面，事件頁面每次打開都會嘗試獲取最新內容。</span></p>
-    </div>
-    <div class="feat">
-      <div class="feat-icon">📰</div>
-      <h3><span data-en>Bilingual News</span><span data-zh>雙語資訊</span></h3>
-      <p><span data-en>Technology and current-news pages use bilingual sources and switch with the app language. Technology stories include varied, content-matched images.</span><span data-zh>科技資訊與時事資訊支援中英雙語來源，會隨 App 語言切換；科技資訊配有依內容匹配的不同圖片。</span></p>
-    </div>
-    <div class="feat">
-      <div class="feat-icon">🔔</div>
-      <h3><span data-en>Price Alerts</span><span data-zh>價格提醒</span></h3>
-      <p><span data-en>Set local price reminders for important levels. Alert settings stay on your device and can be managed from the app.</span><span data-zh>為重要價格設置本機提醒。提醒條件保存在你的裝置內，可在 App 中管理。</span></p>
-    </div>
-    <div class="feat">
-      <div class="feat-icon">📱</div>
-      <h3><span data-en>Lock Screen & Dynamic Island</span><span data-zh>鎖屏與靈動島</span></h3>
-      <p><span data-en>On compatible iPhone models, market information can appear through Lock Screen Live Activities and Dynamic Island.</span><span data-zh>在支援的 iPhone 型號上，可透過即時活動在鎖屏和靈動島顯示市場資訊。</span></p>
-    </div>
-    <div class="feat">
-      <div class="feat-icon">🖥️</div>
-      <h3><span data-en>Mac Dashboard</span><span data-zh>Mac 看板</span></h3>
-      <p><span data-en>Menu bar quotes, compact chart displays, optional light theme, Nasdaq-focused external display and a standby-style gold trend screen.</span><span data-zh>支援選單列行情、緊湊走势图、可選淺色主題、外部納斯達克數據展示，以及待機式黃金走勢大屏。</span></p>
-    </div>
-    <div class="feat">
-      <div class="feat-icon">⌚</div>
-      <h3><span data-en>Apple Watch</span><span data-zh>Apple Watch</span></h3>
-      <p><span data-en>A lightweight watch companion for quick market checks with smoother compact charts and no public message board in the current release.</span><span data-zh>輕量級手錶端，便於快速查看市場，曲線更順滑；目前 App Store 版本已屏蔽公開留言功能。</span></p>
-    </div>
-  </div>
-</section>
-
-<section class="section">
-  <h2><span data-en>What You Track</span><span data-zh>追蹤內容</span></h2>
-  <div class="forces-grid">
-    <div class="force f1"><div class="nm"><span data-en>Gold</span><span data-zh>黃金</span></div><div class="rl">XAU</div></div>
-    <div class="force f2"><div class="nm"><span data-en>Silver</span><span data-zh>白銀</span></div><div class="rl">XAG</div></div>
-    <div class="force f3"><div class="nm"><span data-en>Platinum</span><span data-zh>鉑金</span></div><div class="rl">XPT</div></div>
-    <div class="force f4"><div class="nm"><span data-en>Palladium</span><span data-zh>鈀金</span></div><div class="rl">XPD</div></div>
-    <div class="force f5"><div class="nm"><span data-en>Bitcoin</span><span data-zh>比特幣</span></div><div class="rl">BTC</div></div>
-    <div class="force f6"><div class="nm"><span data-en>Ethereum</span><span data-zh>以太幣</span></div><div class="rl">ETH</div></div>
-    <div class="force f1"><div class="nm"><span data-en>Nasdaq</span><span data-zh>納斯達克</span></div><div class="rl">IXIC</div></div>
-    <div class="force f2"><div class="nm"><span data-en>Dow Jones</span><span data-zh>道瓊斯</span></div><div class="rl">DJI</div></div>
-    <div class="force f3"><div class="nm"><span data-en>S&amp;P 500</span><span data-zh>標普 500</span></div><div class="rl">SPX</div></div>
-    <div class="force f4"><div class="nm"><span data-en>US Debt</span><span data-zh>美国国债</span></div><div class="rl">UST</div></div>
-    <div class="force f5"><div class="nm"><span data-en>Crude Oil</span><span data-zh>原油</span></div><div class="rl">WTI</div></div>
-    <div class="force f6"><div class="nm"><span data-en>News & Events</span><span data-zh>資訊與事件</span></div><div class="rl">LIVE</div></div>
-  </div>
-</section>
-
-<section class="section">
-  <h2><span data-en>Available On</span><span data-zh>支援平台</span></h2>
-  <div class="platforms">
-    <div class="plat">
-      <div class="plat-icon">📱</div>
-      <div><div class="plat-name">iPhone &amp; iPad</div><div class="plat-note"><span data-en>iOS 17+ · Lock Screen · Dynamic Island</span><span data-zh>iOS 17+ · 鎖屏 · 靈動島</span></div></div>
-    </div>
-    <div class="plat">
-      <div class="plat-icon">🖥️</div>
-      <div><div class="plat-name">Mac</div><div class="plat-note"><span data-en>macOS 14+ · Menu bar · Standby display</span><span data-zh>macOS 14+ · 選單列 · 待機大屏</span></div></div>
-    </div>
-    <div class="plat">
-      <div class="plat-icon">⌚</div>
-      <div><div class="plat-name">Apple Watch</div><div class="plat-note"><span data-en>watchOS 10+ · Quick glance</span><span data-zh>watchOS 10+ · 抬腕速覽</span></div></div>
-    </div>
-    <div class="plat">
-      <div class="plat-icon">🌏</div>
-      <div><div class="plat-name"><span data-en>Multilingual</span><span data-zh>多語言</span></div><div class="plat-note"><span data-en>English · 简体中文 · 繁體中文</span><span data-zh>English · 简体中文 · 繁體中文</span></div></div>
-    </div>
-  </div>
-</section>
-
-<div class="disclaimer">
-  <p><span data-en>Prices, news and events are provided by third-party public data sources for reference only and do not constitute investment advice. Public message board features are disabled in the current App Store release.</span><span data-zh>行情、資訊與事件來自第三方公開來源，僅供參考，不構成任何投資建議。目前 App Store 版本已屏蔽公開留言功能。</span></p>
-</div>
-
-<footer>
-  <p>© 2026 Lynncat · <a href="mailto:amwpessy@gmail.com" style="color:var(--muted)">amwpessy@gmail.com</a></p>
-  <div class="footer-links">
-    <a href="privacy.html"><span data-en>Privacy Policy</span><span data-zh>隱私政策</span></a>
-    <a href="support.html"><span data-en>Support</span><span data-zh>支援</span></a>
-    <a href="../index.html"><span data-en>All Apps</span><span data-zh>全部作品</span></a>
-  </div>
-</footer>
-
-<script>
-(function(){
-  function apply(l){
-    document.body.setAttribute('data-lang', l);
-    document.documentElement.lang = (l === 'zh' ? 'zh-Hant' : 'en');
-    try { localStorage.setItem('lynncat-lang', l); } catch(e){}
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#071513">
+  <meta name="description" content="Lynncat Markets 是面向 Apple 设备的全球市场驾驶舱，集中查看美债、黄金、纳指、比特币、原油、经济事件与双语资讯。">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Lynncat Markets — 全球市场驾驶舱">
+  <meta property="og:description" content="把美债、黄金、纳指、比特币与原油放进同一个安静、清晰的市场驾驶舱。">
+  <meta property="og:url" content="https://lynncat.com/markets/">
+  <meta property="og:image" content="https://lynncat.com/markets/assets/og.png">
+  <meta property="og:image:alt" content="Lynncat Markets 市场驾驶舱界面">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://lynncat.com/markets/">
+  <link rel="icon" type="image/png" href="./assets/lynncat-markets-icon.png">
+  <link rel="apple-touch-icon" href="./assets/lynncat-markets-icon.png">
+  <link rel="stylesheet" href="./site.css">
+  <title>Lynncat Markets — 全球市场驾驶舱</title>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Lynncat Markets",
+    "alternateName": "灵猫行情",
+    "applicationCategory": "FinanceApplication",
+    "operatingSystem": "macOS, iOS, iPadOS, watchOS",
+    "url": "https://lynncat.com/markets/",
+    "downloadUrl": "https://apps.apple.com/app/id6782930494",
+    "image": "https://lynncat.com/markets/assets/og.png",
+    "description": "A calm market cockpit for gold, US Treasury data, Nasdaq, Bitcoin, crude oil, economic events and global news.",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    }
   }
-  window.toggleLang = function(){ apply(document.body.getAttribute('data-lang') === 'en' ? 'zh' : 'en'); };
-  var saved = 'en';
-  try { saved = localStorage.getItem('lynncat-lang') || 'en'; } catch(e){}
-  apply(saved);
-})();
-</script>
+  </script>
+</head>
+<body data-lang="zh">
+  <svg class="svg-sprite" aria-hidden="true">
+    <symbol id="i-gauge" viewBox="0 0 24 24">
+      <path d="M12 14l4-4"></path><path d="M3.34 19a10 10 0 1 1 17.32 0"></path><path d="M12 4v2"></path><path d="M4.93 10.93l1.41 1.41"></path><path d="M19.07 10.93l-1.41 1.41"></path>
+    </symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24">
+      <path d="M3 3v18h18"></path><path d="M7 16l4-5 3 3 5-7"></path>
+    </symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24">
+      <path d="M3 6h18v15H3z"></path><path d="M8 3v6"></path><path d="M16 3v6"></path><path d="M3 11h18"></path>
+    </symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9"></circle><path d="M3 12h18"></path><path d="M12 3a15 15 0 0 1 0 18"></path><path d="M12 3a15 15 0 0 0 0 18"></path>
+    </symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24">
+      <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"></path><path d="M10 21h4"></path>
+    </symbol>
+    <symbol id="i-device" viewBox="0 0 24 24">
+      <rect x="3" y="4" width="18" height="13" rx="1"></rect><path d="M8 21h8"></path><path d="M12 17v4"></path>
+    </symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24">
+      <rect x="7" y="2" width="10" height="20" rx="2"></rect><path d="M11 18h2"></path>
+    </symbol>
+    <symbol id="i-watch" viewBox="0 0 24 24">
+      <path d="M8 2h8l1 5H7z"></path><rect x="6" y="7" width="12" height="10" rx="3"></rect><path d="M7 17h10l-1 5H8z"></path>
+    </symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="M9 12l2 2 4-4"></path>
+    </symbol>
+    <symbol id="i-trophy" viewBox="0 0 24 24">
+      <path d="M8 21h8"></path><path d="M12 17v4"></path><path d="M7 4h10v4a5 5 0 0 1-10 0z"></path><path d="M7 6H4v2a4 4 0 0 0 4 4"></path><path d="M17 6h3v2a4 4 0 0 1-4 4"></path>
+    </symbol>
+    <symbol id="i-message" viewBox="0 0 24 24">
+      <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"></path><path d="M8 9h8"></path><path d="M8 13h5"></path>
+    </symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24">
+      <path d="M12 2l9 5-9 5-9-5z"></path><path d="M3 12l9 5 9-5"></path><path d="M3 17l9 5 9-5"></path>
+    </symbol>
+    <symbol id="i-spade" viewBox="0 0 24 24">
+      <path d="M12 2C9 7 4 9 4 14a5 5 0 0 0 8 4 5 5 0 0 0 8-4c0-5-5-7-8-12z"></path><path d="M9 22h6"></path><path d="M12 17v5"></path>
+    </symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24">
+      <path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path>
+    </symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24">
+      <path d="M4 7h16"></path><path d="M4 12h16"></path><path d="M4 17h16"></path>
+    </symbol>
+    <symbol id="i-x" viewBox="0 0 24 24">
+      <path d="M6 6l12 12"></path><path d="M18 6L6 18"></path>
+    </symbol>
+  </svg>
 
+  <header class="site-header">
+    <div class="shell nav-shell">
+      <a class="brand" href="./" aria-label="Lynncat Markets 首页">
+        <img src="./assets/lynncat-markets-icon.png" alt="" width="40" height="40">
+        <span class="brand-copy">
+          <strong>Lynncat Markets</strong>
+          <small data-zh>灵猫行情</small>
+          <small data-en>Market cockpit</small>
+        </span>
+      </a>
+
+      <button class="nav-toggle icon-button" type="button" data-nav-toggle aria-expanded="false" aria-controls="nav-menu" aria-label="打开菜单" title="Menu">
+        <svg aria-hidden="true"><use href="#i-menu"></use></svg>
+      </button>
+
+      <nav class="site-nav" id="nav-menu" aria-label="Primary navigation">
+        <a href="#cockpit"><span data-zh>驾驶舱</span><span data-en>Cockpit</span></a>
+        <a href="#coverage"><span data-zh>市场覆盖</span><span data-en>Coverage</span></a>
+        <a href="#context"><span data-zh>事件与驱动</span><span data-en>Context</span></a>
+        <a href="#devices"><span data-zh>多端体验</span><span data-en>Devices</span></a>
+        <a href="../"><span data-zh>全部产品</span><span data-en>All products</span></a>
+        <a class="nav-store" href="https://apps.apple.com/app/id6782930494" target="_blank" rel="noopener">
+          <span data-zh>App Store</span><span data-en>App Store</span>
+        </a>
+        <button class="lang-button" type="button" data-lang-toggle onclick="toggleSiteLanguage()">
+          <svg aria-hidden="true"><use href="#i-globe"></use></svg>
+          <span data-zh>EN</span><span data-en>中文</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="shell hero-grid">
+        <div class="hero-copy reveal is-visible">
+          <div class="eyebrow">
+            <span class="status-dot" aria-hidden="true"></span>
+            <span data-zh>APPLE 设备上的全球市场驾驶舱</span>
+            <span data-en>A GLOBAL MARKET COCKPIT FOR APPLE DEVICES</span>
+          </div>
+          <h1>Lynncat Markets</h1>
+          <p class="hero-name"><span data-zh>灵猫行情</span><span data-en>Calm markets. Clear signals.</span></p>
+          <p class="hero-lede" data-zh>把美债、黄金、纳指、比特币与原油放进同一个安静、清晰的实时界面。先看到重要变化，再进入每个品种的完整历史、宏观与资讯上下文。</p>
+          <p class="hero-lede" data-en>Bring US Treasury data, gold, Nasdaq, Bitcoin and crude oil into one calm real-time view. See the signal first, then open the full history, macro context and news for each market.</p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="https://apps.apple.com/app/id6782930494" target="_blank" rel="noopener">
+              <span data-zh>在 App Store 查看</span><span data-en>View on the App Store</span>
+              <svg aria-hidden="true"><use href="#i-arrow"></use></svg>
+            </a>
+            <a class="button button-ghost" href="#cockpit">
+              <span data-zh>探索市场驾驶舱</span><span data-en>Explore the cockpit</span>
+            </a>
+          </div>
+          <div class="hero-meta" aria-label="Supported platforms">
+            <span>macOS</span><span>iPhone</span><span>iPad</span><span>Apple Watch</span>
+          </div>
+        </div>
+
+        <figure class="product-stage reveal is-visible">
+          <div class="app-window">
+            <div class="window-bar">
+              <span class="window-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+              <span class="window-title">Lynncat Markets · Pilot Light</span>
+              <span class="window-state"><i></i><span data-zh>实时</span><span data-en>Live</span></span>
+            </div>
+            <img src="./assets/market-cockpit.png" width="1274" height="768" alt="Lynncat Markets 在 Mac 上的多资产市场驾驶舱，包含美债、黄金、纳指、比特币、原油和跨市场走势图">
+          </div>
+          <figcaption>
+            <span data-zh>真实 Mac 客户端界面 · 数据会随市场更新</span>
+            <span data-en>Actual Mac interface · Market data updates in the app</span>
+          </figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="focus-band" aria-labelledby="focus-title">
+      <div class="shell">
+        <div class="section-kicker focus-heading">
+          <span id="focus-title" data-zh>五个重点，一眼看完</span>
+          <span id="focus-title-en" data-en>Five priorities, one glance</span>
+          <small data-zh>主页优先展示真正需要持续关注的资产</small>
+          <small data-en>The home view keeps the most important markets first</small>
+        </div>
+        <div class="focus-grid">
+          <article class="focus-item">
+            <div><span class="asset-code">DEBT</span><strong data-zh>美国国债</strong><strong data-en>US debt</strong></div>
+            <svg class="spark spark-green" viewBox="0 0 120 34" role="img" aria-label="Rising trend"><path d="M2 29C18 29 20 28 31 27S47 27 57 25 70 21 79 13 94 18 118 3"></path></svg>
+          </article>
+          <article class="focus-item">
+            <div><span class="asset-code">XAU</span><strong data-zh>黄金</strong><strong data-en>Gold</strong></div>
+            <svg class="spark spark-gold" viewBox="0 0 120 34" role="img" aria-label="Market trend"><path d="M2 26C15 8 21 13 32 21S52 31 61 19 75 7 87 16 105 24 118 10"></path></svg>
+          </article>
+          <article class="focus-item">
+            <div><span class="asset-code">NASDAQ</span><strong data-zh>纳斯达克</strong><strong data-en>Nasdaq</strong></div>
+            <svg class="spark spark-blue" viewBox="0 0 120 34" role="img" aria-label="Market trend"><path d="M2 26C14 24 18 15 29 18S44 31 54 22 66 7 78 9 93 18 118 4"></path></svg>
+          </article>
+          <article class="focus-item">
+            <div><span class="asset-code">BTC</span><strong data-zh>比特币</strong><strong data-en>Bitcoin</strong></div>
+            <svg class="spark spark-violet" viewBox="0 0 120 34" role="img" aria-label="Market trend"><path d="M2 22C17 22 19 26 31 20S43 4 55 7 64 27 78 24 99 9 118 12"></path></svg>
+          </article>
+          <article class="focus-item">
+            <div><span class="asset-code">WTI</span><strong data-zh>WTI 原油</strong><strong data-en>WTI crude</strong></div>
+            <svg class="spark spark-red" viewBox="0 0 120 34" role="img" aria-label="Market trend"><path d="M2 8C17 10 22 5 34 12S49 27 61 24 73 12 85 18 101 28 118 21"></path></svg>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="band band-soft" id="cockpit">
+      <div class="shell split-section cockpit-layout">
+        <div class="section-copy reveal">
+          <p class="section-kicker" data-zh>MARKET COCKPIT</p>
+          <p class="section-kicker" data-en>MARKET COCKPIT</p>
+          <h2 data-zh>先看全局，再进入细节</h2>
+          <h2 data-en>See the whole market before opening the detail</h2>
+          <p data-zh>主页把五项重点资产、最近一个月趋势与跨市场监控放在同一屏。除资讯外，每张资产卡都直接进入独立详情页，不需要在顶部分页里来回寻找。</p>
+          <p data-en>The home view places five priority assets, one-month trends and cross-market monitoring on a single screen. Every asset card opens its own detail view, while news remains fast to scan.</p>
+
+          <div class="feature-rows">
+            <div class="feature-row">
+              <span class="feature-icon"><svg aria-hidden="true"><use href="#i-chart"></use></svg></span>
+              <div>
+                <strong data-zh>平滑历史曲线</strong><strong data-en>Smooth historical curves</strong>
+                <p data-zh>重点市场与跨市场监控均支持按日、周、月、年切换，默认展示最近一个月。</p>
+                <p data-en>Switch between day, week, month and year across priority and cross-market charts, with one month as the default.</p>
+              </div>
+            </div>
+            <div class="feature-row">
+              <span class="feature-icon"><svg aria-hidden="true"><use href="#i-gauge"></use></svg></span>
+              <div>
+                <strong data-zh>区域与币种联动</strong><strong data-en>Region-aware currencies</strong>
+                <p data-zh>人民币、港币、美元之间切换，报价、换算与美元兑人民币汇率保持一致。</p>
+                <p data-en>Switch between CNY, HKD and USD while quotes, conversions and USD/CNY context stay aligned.</p>
+              </div>
+            </div>
+            <div class="feature-row">
+              <span class="feature-icon"><svg aria-hidden="true"><use href="#i-bell"></use></svg></span>
+              <div>
+                <strong data-zh>本机价格提醒</strong><strong data-en>Local price alerts</strong>
+                <p data-zh>为关键价位建立提醒，规则保存在设备上，行情页面保持专注。</p>
+                <p data-en>Create alerts for important levels. Rules stay on your device so the market view remains focused.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="monitor-tool reveal" aria-label="Interactive market coverage preview">
+          <div class="tool-header">
+            <div>
+              <span class="tool-eyebrow">CROSS MARKET</span>
+              <strong data-zh>跨市场监控</strong><strong data-en>Cross-market monitor</strong>
+            </div>
+            <span class="tool-period">1M</span>
+          </div>
+          <div class="tool-tabs" role="tablist" aria-label="Market category">
+            <button class="tool-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="panel-equity" id="tab-equity" data-market-tab="equity">
+              <span data-zh>股市</span><span data-en>Equities</span>
+            </button>
+            <button class="tool-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-fx" id="tab-fx" data-market-tab="fx" tabindex="-1">
+              <span data-zh>汇率</span><span data-en>FX</span>
+            </button>
+            <button class="tool-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-energy" id="tab-energy" data-market-tab="energy" tabindex="-1">
+              <span data-zh>能源</span><span data-en>Energy</span>
+            </button>
+            <button class="tool-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-gold" id="tab-gold" data-market-tab="gold" tabindex="-1">
+              <span data-zh>黄金</span><span data-en>Gold</span>
+            </button>
+          </div>
+
+          <div class="market-panel is-active" role="tabpanel" id="panel-equity" aria-labelledby="tab-equity" data-market-panel="equity">
+            <div class="market-row"><span><b>IXIC</b><i data-zh>纳斯达克指数</i><i data-en>Nasdaq Composite</i></span><svg viewBox="0 0 100 24"><path d="M1 19C18 17 23 7 38 10s21 9 30 3 18-8 31-11"></path></svg></div>
+            <div class="market-row"><span><b>SSE</b><i data-zh>中国上证 A 股指数</i><i data-en>Shanghai Composite</i></span><svg viewBox="0 0 100 24"><path d="M1 11c14 2 21 9 34 7s16-11 29-9 21 7 35 4"></path></svg></div>
+            <div class="market-row"><span><b>HSI</b><i data-zh>香港恒生指数</i><i data-en>Hang Seng Index</i></span><svg viewBox="0 0 100 24"><path d="M1 17c17 3 22-11 38-8s22 13 35 9 17-10 25-9"></path></svg></div>
+            <div class="market-row"><span><b>N225</b><i data-zh>日本日经 225 指数</i><i data-en>Nikkei 225</i></span><svg viewBox="0 0 100 24"><path d="M1 20c13-1 20-3 31-10s21 3 34 0 21-3 33-7"></path></svg></div>
+            <div class="market-row"><span><b>KOSPI</b><i data-zh>韩国综合指数</i><i data-en>KOSPI Composite</i></span><svg viewBox="0 0 100 24"><path d="M1 8c12 2 19 11 32 9s20-12 33-10 18 10 33 9"></path></svg></div>
+            <div class="market-row"><span><b>TWII</b><i data-zh>台湾加权指数</i><i data-en>Taiwan Weighted</i></span><svg viewBox="0 0 100 24"><path d="M1 19c18-5 22 0 35-4s18-11 30-8 19 10 33 3"></path></svg></div>
+            <div class="market-row"><span><b>NIFTY</b><i data-zh>印度 NIFTY 50</i><i data-en>India NIFTY 50</i></span><svg viewBox="0 0 100 24"><path d="M1 16c13 0 21-4 33-2s18 7 30 4 21-12 35-15"></path></svg></div>
+          </div>
+
+          <div class="market-panel" role="tabpanel" id="panel-fx" aria-labelledby="tab-fx" data-market-panel="fx" hidden>
+            <div class="market-row"><span><b>USD/CNY</b><i data-zh>美元兑人民币</i><i data-en>US dollar / yuan</i></span><svg viewBox="0 0 100 24"><path d="M1 18c17-3 23-11 37-8s20 11 32 8 17-9 29-7"></path></svg></div>
+            <div class="market-row"><span><b>EUR/USD</b><i data-zh>欧元兑美元</i><i data-en>Euro / US dollar</i></span><svg viewBox="0 0 100 24"><path d="M1 8c15 5 20 12 34 9s19-10 31-6 20 7 33 2"></path></svg></div>
+            <div class="market-row"><span><b>GBP/USD</b><i data-zh>英镑兑美元</i><i data-en>Pound / US dollar</i></span><svg viewBox="0 0 100 24"><path d="M1 17c12 1 22-6 33-5s17 8 31 6 20-11 34-10"></path></svg></div>
+            <div class="market-row"><span><b>USD/JPY</b><i data-zh>美元兑日元</i><i data-en>US dollar / yen</i></span><svg viewBox="0 0 100 24"><path d="M1 14c14-8 21-3 34-1s18-4 31-2 21 7 33 3"></path></svg></div>
+            <div class="market-row"><span><b>USD/KRW</b><i data-zh>美元兑韩元</i><i data-en>US dollar / won</i></span><svg viewBox="0 0 100 24"><path d="M1 19c14-1 22-9 35-7s17 9 29 7 21-5 34-4"></path></svg></div>
+            <div class="market-row"><span><b>USD/RUB</b><i data-zh>美元兑卢布</i><i data-en>US dollar / ruble</i></span><svg viewBox="0 0 100 24"><path d="M1 6c13 4 22 15 36 12s16-11 29-7 21 6 33 4"></path></svg></div>
+            <div class="market-row"><span><b>USD/INR</b><i data-zh>美元兑印度卢比</i><i data-en>US dollar / rupee</i></span><svg viewBox="0 0 100 24"><path d="M1 19c13-2 21-5 33-4s20 5 32 2 20-9 33-13"></path></svg></div>
+          </div>
+
+          <div class="market-panel" role="tabpanel" id="panel-energy" aria-labelledby="tab-energy" data-market-panel="energy" hidden>
+            <div class="market-row"><span><b>WTI</b><i data-zh>美国原油</i><i data-en>US crude oil</i></span><svg viewBox="0 0 100 24"><path d="M1 8c17 2 22 12 37 10s19-11 32-8 17 8 29 7"></path></svg></div>
+            <div class="market-row"><span><b>BRENT</b><i data-zh>布伦特原油</i><i data-en>Brent crude</i></span><svg viewBox="0 0 100 24"><path d="M1 6c14 6 21 14 34 10s20-9 32-6 19 9 32 7"></path></svg></div>
+            <div class="market-row"><span><b>RBOB</b><i data-zh>美国无铅汽油</i><i data-en>US unleaded gasoline</i></span><svg viewBox="0 0 100 24"><path d="M1 19c14-3 22-11 35-8s17 10 29 7 21-7 34-4"></path></svg></div>
+            <div class="market-row"><span><b>CN92</b><i data-zh>国内 92 号汽油</i><i data-en>China 92 gasoline</i></span><svg viewBox="0 0 100 24"><path d="M1 15h98"></path></svg></div>
+            <div class="market-row"><span><b>CN95</b><i data-zh>国内 95 号汽油</i><i data-en>China 95 gasoline</i></span><svg viewBox="0 0 100 24"><path d="M1 13h98"></path></svg></div>
+            <div class="market-row"><span><b>CN98</b><i data-zh>国内 98 号汽油</i><i data-en>China 98 gasoline</i></span><svg viewBox="0 0 100 24"><path d="M1 11h98"></path></svg></div>
+            <div class="market-row"><span><b>CN0</b><i data-zh>国内 0 号柴油</i><i data-en>China No. 0 diesel</i></span><svg viewBox="0 0 100 24"><path d="M1 16h98"></path></svg></div>
+          </div>
+
+          <div class="market-panel" role="tabpanel" id="panel-gold" aria-labelledby="tab-gold" data-market-panel="gold" hidden>
+            <div class="market-row"><span><b>COMEX</b><i data-zh>美国黄金报价</i><i data-en>US gold quote</i></span><svg viewBox="0 0 100 24"><path d="M1 19c13-4 22-14 35-10s17 11 29 8 21-9 34-13"></path></svg></div>
+            <div class="market-row"><span><b>XAU/USD</b><i data-zh>伦敦金报价</i><i data-en>London gold</i></span><svg viewBox="0 0 100 24"><path d="M1 17c15-2 21-10 34-8s19 12 31 8 20-10 33-11"></path></svg></div>
+            <div class="market-row"><span><b>SGE</b><i data-zh>上海黄金现货</i><i data-en>Shanghai spot gold</i></span><svg viewBox="0 0 100 24"><path d="M1 18c13-3 20-8 32-6s19 8 31 4 21-8 35-7"></path></svg></div>
+            <div class="market-row"><span><b>SHFE</b><i data-zh>上海黄金期货</i><i data-en>Shanghai gold futures</i></span><svg viewBox="0 0 100 24"><path d="M1 18c13-3 20-8 32-6s19 8 31 4 21-8 35-7"></path></svg></div>
+            <div class="market-row"><span><b>SHUIBEI</b><i data-zh>水贝现货参考</i><i data-en>Shuibei spot reference</i></span><svg viewBox="0 0 100 24"><path d="M1 16c17-1 23-6 36-4s18 7 30 3 18-6 32-5"></path></svg></div>
+            <div class="market-row"><span><b>XAUXAG</b><i data-zh>黄金白银比</i><i data-en>Gold / silver ratio</i></span><svg viewBox="0 0 100 24"><path d="M1 9c13 3 20 10 33 8s21-11 34-8 18 9 31 8"></path></svg></div>
+            <div class="market-row"><span><b>XAUBTC</b><i data-zh>黄金比特币比</i><i data-en>Gold / Bitcoin ratio</i></span><svg viewBox="0 0 100 24"><path d="M1 7c15 9 21 14 35 10s18-12 30-8 19 10 33 5"></path></svg></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="band" id="coverage">
+      <div class="shell">
+        <div class="section-heading centered reveal">
+          <p class="section-kicker">MARKET DEPTH</p>
+          <h2 data-zh>每个品种，都有自己的完整页面</h2>
+          <h2 data-en>Every market opens into its own complete view</h2>
+          <p data-zh>主界面负责判断优先级，详情页负责把价格、历史、持仓、比值和相关新闻讲清楚。</p>
+          <p data-en>The cockpit sets priorities. Detail views bring together price, history, holdings, ratios and relevant news.</p>
+        </div>
+
+        <div class="depth-grid reveal">
+          <article class="depth-block depth-gold">
+            <div class="depth-top">
+              <span class="depth-index">01</span>
+              <svg aria-hidden="true"><use href="#i-chart"></use></svg>
+            </div>
+            <h3 data-zh>黄金中心</h3><h3 data-en>Gold center</h3>
+            <p data-zh>实时金价与历年走势、中国央行最近一年月度增减持、美国黄金 ETF 最近一个月每日持仓变化，以及金银比和黄金比特币比。</p>
+            <p data-en>Live gold, historical trends, monthly PBOC reserve changes, daily US gold ETF holdings, the gold/silver ratio and the gold/Bitcoin ratio.</p>
+            <div class="depth-tags"><span>XAU</span><span>PBOC</span><span>ETF</span><span>RATIOS</span></div>
+          </article>
+          <article class="depth-block depth-us">
+            <div class="depth-top">
+              <span class="depth-index">02</span>
+              <svg aria-hidden="true"><use href="#i-globe"></use></svg>
+            </div>
+            <h3 data-zh>美股与美债</h3><h3 data-en>US stocks and debt</h3>
+            <p data-zh>纳斯达克、道琼斯与标普 500 同屏查看，包含核心股票价格、涨跌幅和市值；美债页面聚合总债务、期限结构与历史趋势。</p>
+            <p data-en>Nasdaq, Dow and S&amp;P 500 in one view with key stocks, changes and market values, plus total debt, maturity structure and Treasury history.</p>
+            <div class="depth-tags"><span>NASDAQ</span><span>DJI</span><span>SPX</span><span>DEBT</span></div>
+          </article>
+          <article class="depth-block depth-macro">
+            <div class="depth-top">
+              <span class="depth-index">03</span>
+              <svg aria-hidden="true"><use href="#i-calendar"></use></svg>
+            </div>
+            <h3 data-zh>宏观与资讯</h3><h3 data-en>Macro and news</h3>
+            <p data-zh>原油与成品油、近期重要经济事件、市场核心利空与支撑，以及可随 App 语言切换的科技和时事资讯。</p>
+            <p data-en>Crude and refined fuels, recent economic events, key headwinds and supports, plus technology and current news that follows the app language.</p>
+            <div class="depth-tags"><span>WTI</span><span>EVENTS</span><span>TECH</span><span>NEWS</span></div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="context-band" id="context">
+      <div class="shell">
+        <div class="context-heading reveal">
+          <div>
+            <p class="section-kicker">MARKET CONTEXT</p>
+            <h2 data-zh>不只告诉你价格，还告诉你市场正在等什么</h2>
+            <h2 data-en>Not just the price, but what the market is waiting for</h2>
+          </div>
+          <p data-zh>近期重要事件与市场核心因素并排呈现，让时间节点、主要利空和主要支撑形成同一条判断链。</p>
+          <p data-en>Recent events sit beside key market factors so timing, headwinds and supports form one readable chain of context.</p>
+        </div>
+
+        <div class="context-grid reveal">
+          <div class="event-board">
+            <div class="board-heading">
+              <span><svg aria-hidden="true"><use href="#i-calendar"></use></svg></span>
+              <div><strong data-zh>近期重要事件</strong><strong data-en>Upcoming events</strong><small data-zh>按影响级别整理</small><small data-en>Organized by market impact</small></div>
+            </div>
+            <ol class="event-list">
+              <li><span>01</span><div><strong data-zh>央行议息与政策指引</strong><strong data-en>Central-bank decisions</strong><small data-zh>利率路径 · 声明措辞 · 发布会</small><small data-en>Rate path · statement · press conference</small></div><b class="impact-high" data-zh>高</b><b class="impact-high" data-en>HIGH</b></li>
+              <li><span>02</span><div><strong data-zh>通胀与就业数据</strong><strong data-en>Inflation and employment</strong><small>CPI · PPI · PCE · NFP</small></div><b class="impact-high" data-zh>高</b><b class="impact-high" data-en>HIGH</b></li>
+              <li><span>03</span><div><strong data-zh>经济增长数据</strong><strong data-en>Growth data</strong><small>GDP · PMI · Retail sales</small></div><b class="impact-mid" data-zh>中</b><b class="impact-mid" data-en>MID</b></li>
+              <li><span>04</span><div><strong data-zh>美国财政与国债发行</strong><strong data-en>US fiscal and Treasury supply</strong><small data-zh>拍卖 · 赤字 · 债务上限</small><small data-en>Auctions · deficit · debt ceiling</small></div><b class="impact-mid" data-zh>中</b><b class="impact-mid" data-en>MID</b></li>
+              <li><span>05</span><div><strong data-zh>能源库存与产量</strong><strong data-en>Energy inventories and supply</strong><small>EIA · OPEC+ · Rig count</small></div><b class="impact-mid" data-zh>中</b><b class="impact-mid" data-en>MID</b></li>
+              <li><span>06</span><div><strong data-zh>科技公司财报</strong><strong data-en>Technology earnings</strong><small data-zh>指引 · 资本开支 · AI 需求</small><small data-en>Guidance · capex · AI demand</small></div><b class="impact-low" data-zh>跟踪</b><b class="impact-low" data-en>WATCH</b></li>
+            </ol>
+          </div>
+
+          <div class="factor-board">
+            <div class="board-heading">
+              <span><svg aria-hidden="true"><use href="#i-gauge"></use></svg></span>
+              <div><strong data-zh>市场核心因素</strong><strong data-en>Core market factors</strong><small data-zh>宏观与跨资产驱动</small><small data-en>Macro and cross-asset drivers</small></div>
+            </div>
+            <div class="factor-columns">
+              <div>
+                <h3><i class="factor-down"></i><span data-zh>主要利空</span><span data-en>Headwinds</span></h3>
+                <ul>
+                  <li><strong data-zh>实际利率上行</strong><strong data-en>Higher real yields</strong><small data-zh>压制黄金与高久期资产估值</small><small data-en>Pressure on gold and long-duration assets</small></li>
+                  <li><strong data-zh>美元流动性收紧</strong><strong data-en>Tighter dollar liquidity</strong><small data-zh>风险资产波动可能放大</small><small data-en>Can amplify risk-asset volatility</small></li>
+                  <li><strong data-zh>能源需求走弱</strong><strong data-en>Softer energy demand</strong><small data-zh>原油与成品油预期承压</small><small data-en>Weighs on crude and refined fuels</small></li>
+                </ul>
+              </div>
+              <div>
+                <h3><i class="factor-up"></i><span data-zh>主要支撑</span><span data-en>Supports</span></h3>
+                <ul>
+                  <li><strong data-zh>全球央行购金</strong><strong data-en>Central-bank gold buying</strong><small data-zh>形成长期结构性需求</small><small data-en>Adds structural long-term demand</small></li>
+                  <li><strong data-zh>财政与债务压力</strong><strong data-en>Fiscal and debt pressure</strong><small data-zh>强化硬资产与避险配置逻辑</small><small data-en>Supports hard-asset and haven demand</small></li>
+                  <li><strong data-zh>科技资本开支</strong><strong data-en>Technology capex</strong><small data-zh>为核心指数盈利提供观察线索</small><small data-en>Offers a signal for index earnings</small></li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="band band-soft" id="devices">
+      <div class="shell">
+        <div class="section-heading centered reveal">
+          <p class="section-kicker">ONE MARKET, EVERY SCREEN</p>
+          <h2 data-zh>从桌面驾驶舱，到抬腕和锁屏</h2>
+          <h2 data-en>From the desktop cockpit to your wrist and Lock Screen</h2>
+          <p data-zh>每个端保留自己的交互方式，不把 Mac 界面生硬缩小到手机和手表。</p>
+          <p data-en>Each device keeps the interaction it does best instead of shrinking the Mac interface onto every screen.</p>
+        </div>
+
+        <div class="device-showcase reveal">
+          <div class="device-rail">
+            <article>
+              <span class="device-icon"><svg aria-hidden="true"><use href="#i-device"></use></svg></span>
+              <div><b>Mac</b><strong data-zh>多资产驾驶舱</strong><strong data-en>Multi-asset cockpit</strong><p data-zh>统一主页、独立详情、菜单栏行情与多品种屏保模式。</p><p data-en>Unified home, dedicated details, menu-bar quotes and a multi-market standby view.</p></div>
+            </article>
+            <article>
+              <span class="device-icon"><svg aria-hidden="true"><use href="#i-phone"></use></svg></span>
+              <div><b>iPhone &amp; iPad</b><strong data-zh>移动市场上下文</strong><strong data-en>Mobile market context</strong><p data-zh>行情、事件与资讯保持轻快，并支持锁屏和灵动岛实时活动。</p><p data-en>Fast quotes, events and news with Live Activities on the Lock Screen and Dynamic Island.</p></div>
+            </article>
+            <article>
+              <span class="device-icon"><svg aria-hidden="true"><use href="#i-watch"></use></svg></span>
+              <div><b>Apple Watch</b><strong data-zh>抬腕查看重点</strong><strong data-en>Priority markets at a glance</strong><p data-zh>核心价格与紧凑走势图，减少层级和持续动画带来的卡顿。</p><p data-en>Core prices and compact curves with fewer layers and less continuous animation.</p></div>
+            </article>
+          </div>
+
+          <div class="platform-mark">
+            <img src="./assets/lynncat-markets-icon.png" width="256" height="256" alt="Lynncat Markets app icon">
+            <div class="platform-pulse" aria-hidden="true"></div>
+            <p><strong data-zh>同一套关注清单</strong><strong data-en>One priority list</strong><span data-zh>深色 · 浅色 · Pilot 浅色</span><span data-en>Dark · Light · Pilot Light</span></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="band account-band">
+      <div class="shell account-layout">
+        <div class="account-intro reveal">
+          <p class="section-kicker">OPTIONAL ACCOUNT</p>
+          <h2 data-zh>行情无需绕路，账号能力按需开启</h2>
+          <h2 data-en>Markets stay immediate. Account features remain optional.</h2>
+          <p data-zh>先打开软件看市场，需要积分、排行榜或交流时再使用 Lynncat 账号。核心行情与详情不会被登录页挡住。</p>
+          <p data-en>Open the app and see the market first. Use a Lynncat account only when you need points, rankings or conversation. Core quotes never sit behind sign-in.</p>
+        </div>
+
+        <div class="account-features reveal">
+          <article>
+            <span><svg aria-hidden="true"><use href="#i-trophy"></use></svg></span>
+            <div><h3 data-zh>在线积分与排行榜</h3><h3 data-en>Online points and ranking</h3><p data-zh>在线时按规则累计 Lynncat 积分，可查看积分排行榜并用于支持的互动功能。</p><p data-en>Earn Lynncat points under the in-app rules, view the leaderboard and use points for supported interactions.</p></div>
+          </article>
+          <article>
+            <span><svg aria-hidden="true"><use href="#i-message"></use></svg></span>
+            <div><h3 data-zh>按品种独立交流</h3><h3 data-en>Conversation by instrument</h3><p data-zh>每个市场品种拥有独立交流流，支持昵称、举报与屏蔽，并按内容规则进行治理。</p><p data-en>Each instrument has its own conversation stream with nicknames, reporting, blocking and moderation controls.</p></div>
+          </article>
+          <article>
+            <span><svg aria-hidden="true"><use href="#i-spade"></use></svg></span>
+            <div><h3 data-zh>德州扑克与集卡</h3><h3 data-en>Poker and card collection</h3><p data-zh>市场之外的轻量玩法独立存在，不干扰行情浏览和价格提醒。</p><p data-en>Optional lightweight play lives away from the market workflow and never interrupts quotes or alerts.</p></div>
+          </article>
+          <article>
+            <span><svg aria-hidden="true"><use href="#i-shield"></use></svg></span>
+            <div><h3 data-zh>隐私与内容控制</h3><h3 data-en>Privacy and content control</h3><p data-zh>本机提醒规则保存在设备上；交流功能提供举报、屏蔽和公开的管理说明。</p><p data-en>Local alert rules stay on-device, while conversation includes reporting, blocking and published moderation information.</p></div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="final-cta">
+      <div class="shell final-grid reveal">
+        <div class="final-brand">
+          <img src="./assets/lynncat-markets-icon.png" width="96" height="96" alt="">
+          <div><span data-zh>全球市场，不必嘈杂。</span><span data-en>Global markets without the noise.</span><strong>Lynncat Markets</strong></div>
+        </div>
+        <div class="final-actions">
+          <a class="button button-primary" href="https://apps.apple.com/app/id6782930494" target="_blank" rel="noopener">
+            <span data-zh>前往 App Store</span><span data-en>Open the App Store</span>
+            <svg aria-hidden="true"><use href="#i-arrow"></use></svg>
+          </a>
+          <a class="text-link" href="./support.html"><span data-zh>查看支持与常见问题</span><span data-en>Support and FAQ</span></a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="shell footer-grid">
+      <div>
+        <a class="footer-brand" href="./"><img src="./assets/lynncat-markets-icon.png" width="32" height="32" alt=""><strong>Lynncat Markets</strong></a>
+        <p data-zh>面向 Apple 设备的安静、清晰全球市场驾驶舱。</p>
+        <p data-en>A calm, clear global market cockpit for Apple devices.</p>
+      </div>
+      <div class="footer-links">
+        <a href="./support.html"><span data-zh>支持</span><span data-en>Support</span></a>
+        <a href="./privacy.html"><span data-zh>隐私政策</span><span data-en>Privacy</span></a>
+        <a href="./moderation.html"><span data-zh>内容管理</span><span data-en>Moderation</span></a>
+        <a href="../"><span data-zh>全部产品</span><span data-en>All products</span></a>
+      </div>
+      <div class="footer-legal">
+        <p data-zh>行情可能延迟，仅供信息参考，不构成投资建议。</p>
+        <p data-en>Market data may be delayed. Information only, not investment advice.</p>
+        <small>© <span data-current-year>2026</span> Lynncat. All rights reserved.</small>
+      </div>
+    </div>
+  </footer>
+
+  <script src="./site.js"></script>
 </body>
 </html>
