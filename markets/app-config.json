@@ -1,6 +1,10 @@
 {
-  "minimumSupportedVersion": "1.0",
-  "latestVersion": "1.0",
+  "minimumSupportedVersion": "1.3",
+  "latestVersion": "1.3",
   "forceUpdateMessage": "当前版本已停用，请前往 App Store 更新。",
-  "appStoreURL": "https://apps.apple.com/app/idYOUR_APP_ID"
+  "appStoreURL": "https://apps.apple.com/app/id6782930494",
+  "directMinimumSupportedVersion": "1.3",
+  "directLatestVersion": "1.3",
+  "directForceUpdateMessage": "当前版本已停用，请前往林猫市场官网下载新版。",
+  "directDownloadURL": "https://lynncat.com/markets/"
 }
