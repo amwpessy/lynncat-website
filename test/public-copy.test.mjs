@@ -123,3 +123,21 @@ test('homepage exposes the Mac market dashboard feature set', async () => {
     assert.match(script, new RegExp(`function ${feature}`));
   }
 });
+
+test('homepage exposes the current macOS and iOS direct downloads', async () => {
+  const html = await readFile('index.html', 'utf8');
+  const downloads = await readFile('markets/downloads.html', 'utf8');
+  const css = await readFile('markets-home.css', 'utf8');
+  const macBuild = await readFile('markets/downloads/Lynncat-Markets-1.5-Direct.dmg');
+  const iosBuild = await readFile('markets/downloads/Lynncat-Markets-1.5-iOS-SelfSign.ipa');
+
+  assert.match(html, /href="\/markets\/downloads\/Lynncat-Markets-1\.5-Direct\.dmg\?v=9"/);
+  assert.match(html, /href="\/markets\/downloads\/Lynncat-Markets-1\.5-iOS-SelfSign\.ipa\?v=8"/);
+  assert.match(html, /macOS 官网版[\s\S]*1\.5 \(9\)/);
+  assert.match(html, /iOS 官网版[\s\S]*1\.5 \(8\) · 需自签/);
+  assert.match(downloads, /macOS[\s\S]*Version 1\.5 · Build 9/);
+  assert.match(downloads, /iOS[\s\S]*Version 1\.5 · Build 8/);
+  assert.match(css, /\.client-download-inner/);
+  assert.ok(macBuild.byteLength > 1_000_000);
+  assert.ok(iosBuild.byteLength > 1_000_000);
+});

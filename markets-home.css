@@ -76,6 +76,11 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .theme-switcher button:first-of-type{border-radius:7px 0 0 7px;border-left:0}
 .theme-switcher button:last-child{border-radius:0 7px 7px 0}
 .theme-switcher button.is-active{background:color-mix(in srgb,var(--ink) 17%,transparent);font-weight:700}
+.client-download-bar{border-bottom:1px solid var(--separator);background:color-mix(in srgb,var(--surface-solid) 84%,var(--accent) 16%)}
+.client-download-inner{display:flex;align-items:center;justify-content:flex-end;gap:7px;max-width:1530px;min-height:42px;margin:0 auto;padding:5px 16px}
+.client-download-title{display:flex;align-items:center;gap:7px;margin-right:auto;color:var(--ink-dim);font-size:10px;white-space:nowrap}.client-download-title i{color:var(--accent);font-size:13px}.client-download-title strong{color:var(--ink)}
+.client-download-link{display:flex;align-items:center;gap:7px;min-height:31px;border:1px solid color-mix(in srgb,var(--accent) 24%,var(--border));border-radius:8px;background:var(--surface-solid);padding:5px 10px;color:var(--ink);font-size:10px;font-weight:700;text-decoration:none;white-space:nowrap}.client-download-link:hover{border-color:color-mix(in srgb,var(--accent) 55%,var(--border));color:var(--accent)}.client-download-link i{color:var(--accent);font-size:13px}.client-download-link small{color:var(--ink-dim);font:600 8px var(--mono)}
+.client-download-more{display:flex;align-items:center;gap:4px;padding:6px;color:var(--accent);font-size:9px;font-weight:700;text-decoration:none;white-space:nowrap}
 main{min-height:calc(100vh - 116px)}
 .route-panel{display:none;max-width:1530px;margin:0 auto;padding:16px}
 .route-panel.is-active{display:block;animation:panel-in .2s ease-out}
@@ -184,6 +189,7 @@ noscript{display:block;background:#7d1f24;color:#fff;padding:12px;text-align:cen
 @media(max-width:820px){
   .utility-bar{padding:7px 12px}.region-switcher{order:3;width:100%}.utility-bar{flex-wrap:wrap}.region-switcher button{flex:1}.account-button span{display:none}
   .navigation-bar{min-height:48px;padding:7px 12px;flex-wrap:wrap}.mobile-nav-toggle{display:flex;align-items:center;gap:5px}.primary-navigation{display:none;order:3;width:100%;overflow:auto;padding:5px 0}.primary-navigation.is-open{display:flex}.theme-switcher{margin-left:auto}.theme-switcher button{font-size:0}.theme-switcher button::after{font-size:10px}.theme-switcher button[data-theme-value="dark"]::after{content:"深"}.theme-switcher button[data-theme-value="light"]::after{content:"浅"}.theme-switcher button[data-theme-value="pilot"]::after{content:"P"}
+  .client-download-inner{justify-content:flex-start;overflow-x:auto;padding:5px 12px}.client-download-title{display:none}.client-download-more{margin-left:auto}
   .route-panel{padding:11px}.focus-grid{grid-template-columns:repeat(2,1fr)}.focus-card.debt{grid-column:1/-1}.focus-card{min-height:154px}
   .chart-wrap.large{height:235px}.monitor-panel{min-width:0}.event-row{grid-template-columns:48px 55px 1fr}.event-row .impact{display:none}
   .news-route{padding-top:18px}.news-card{grid-template-columns:100px 1fr}.news-image{width:100px;height:90px}.news-card time{grid-column:2}.news-link{grid-column:2;justify-self:end}.news-heading h1{font-size:22px}
@@ -193,6 +199,7 @@ noscript{display:block;background:#7d1f24;color:#fff;padding:12px;text-align:cen
 }
 @media(max-width:560px){
   .utility-actions{gap:1px}.focus-grid{grid-template-columns:1fr 1fr;gap:8px}.focus-card{padding:11px;min-height:154px}.focus-value{font-size:20px}.focus-source{font-size:8px}
+  .client-download-inner{display:grid;grid-template-columns:1fr 1fr;gap:5px;overflow:visible}.client-download-link{justify-content:center;min-width:0;padding:5px 7px}.client-download-link small{display:none}.client-download-more{grid-column:1/-1;justify-content:center;margin:0;padding:2px 6px}
   .panel{padding:12px}.panel-heading{align-items:center;flex-wrap:wrap}.panel-heading-actions{width:100%;justify-content:flex-end}.period-switcher button{padding:4px 8px}.trend-summary{align-items:flex-end;gap:10px}.trend-summary strong{font-size:30px}.trend-summary dl{gap:8px}.chart-legend .chart-hint{display:none}.chart-wrap.large{height:205px}
   .monitor-row,.monitor-labels{grid-template-columns:1.25fr .8fr .8fr}.lower-grid{gap:8px}.factor-item{grid-template-columns:40px 1fr}.factor-item .impact{display:none}
   .factor-columns{grid-template-columns:1fr}
