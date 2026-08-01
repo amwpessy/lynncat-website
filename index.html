@@ -1,387 +1,494 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="zh-CN" data-theme="pilot">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Lynncat — Independent app developer. Strategy and puzzle games and utilities for iPhone, iPad, and Apple Watch.">
-<title>Lynncat — Independent App Developer</title>
-<style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --bg: #0f0f0f;
-    --surface: #1a1a1a;
-    --border: #2a2a2a;
-    --text: #f0f0f0;
-    --muted: #888;
-    --accent: #f5a623;
-    --accent2: #e07020;
-    --radius: 16px;
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="实时查看黄金、比特币、纳斯达克、WTI 原油与美国国债，阅读科技和时事资讯，并体验德州扑克与水浒集卡。">
+  <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
+  <meta name="theme-color" content="#eef2f7">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="zh_CN">
+  <meta property="og:site_name" content="Lynncat">
+  <meta property="og:title" content="林猫行情 · 全球市场驾驶舱">
+  <meta property="og:description" content="黄金、比特币、美股、原油与美国国债实时行情，科技与时事资讯，以及德州扑克和水浒集卡。">
+  <meta property="og:url" content="https://lynncat.com/">
+  <meta property="og:image" content="https://lynncat.com/markets/assets/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="林猫行情全球市场驾驶舱">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="林猫行情 · 全球市场驾驶舱">
+  <meta name="twitter:description" content="黄金、比特币、美股、原油与美国国债实时行情，科技与时事资讯。">
+  <meta name="twitter:image" content="https://lynncat.com/markets/assets/og.png">
+  <link rel="canonical" href="https://lynncat.com/">
+  <link rel="icon" type="image/png" href="/markets/assets/lynncat-markets-icon.png">
+  <link rel="apple-touch-icon" href="/markets/assets/lynncat-markets-icon.png">
+  <title>黄金、比特币、美股与美债行情｜林猫行情</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="/markets-home.css?v=20260730k">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://lynncat.com/#organization",
+        "name": "Lynncat",
+        "alternateName": "林猫",
+        "url": "https://lynncat.com/",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://lynncat.com/markets/assets/lynncat-markets-icon.png",
+          "width": 256,
+          "height": 256
+        }
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://lynncat.com/#website",
+        "url": "https://lynncat.com/",
+        "name": "Lynncat",
+        "alternateName": "林猫",
+        "description": "黄金、比特币、美股、原油、美国国债、科技资讯与互动体验。",
+        "inLanguage": ["zh-CN", "en"],
+        "publisher": {
+          "@id": "https://lynncat.com/#organization"
+        }
+      }
+    ]
   }
-  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height: 1.6; }
-
-  /* LANG */
-  body[data-lang='en'] [data-zh]{ display:none; }
-  body[data-lang='zh'] [data-en]{ display:none; }
-  .lang-toggle{ background:none; border:1px solid var(--border); color:var(--muted); font-size:13px; padding:6px 14px; border-radius:100px; cursor:pointer; margin-left:28px; transition:all .2s; font-family:inherit; }
-  .lang-toggle:hover{ color:var(--text); border-color: var(--accent-ink); }
-
-  nav { display: flex; align-items: center; justify-content: space-between; padding: 20px 40px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--nav-bg); backdrop-filter: blur(12px); z-index: 100; }
-  .nav-logo { font-size: 20px; font-weight: 700; color: var(--accent-ink); letter-spacing: -0.5px; text-decoration: none; }
-  .nav-links { display: flex; align-items: center; }
-  .nav-links a { color: var(--muted); text-decoration: none; margin-left: 28px; font-size: 15px; transition: color .2s; }
-  .nav-links a:hover { color: var(--text); }
-
-  .hero { text-align: center; padding: 100px 24px 80px; max-width: 700px; margin: 0 auto; }
-  .hero-cat { font-size: 64px; margin-bottom: 20px; }
-  .hero h1 { font-size: clamp(36px, 6vw, 56px); font-weight: 800; letter-spacing: -1.5px; line-height: 1.1; margin-bottom: 20px; }
-  .hero h1 span.grad { background: linear-gradient(135deg, var(--accent-ink), var(--accent2-ink)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-  .hero p { font-size: 18px; color: var(--muted); max-width: 480px; margin: 0 auto 36px; }
-  .hero-badges { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
-  .badge { font-size: 13px; padding: 6px 14px; border: 1px solid var(--border); border-radius: 100px; color: var(--muted); }
-
-  .section { max-width: 900px; margin: 0 auto; padding: 60px 24px; }
-  .section-title { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); margin-bottom: 32px; }
-  .apps { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 20px; }
-  .app-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; transition: border-color .2s, transform .2s; text-decoration: none; color: inherit; display: block; }
-  .app-card:hover { border-color: var(--accent-ink); transform: translateY(-2px); }
-  .app-card-header { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
-  .app-icon { width: 60px; height: 60px; border-radius: 14px; background: linear-gradient(135deg, #3a2010, #1a0e06); display: flex; align-items: center; justify-content: center; font-size: 30px; flex-shrink: 0; }
-  .app-icon.iron { background: linear-gradient(135deg, #5a1f14, #1a0a06); }
-  .app-meta { flex: 1; }
-  .app-name { font-size: 18px; font-weight: 700; margin-bottom: 3px; }
-  .app-category { font-size: 12px; color: var(--accent-ink); font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; }
-  .app-desc { font-size: 14px; color: var(--muted); line-height: 1.6; margin-bottom: 20px; }
-  .app-platforms { display: flex; gap: 8px; flex-wrap: wrap; }
-  .platform-tag { font-size: 12px; padding: 4px 10px; background: var(--tag-bg); border-radius: 6px; color: var(--muted); }
-  .app-cta { display: inline-flex; align-items: center; gap: 6px; margin-top: 20px; font-size: 14px; font-weight: 600; color: var(--accent-ink); }
-  .app-cta svg { transition: transform .2s; }
-  .app-card:hover .app-cta svg { transform: translateX(3px); }
-
-  footer { border-top: 1px solid var(--border); padding: 40px 24px; text-align: center; }
-  footer p { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
-  footer a { color: var(--muted); text-decoration: none; }
-  footer a:hover { color: var(--text); }
-  .footer-links { display: flex; gap: 20px; justify-content: center; margin-top: 12px; flex-wrap: wrap; }
-
-  @media (max-width: 600px) {
-    nav { padding: 16px 20px; }
-    .nav-links a { display: none; }
-    .lang-toggle { margin-left: 0; }
-    .apps { grid-template-columns: 1fr; }
-  }
-:root{--accent-ink:#f5a623;--accent2-ink:#e07020;--nav-bg:rgba(15,15,15,0.92);--tag-bg:rgba(255,255,255,0.06);}
-:root[data-theme='light']{--bg:#f6f6f8;--surface:#ffffff;--surface2:#f0f0f3;--border:#e3e3e8;--text:#1b1b1f;--muted:#6a6a72;--accent-ink:#b35e09;--accent2-ink:#8f4408;--green:#1f9d63;--red:#cf3a28;--nav-bg:rgba(246,246,248,0.9);--tag-bg:rgba(0,0,0,0.05);}
-</style>
-<script>/* 按北京时间自动切换主题：白天(6-18)浅色，夜间深色 */
-(function(){function a(){var h;try{h=parseInt(new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Shanghai',hour:'numeric',hour12:false}).format(new Date()),10);}catch(e){h=new Date().getHours();}if(h===24)h=0;document.documentElement.setAttribute('data-theme',(h>=6&&h<18)?'light':'dark');}a();setInterval(a,300000);})();</script>
+  </script>
+  <script src="/shuihu-catalog.js?v=20260730k" defer></script>
+  <script src="/poker-rules.js?v=20260730k" defer></script>
+  <script src="/markets-home-20260730k.js" defer></script>
 </head>
-<body data-lang="en">
+<body>
+  <a class="skip-link" href="#main-content">跳到主要内容</a>
 
-<nav>
-  <a class="nav-logo" href="index.html">🐱 Lynncat</a>
-  <div class="nav-links">
-    <a href="#apps"><span data-en>Apps</span><span data-zh>作品</span></a>
-    <a href="mailto:amwpessy@gmail.com"><span data-en>Contact</span><span data-zh>聯絡</span></a>
-    <button class="lang-toggle" onclick="toggleLang()"><span data-en>繁體中文</span><span data-zh>English</span></button>
-  </div>
-</nav>
+  <header class="app-header">
+    <div class="utility-bar">
+      <a class="brand" href="/" aria-label="林猫行情首页">
+        <img src="/markets/assets/lynncat-markets-icon.png" alt="">
+        <span class="brand-copy">
+          <strong data-copy="brand">林猫行情</strong>
+          <small>LYNNCAT MARKETS</small>
+        </span>
+      </a>
 
-<section class="hero">
-  <div class="hero-cat">🐱</div>
-  <h1><span data-en>Apps made with<br><span class="grad">care and craft</span></span><span data-zh>用心打磨的<br><span class="grad">每一款 App</span></span></h1>
-  <p><span data-en>Independent developer building strategy &amp; puzzle games and utilities for iPhone, iPad, and Apple Watch.</span><span data-zh>獨立開發者,為 iPhone、iPad 與 Apple Watch 打造策略、益智遊戲與實用工具。</span></p>
-  <div class="hero-badges">
-    <span class="badge">📱 iPhone &amp; iPad</span>
-    <span class="badge">⌚ Apple Watch</span>
-    <span class="badge">🌏 <span data-en>3 Languages</span><span data-zh>三種語言</span></span>
-    <span class="badge">🔒 <span data-en>No data collected</span><span data-zh>不收集資料</span></span>
-  </div>
-</section>
+      <div class="segmented region-switcher" role="group" aria-label="区域与货币">
+        <button class="is-active" data-region="cn">人民币</button>
+        <button data-region="hk">港币</button>
+        <button data-region="us">美元</button>
+      </div>
 
-<section class="section" id="apps">
-  <p class="section-title"><span data-en>Apps</span><span data-zh>作品</span></p>
-  <div class="apps">
+      <div class="utility-actions">
+        <button class="icon-button label-button" id="alerts-button" type="button">
+          <i class="bi bi-bell" aria-hidden="true"></i>
+          <span>价格提醒</span>
+        </button>
+        <button class="icon-button" id="display-button" type="button" aria-label="行情大屏" title="行情大屏">
+          <i class="bi bi-display" aria-hidden="true"></i>
+        </button>
+        <button class="icon-button label-button" id="leaderboard-button" type="button">
+          <i class="bi bi-trophy" aria-hidden="true"></i>
+          <span>积分排行榜</span>
+        </button>
+        <button class="icon-button" id="refresh-all-button" type="button" aria-label="刷新全部数据" title="刷新全部数据">
+          <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+        </button>
+        <button class="account-button" id="account-button" type="button">
+          <i class="bi bi-person-circle" aria-hidden="true"></i>
+          <span id="account-button-label">登录林猫账号</span>
+        </button>
+      </div>
+    </div>
 
-    <a class="app-card" href="words/index.html">
-      <div class="app-card-header">
-        <div class="app-icon" style="background:linear-gradient(135deg,#286c5a,#163d34)">🌱</div>
-        <div class="app-meta">
-          <div class="app-name"><span data-en>Word Garden</span><span data-zh>單詞花園</span></div>
-          <div class="app-category"><span data-en>Learning · Visual Vocabulary</span><span data-zh>學習 · 看圖記單詞</span></div>
+    <div class="navigation-bar">
+      <button class="mobile-nav-toggle" id="mobile-nav-toggle" type="button" aria-expanded="false" aria-controls="primary-navigation">
+        <i class="bi bi-list" aria-hidden="true"></i><span>功能</span>
+      </button>
+      <nav class="primary-navigation" id="primary-navigation" aria-label="主要功能">
+        <button class="nav-tab is-active" data-route="overview" type="button">
+          <i class="bi bi-speedometer2" aria-hidden="true"></i>
+          <span><strong>市场驾驶舱</strong><small>OVERVIEW</small></span>
+        </button>
+        <button class="nav-tab" data-route="tech" type="button">
+          <i class="bi bi-cpu" aria-hidden="true"></i>
+          <span><strong>科技资讯</strong><small>TECH</small></span>
+        </button>
+        <button class="nav-tab" data-route="news" type="button">
+          <i class="bi bi-newspaper" aria-hidden="true"></i>
+          <span><strong>时事资讯</strong><small>NEWS</small></span>
+        </button>
+        <button class="nav-tab" data-route="poker" type="button">
+          <i class="bi bi-suit-spade-fill" aria-hidden="true"></i>
+          <span><strong>德州扑克</strong><small>POKER</small></span>
+        </button>
+        <button class="nav-tab" data-route="cards" type="button">
+          <i class="bi bi-collection-fill" aria-hidden="true"></i>
+          <span><strong>水浒集卡</strong><small>CARDS</small></span>
+        </button>
+      </nav>
+
+      <div class="theme-switcher" role="group" aria-label="主题">
+        <i class="bi bi-circle-half" aria-hidden="true"></i>
+        <button data-theme-value="dark" type="button">深色</button>
+        <button data-theme-value="light" type="button">浅色</button>
+        <button class="is-active" data-theme-value="pilot" type="button">Pilot 浅色</button>
+      </div>
+    </div>
+  </header>
+
+  <main id="main-content">
+    <section class="route-panel is-active" id="route-overview" data-panel="overview" aria-labelledby="overview-heading">
+      <h1 class="sr-only" id="overview-heading">市场驾驶舱</h1>
+
+      <div class="focus-grid" id="focus-grid" aria-live="polite">
+        <button class="focus-card debt" data-detail="DEBT" type="button">
+          <span class="focus-card-head"><span class="asset-mark mint"><i class="bi bi-bank"></i></span><span><strong>美国国债</strong><small>DEBT</small></span><i class="bi bi-arrow-up-right"></i></span>
+          <span class="focus-value" data-quote-value="DEBT">—</span>
+          <span class="focus-change up" data-quote-change="DEBT">加载中</span>
+          <canvas class="sparkline" data-sparkline="DEBT" aria-label="美国国债近七日走势"></canvas>
+          <small class="focus-source" data-quote-source="DEBT">美国财政部 · 最新官方记录</small>
+        </button>
+        <button class="focus-card" data-detail="XAU" type="button">
+          <span class="focus-card-head"><span class="asset-mark rose"><i class="bi bi-patch-check"></i></span><span><strong>黄金</strong><small>XAU</small></span><i class="bi bi-arrow-up-right"></i></span>
+          <span class="focus-value" data-quote-value="XAU">—</span>
+          <span class="focus-change" data-quote-change="XAU">加载中</span>
+          <canvas class="sparkline" data-sparkline="XAU" aria-label="黄金本次运行走势"></canvas>
+          <small class="focus-source" data-quote-source="XAU">人民币 / 克</small>
+        </button>
+        <button class="focus-card" data-detail="NASDAQ" type="button">
+          <span class="focus-card-head"><span class="asset-mark rose"><i class="bi bi-graph-up-arrow"></i></span><span><strong>纳斯达克指数</strong><small>NASDAQ</small></span><i class="bi bi-arrow-up-right"></i></span>
+          <span class="focus-value" data-quote-value="NASDAQ">—</span>
+          <span class="focus-change" data-quote-change="NASDAQ">加载中</span>
+          <canvas class="sparkline" data-sparkline="NASDAQ" aria-label="纳斯达克指数本次运行走势"></canvas>
+          <small class="focus-source" data-quote-source="NASDAQ">纳斯达克综合指数 · 点</small>
+        </button>
+        <button class="focus-card" data-detail="BTC" type="button">
+          <span class="focus-card-head"><span class="asset-mark mint"><i class="bi bi-currency-bitcoin"></i></span><span><strong>比特币</strong><small>BTC</small></span><i class="bi bi-arrow-up-right"></i></span>
+          <span class="focus-value" data-quote-value="BTC">—</span>
+          <span class="focus-change" data-quote-change="BTC">加载中</span>
+          <canvas class="sparkline" data-sparkline="BTC" aria-label="比特币本次运行走势"></canvas>
+          <small class="focus-source" data-quote-source="BTC">人民币 / 枚</small>
+        </button>
+        <button class="focus-card" data-detail="WTI" type="button">
+          <span class="focus-card-head"><span class="asset-mark mint"><i class="bi bi-droplet"></i></span><span><strong>WTI 原油</strong><small>WTI</small></span><i class="bi bi-arrow-up-right"></i></span>
+          <span class="focus-value" data-quote-value="WTI">—</span>
+          <span class="focus-change" data-quote-change="WTI">加载中</span>
+          <canvas class="sparkline" data-sparkline="WTI" aria-label="WTI 原油本次运行走势"></canvas>
+          <small class="focus-source" data-quote-source="WTI">WTI · 美元 / 桶</small>
+        </button>
+      </div>
+
+      <div class="dashboard-grid">
+        <article class="panel trend-panel">
+          <div class="panel-heading">
+            <div><h2>重点市场趋势</h2><p>五项核心关注 · <span data-period-label>最近一个月走势</span></p></div>
+            <div class="segmented period-switcher" data-period-scope="trend" role="group" aria-label="重点市场趋势周期">
+              <button data-period="1d">日</button><button data-period="1w">周</button><button class="is-active" data-period="1m">月</button><button data-period="1y">年</button>
+            </div>
+          </div>
+          <div class="asset-pills" id="trend-assets">
+            <button data-trend="DEBT">DEBT</button><button class="is-active" data-trend="XAU">XAU</button><button data-trend="NASDAQ">NASDAQ</button><button data-trend="BTC">BTC</button><button data-trend="WTI">WTI</button>
+          </div>
+          <div class="trend-summary">
+            <div><small id="trend-name">黄金</small><strong id="trend-value">—</strong><span id="trend-change">—</span></div>
+            <dl><div><dt>最高</dt><dd id="trend-high">—</dd></div><div><dt>最低</dt><dd id="trend-low">—</dd></div></dl>
+          </div>
+          <div class="chart-wrap large"><canvas id="trend-chart" aria-label="重点市场趋势图"></canvas></div>
+        </article>
+
+        <article class="panel monitor-panel">
+          <div class="panel-heading">
+            <div><h2>跨市场监控</h2><p>股市 · 汇率 · 能源 · 黄金 · <span data-monitor-period-label>最近一个月走势</span></p></div>
+            <div class="panel-heading-actions">
+              <div class="segmented period-switcher monitor-period-switcher" data-period-scope="monitor" role="group" aria-label="跨市场监控周期">
+                <button data-period="1d">日</button><button data-period="1w">周</button><button class="is-active" data-period="1m">月</button><button data-period="1y">年</button>
+              </div>
+              <button class="panel-icon-button" id="refresh-monitor-button" type="button" aria-label="更新跨市场行情"><i class="bi bi-arrow-clockwise"></i></button>
+            </div>
+          </div>
+          <div class="segmented monitor-categories" role="group" aria-label="市场分类">
+            <button class="is-active" data-category="stocks">股市</button><button data-category="fx">汇率</button><button data-category="energy">能源</button><button data-category="metals">黄金</button>
+          </div>
+          <div class="monitor-labels"><span>市场</span><span data-monitor-period-label>最近一个月走势</span><span>最新 / <span data-monitor-period-short>月</span>涨跌</span></div>
+          <div class="monitor-list" id="monitor-list" aria-live="polite"></div>
+        </article>
+      </div>
+
+      <section class="panel secondary-section" aria-labelledby="secondary-heading">
+        <div class="panel-heading">
+          <div><h2 id="secondary-heading">更多市场</h2><p>贵金属 · 数字资产 · 统一行情刷新</p></div>
+          <small id="secondary-updated">等待更新</small>
+        </div>
+        <div class="secondary-grid" id="secondary-grid" aria-live="polite"></div>
+      </section>
+
+      <div class="lower-grid">
+        <article class="panel events-panel">
+          <div class="panel-heading">
+            <div><h2>近期重要事件</h2><p>宏观与跨资产驱动</p></div>
+            <button class="text-button" data-detail="EVENTS" type="button">查看日历 <i class="bi bi-arrow-up-right"></i></button>
+          </div>
+          <div class="events-list" id="events-list"></div>
+        </article>
+
+        <article class="panel factors-panel">
+          <div class="panel-heading"><div><h2>市场核心因素</h2><p>事件节点与核心市场影响</p></div></div>
+          <div class="factor-columns">
+            <section><header class="down">主要利空</header><div class="factor-list">
+              <div class="factor-item"><span class="factor-scope">通胀</span><div><strong>通胀黏性</strong><p>实际利率预期上升，宽松时点可能延后。</p></div><span class="impact high">高</span></div>
+              <div class="factor-item"><span class="factor-scope">政策</span><div><strong>美联储偏鹰</strong><p>美元与收益率走强会压制风险资产估值。</p></div><span class="impact high">高</span></div>
+              <div class="factor-item"><span class="factor-scope">能源</span><div><strong>油价再通胀</strong><p>WTI 上行可能重新推高商品与运输成本。</p></div><span class="impact medium">中</span></div>
+              <div class="factor-item"><span class="factor-scope">估值</span><div><strong>AI 高估值</strong><p>盈利兑现不足会放大纳指波动。</p></div><span class="impact medium">中</span></div>
+            </div></section>
+            <section><header class="up">主要支撑</header><div class="factor-list">
+              <div class="factor-item"><span class="factor-scope">储备</span><div><strong>央行购金</strong><p>储备多元化为黄金提供长期结构性需求。</p></div><span class="impact high">高</span></div>
+              <div class="factor-item"><span class="factor-scope">财政</span><div><strong>美国财政压力</strong><p>债务与赤字提高黄金和稀缺资产关注度。</p></div><span class="impact high">高</span></div>
+              <div class="factor-item"><span class="factor-scope">增长</span><div><strong>增长放缓</strong><p>宽松预期回升有利于久期资产。</p></div><span class="impact medium">中</span></div>
+              <div class="factor-item"><span class="factor-scope">资本</span><div><strong>AI 资本开支</strong><p>算力与基础设施投资继续支撑科技产业链。</p></div><span class="impact medium">中</span></div>
+            </div></section>
+          </div>
+          <small class="editorial-source">编辑摘要 · 非实时模型</small>
+        </article>
+      </div>
+
+      <div class="insight-grid">
+        <article class="panel intelligence-panel">
+          <div class="panel-heading">
+            <div><h2>市场情报流</h2><p>科技与时事双流摘要 · 点击进入完整资讯</p></div>
+            <button class="text-button" data-route-link="news" type="button">全部资讯 <i class="bi bi-arrow-up-right"></i></button>
+          </div>
+          <div class="intelligence-columns">
+            <section><header><i class="bi bi-cpu"></i><strong>科技资讯</strong><button data-route-link="tech" type="button">打开</button></header><div id="overview-tech-feed"></div></section>
+            <section><header><i class="bi bi-newspaper"></i><strong>时事资讯</strong><button data-route-link="news" type="button">打开</button></header><div id="overview-current-feed"></div></section>
+          </div>
+        </article>
+        <article class="panel reserve-panel">
+          <div class="panel-heading"><div><h2>中国央行黄金储备</h2><p>PBOC · 月度持有量与增持节奏</p></div><span class="live-chip">MONTHLY</span></div>
+          <div class="reserve-summary"><div><small>最新储备</small><strong id="reserve-total">—</strong><span>万盎司</span></div><div><small>最近单月增持</small><strong id="reserve-change">—</strong><span>万盎司</span></div></div>
+          <div class="chart-wrap reserve-chart"><canvas id="reserve-chart" aria-label="中国央行黄金储备月度趋势"></canvas></div>
+          <div class="reserve-axis" id="reserve-axis"></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="route-panel news-route" id="route-tech" data-panel="tech" aria-labelledby="tech-heading">
+      <div class="room-strip"><i class="bi bi-megaphone-fill"></i><span data-room-summary="TECH_NEWS">正在读取科技资讯交流</span><small>24小时</small></div>
+      <article class="news-shell">
+        <div class="news-heading">
+          <div><h1 id="tech-heading">最新科技资讯</h1><p>中文源：量子位、爱范儿、Solidot · 英文源：MIT Technology Review、WIRED</p></div>
+          <div><button class="panel-icon-button" data-refresh-news="tech" type="button" aria-label="刷新科技资讯"><i class="bi bi-arrow-clockwise"></i></button><small data-news-updated="tech">等待更新</small></div>
+        </div>
+        <div class="news-list" id="tech-news-list" aria-live="polite"></div>
+      </article>
+    </section>
+
+    <section class="route-panel news-route" id="route-news" data-panel="news" aria-labelledby="news-heading">
+      <div class="room-strip"><i class="bi bi-megaphone-fill"></i><span data-room-summary="CURRENT_NEWS">正在读取时事资讯交流</span><small>24小时</small></div>
+      <article class="news-shell">
+        <div class="news-heading">
+          <div><h1 id="news-heading">时事资讯</h1><p>中文源：FT中文网 RSS · 英文源：Reuters、Al Jazeera English</p></div>
+          <div><button class="panel-icon-button" data-refresh-news="current" type="button" aria-label="刷新时事资讯"><i class="bi bi-arrow-clockwise"></i></button><small data-news-updated="current">等待更新</small></div>
+        </div>
+        <div class="news-list" id="current-news-list" aria-live="polite"></div>
+      </article>
+    </section>
+
+    <section class="route-panel poker-route" id="route-poker" data-panel="poker" aria-labelledby="poker-heading">
+      <h1 class="sr-only" id="poker-heading">德州扑克</h1>
+      <div class="poker-shell">
+        <div class="game-stats poker-stats">
+          <div><i class="bi bi-person-circle"></i><span><small>账户积分 / Points</small><strong id="poker-points">—</strong></span></div>
+          <div><i class="bi bi-graph-up-arrow"></i><span><small>今日赢得 / Won Today</small><strong id="poker-won">—</strong></span></div>
+          <div class="limit-stat"><span><small>每日额度 / Daily Limit</small><strong id="poker-limit-percent">0%</strong></span><div class="progress"><i id="poker-progress"></i></div><small id="poker-remaining">登录后同步额度</small></div>
+          <div><i class="bi bi-briefcase-fill"></i><span><small>牌局 / Hand</small><strong id="poker-hand-status">READY</strong></span></div>
+          <div class="poker-stat-actions">
+            <button class="dark-icon-button" id="poker-sound-button" type="button" aria-label="音效"><i class="bi bi-volume-up-fill"></i></button>
+            <button class="dark-icon-button" id="poker-sync-button" type="button" aria-label="同步积分"><i class="bi bi-arrow-clockwise"></i></button>
+          </div>
+        </div>
+
+        <div class="poker-main">
+          <div class="table-zone">
+            <div class="poker-table">
+              <div class="seat seat-left" data-seat="1"><div class="hole-cards"><span class="playing-card placeholder" aria-hidden="true"></span><span class="playing-card placeholder" aria-hidden="true"></span></div><span class="seat-info">Lin<br><b>2,500 PTS</b></span></div>
+              <div class="seat seat-top" data-seat="2"><div class="hole-cards"><span class="playing-card placeholder" aria-hidden="true"></span><span class="playing-card placeholder" aria-hidden="true"></span></div><span class="seat-info">Taka<br><b>2,500 PTS</b></span></div>
+              <div class="seat seat-right" data-seat="3"><div class="hole-cards"><span class="playing-card placeholder" aria-hidden="true"></span><span class="playing-card placeholder" aria-hidden="true"></span></div><span class="seat-info"><i class="dealer-chip">D</i> Jo<br><b>2,500 PTS</b></span></div>
+              <div class="pot"><small>底池 / POT</small><strong id="poker-pot">0 PTS</strong></div>
+              <div class="community-cards" id="community-cards" aria-label="公共牌"><span class="playing-card placeholder" aria-hidden="true"></span><span class="playing-card placeholder" aria-hidden="true"></span><span class="playing-card placeholder" aria-hidden="true"></span><span class="playing-card placeholder" aria-hidden="true"></span><span class="playing-card placeholder" aria-hidden="true"></span></div>
+              <div class="seat seat-user" data-seat="0"><div class="hole-cards" id="user-hole-cards"><span class="playing-card placeholder" aria-hidden="true"></span><span class="playing-card placeholder" aria-hidden="true"></span></div><span class="seat-info">你 / You<br><b id="user-stack">— PTS</b></span></div>
+              <div class="table-message" id="poker-table-message"><i class="bi bi-suit-spade-fill"></i><strong>准备发牌 / Ready to deal</strong><span>登录林猫账号后，使用积分牌桌开始一手牌。</span></div>
+            </div>
+            <div class="poker-controls">
+              <div class="hand-strength"><small>当前牌力 / Hand</small><strong id="hand-strength">尚未发牌 / No cards</strong><span id="hand-strength-detail">—</span></div>
+              <button id="poker-fold" type="button" disabled><i class="bi bi-x-lg"></i><span>弃牌 / Fold</span></button>
+              <button id="poker-check" type="button" disabled><i class="bi bi-check2"></i><span id="poker-check-label">过牌 / Check</span></button>
+              <button id="poker-raise" type="button" disabled><i class="bi bi-arrow-up"></i><span>加注 / Raise</span></button>
+              <button class="primary-game-button" id="poker-deal" type="button"><i class="bi bi-collection-fill"></i><span>发牌 / Deal</span></button>
+            </div>
+            <div class="raise-control" id="raise-control" hidden>
+              <label for="raise-slider">加注至 / Raise to <strong id="raise-value" aria-live="polite">100 PTS</strong></label>
+              <input id="raise-slider" type="range" min="50" max="1000" value="100" step="50" aria-label="加注至">
+              <div><button id="raise-half-pot" type="button">½ Pot</button><button id="raise-pot" type="button">Pot</button><button id="raise-max" type="button">上限 / Max</button></div>
+            </div>
+            <p class="game-disclaimer">Lynncat Markets 积分 · 仅供娱乐 · 不可兑换现金 / Lynncat Markets points are for entertainment only and have no cash value</p>
+          </div>
+          <aside class="hand-log">
+            <section class="poker-result-panel" id="poker-result-panel" aria-live="polite" hidden></section>
+            <div class="poker-log-panel" id="poker-log-panel">
+              <h2><i class="bi bi-card-list"></i> 牌局记录 / Hand Log</h2>
+              <ol id="hand-log-list"><li><i class="bi bi-archive"></i><span>等待发牌 / Ready</span></li></ol>
+              <button class="hand-ranks-button" id="hand-ranks-button" type="button"><span><i class="bi bi-info-circle"></i> 牌型 / Hand Ranks</span><i class="bi bi-chevron-right"></i></button>
+            </div>
+          </aside>
         </div>
       </div>
-      <p class="app-desc"><span data-en>Connect English words with vivid pictures. Pick the right image, hear the pronunciation, and grow your visual vocabulary one word at a time.</span><span data-zh>把英文單詞和生動圖片連在一起。選出正確圖像、聆聽發音，一次記住一個單詞。</span></p>
-      <div class="app-platforms">
-        <span class="platform-tag"><span data-en>Web</span><span data-zh>網頁</span></span>
-        <span class="platform-tag"><span data-en>8-word demo</span><span data-zh>8 詞體驗</span></span>
-        <span class="platform-tag"><span data-en>Free</span><span data-zh>免費</span></span>
-      </div>
-      <div class="app-cta">
-        <span data-en>Start learning</span><span data-zh>開始學習</span>
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </div>
-    </a>
+    </section>
 
-    <a class="app-card" href="ironhold/index.html">
-      <div class="app-card-header">
-        <div class="app-icon iron">🏯</div>
-        <div class="app-meta">
-          <div class="app-name"><span data-en>Ironhold</span><span data-zh>鐵壁雄關</span></div>
-          <div class="app-category"><span data-en>Strategy · Tower Defense</span><span data-zh>策略 · 塔防</span></div>
+    <section class="route-panel cards-route" id="route-cards" data-panel="cards" aria-labelledby="cards-heading">
+      <h1 class="sr-only" id="cards-heading">水浒集卡</h1>
+      <div class="cards-shell">
+        <div class="game-stats cards-stats">
+          <div><i class="bi bi-award-fill"></i><span><small>账户积分 / Points</small><strong id="cards-points">—</strong></span></div>
+          <div><i class="bi bi-collection-fill"></i><span><small>已集齐 / Unique</small><strong id="cards-unique">0 / 108</strong></span></div>
+          <div><i class="bi bi-clock-fill"></i><span><small>今日抽卡 / Draws Today</small><strong id="cards-draws">0 / 10</strong></span></div>
+          <div class="set-progress"><span><small>聚义进度 / Set Progress</small><strong id="cards-progress-label">0%</strong></span><div class="progress"><i id="cards-progress"></i></div><small>集齐奖励 1,000,000 分 / Completion reward</small></div>
+          <button class="cards-sync" id="cards-sync-button" type="button" aria-label="同步卡册"><i class="bi bi-arrow-clockwise"></i></button>
         </div>
-      </div>
-      <p class="app-desc"><span data-en>Defend an ancient city against escalating armies. Recruit six unit types, master counters and upgrades, unleash Arrow Rain, and climb the leaderboards across three difficulties.</span><span data-zh>抵禦一波波漸強的大軍。招募六類守軍,善用兵種克制與強化,釋放戰術箭雨,在三檔難度下角逐排行榜。</span></p>
-      <div class="app-platforms">
-        <span class="platform-tag">iPhone</span>
-        <span class="platform-tag">iPad</span>
-        <span class="platform-tag">Apple Watch</span>
-        <span class="platform-tag"><span data-en>Free</span><span data-zh>免費</span></span>
-      </div>
-      <div class="app-cta">
-        <span data-en>Learn more</span><span data-zh>了解更多</span>
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </div>
-    </a>
 
-    <a class="app-card" href="sokoban/index.html">
-      <div class="app-card-header">
-        <div class="app-icon">📦</div>
-        <div class="app-meta">
-          <div class="app-name"><span data-en>Lynncat Sokoban</span><span data-zh>Lynncat 推箱子</span></div>
-          <div class="app-category"><span data-en>Puzzle Game</span><span data-zh>益智遊戲</span></div>
+        <div class="cards-main">
+          <aside class="draw-booth">
+            <div class="booth-heading"><div><h2>聚义抽卡台</h2><small>HERO MUSTER · EQUAL ODDS</small></div><strong>★ 1,000 积分</strong></div>
+            <div class="featured-card" id="featured-card" aria-live="polite">
+              <article class="hero-card-back" aria-label="聚义卡背，尚未抽卡">
+                <div class="hero-card-back-inner"><i class="bi bi-star-fill" aria-hidden="true"></i><strong>聚 义</strong><span>水浒一百单八将</span><small>HERO MUSTER · 108</small></div>
+              </article>
+            </div>
+            <p id="draw-remaining">登录后可查看今日抽卡次数</p>
+            <button class="draw-button" id="draw-card-button" type="button"><i class="bi bi-hand-index-thumb"></i> 消耗 1,000 积分抽一张 / Draw One Card</button>
+            <p class="draw-feedback" id="draw-feedback" role="status"></p>
+          </aside>
+
+          <section class="album">
+            <div class="album-heading">
+              <div><h2>水浒一百单八将卡册 / Water Margin 108</h2><p>天罡 36 · 地煞 72 · 重复卡保留张数</p></div>
+              <div class="segmented card-filters" role="group" aria-label="卡册筛选">
+                <button class="is-active" data-card-filter="all">全部 / All</button>
+                <button data-card-filter="owned">已获得 / Owned</button>
+                <button data-card-filter="missing">未获得 / Missing</button>
+              </div>
+            </div>
+            <div class="card-grid" id="card-grid" aria-live="polite"></div>
+          </section>
         </div>
+        <p class="game-disclaimer cards-disclaimer">积分仅供娱乐且不可兑换现金。108 张卡出现概率相同；属性为依据小说事迹的相对评分，并非官方数值。 / Points have no cash value. All 108 cards have equal odds; ratings are editorial estimates based on the novel.</p>
       </div>
-      <p class="app-desc"><span data-en>120 handcrafted warehouse puzzle levels. Push every crate to its target — simple rules, deep strategy, satisfying solutions.</span><span data-zh>120 個精心設計的倉庫推箱關卡。把每個箱子推到目標點——規則簡單,策略深邃,解法暢快。</span></p>
-      <div class="app-platforms">
-        <span class="platform-tag">iPhone</span>
-        <span class="platform-tag">iPad</span>
-        <span class="platform-tag">Apple Watch</span>
-        <span class="platform-tag"><span data-en>Free + IAP</span><span data-zh>免費 + 內購</span></span>
-      </div>
-      <div class="app-cta">
-        <span data-en>Learn more</span><span data-zh>了解更多</span>
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </div>
-    </a>
+    </section>
 
-    <a class="app-card" href="markets/index.html">
-      <div class="app-card-header">
-        <div class="app-icon" style="background:linear-gradient(135deg,#6a5210,#1a1406)">📈</div>
-        <div class="app-meta">
-          <div class="app-name"><span data-en>Lynncat Markets</span><span data-zh>靈貓行情</span></div>
-          <div class="app-category"><span data-en>Finance · Live Quotes</span><span data-zh>財經 · 即時行情</span></div>
-        </div>
+    <section class="route-panel detail-route" id="route-detail" data-panel="detail" aria-labelledby="detail-title">
+      <div class="detail-toolbar">
+        <button id="detail-back-button" type="button"><i class="bi bi-chevron-left"></i> 返回驾驶舱</button>
+        <span><strong id="detail-title">市场详情</strong><small id="detail-symbol">DETAIL</small></span>
+        <em>详情</em>
       </div>
-      <p class="app-desc"><span data-en>Real-time gold, silver, platinum, palladium plus Bitcoin &amp; Ethereum. Switch CNY/HKD/USD, set price alerts, view 10-year trends — on your menu bar and wrist.</span><span data-zh>黃金白銀鉑鈀,加上比特幣與以太幣即時行情。一鍵切換人民幣/港幣/美元,設定價格提醒、查看十年走勢——常駐選單列、抬腕即看。</span></p>
-      <div class="app-platforms">
-        <span class="platform-tag">iPhone</span>
-        <span class="platform-tag">iPad</span>
-        <span class="platform-tag">Mac</span>
-        <span class="platform-tag">Apple Watch</span>
-        <span class="platform-tag"><span data-en>Free</span><span data-zh>免費</span></span>
-      </div>
-      <div class="app-cta">
-        <span data-en>Learn more</span><span data-zh>了解更多</span>
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </div>
-    </a>
+      <div class="detail-content" id="detail-content"></div>
+      <section class="community-panel" aria-labelledby="community-title">
+        <div class="panel-heading"><div><h2 id="community-title">市场交流</h2><p><span id="community-room-name">当前市场</span> · 每次 3 积分 · 公开 24 小时</p></div><div><button class="text-button" id="community-blocked-button" type="button"><i class="bi bi-person-check"></i> 屏蔽管理</button><button class="text-button" id="community-refresh-button" type="button"><i class="bi bi-arrow-clockwise"></i> 刷新</button></div></div>
+        <div class="message-list" id="community-message-list"></div>
+        <form class="message-form" id="community-message-form">
+          <label for="community-message-input">分享行情看法或风险提醒</label>
+          <textarea id="community-message-input" maxlength="200" rows="3" placeholder="登录后可发送；请勿发布联系方式、带单或保证收益内容。"></textarea>
+          <div><span id="message-counter">0 / 200</span><span><a href="/markets/community">社区规则</a> · <a href="/markets/support">支持</a></span><button type="submit">发送</button></div>
+        </form>
+      </section>
+    </section>
+  </main>
 
-    <a class="app-card" href="codexpilot/index.html">
-      <div class="app-card-header">
-        <div class="app-icon" style="background:linear-gradient(135deg,#1b2538,#07090d)">⌁</div>
-        <div class="app-meta">
-          <div class="app-name"><span data-en>CodexPilot</span><span data-zh>Codex 駕駛艙</span></div>
-          <div class="app-category"><span data-en>Developer Utility · Mac Cockpit</span><span data-zh>開發者工具 · Mac 狀態中樞</span></div>
-        </div>
-      </div>
-      <p class="app-desc"><span data-en>A macOS cockpit built for Codex users. Track remaining quota, disk read/write pressure, cache growth, cleanup opportunities, and Mac health from one focused dashboard.</span><span data-zh>專為 Codex Mac 用戶打造的狀態中樞。集中追蹤剩餘額度、硬盤讀寫壓力、緩存增長、清理機會與 Mac 健康狀態。</span></p>
-      <div class="app-platforms">
-        <span class="platform-tag">Mac</span>
-        <span class="platform-tag"><span data-en>Codex utility</span><span data-zh>Codex 工具</span></span>
-        <span class="platform-tag"><span data-en>Menu bar</span><span data-zh>選單列</span></span>
-      </div>
-      <div class="app-cta">
-        <span data-en>Learn more</span><span data-zh>了解更多</span>
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </div>
-    </a>
+  <footer class="site-footer">
+    <details>
+      <summary>原 Lynncat 子网站入口</summary>
+      <nav aria-label="原子网站">
+        <a href="/markets/">Markets 介绍</a><a href="/codexpilot/">Lynncat Pilot</a><a href="/itnew/">ITNEW</a><a href="/news/">每日新闻</a><a href="/poker/">翻牌俱乐部</a><a href="/words/">单词花园</a><a href="/sokoban/">推箱子</a><a href="/ironhold/">铁壁雄关</a><a href="/sanguo/">三国人物评析</a><a href="/xxxc/">灵猫数据</a><a href="/christmas-carol/">双语圣诞欢歌</a><a href="/coin/">灵猫币</a><a href="/feeding/">喂猫预约</a>
+      </nav>
+    </details>
+    <p>© <span id="copyright-year"></span> Lynncat · 行情与资讯仅供参考，不构成投资建议。</p>
+  </footer>
 
-    <a class="app-card" href="xxxc/index.html">
-      <div class="app-card-header">
-        <div class="app-icon" style="background:linear-gradient(135deg,#1e40af,#0a1a3a)">📊</div>
-        <div class="app-meta">
-          <div class="app-name"><span data-en>Lynncat Data</span><span data-zh>靈貓數據 · 市場數據</span></div>
-          <div class="app-category"><span data-en>Finance · Market Dashboard</span><span data-zh>財經 · 市場儀表盤</span></div>
-        </div>
-      </div>
-      <p class="app-desc"><span data-en>A live market dashboard: gold, silver, platinum &amp; palladium, Bitcoin, US/China stock indices, USD/CNY, the US national debt, rare-metal quotes, and US/China car-sales rankings — with gold &amp; silver milestone history.</span><span data-zh>即時市場儀表盤:黃金、白銀、鉑金、鈀金、比特幣、中美股指、美元人民幣匯率、美國國債、稀有金屬報價與中美汽車銷量排行——附黃金白銀關口歷史。</span></p>
-      <div class="app-platforms">
-        <span class="platform-tag"><span data-en>Web</span><span data-zh>網頁</span></span>
-        <span class="platform-tag"><span data-en>Live data</span><span data-zh>即時數據</span></span>
-        <span class="platform-tag"><span data-en>Free</span><span data-zh>免費</span></span>
-      </div>
-      <div class="app-cta">
-        <span data-en>Learn more</span><span data-zh>了解更多</span>
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </div>
-    </a>
+  <div class="modal-backdrop" id="modal-backdrop" hidden></div>
 
-    <a class="app-card" href="news/index.html">
-      <div class="app-card-header">
-        <div class="app-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706)">📰</div>
-        <div class="app-meta">
-          <div class="app-name"><span data-en>Daily News</span><span data-zh>靈貓資訊 · 每日新聞</span></div>
-          <div class="app-category"><span data-en>News · Aggregation</span><span data-zh>資訊 · 聚合</span></div>
-        </div>
-      </div>
-      <p class="app-desc"><span data-en>Daily curated news aggregation from IT, Finance, and Automotive sectors. Browse by category, view 7-day history, and stay informed with latest industry updates.</span><span data-zh>來自科技、金融和汽車業的每日精選資訊聚合。按分類瀏覽、查看7天歷史記錄，掌握最新行業動態。</span></p>
-      <div class="app-platforms">
-        <span class="platform-tag"><span data-en>Web</span><span data-zh>網頁</span></span>
-        <span class="platform-tag"><span data-en>News Feed</span><span data-zh>資訊流</span></span>
-        <span class="platform-tag"><span data-en>Free</span><span data-zh>免費</span></span>
-      </div>
-      <div class="app-cta">
-        <span data-en>Read news</span><span data-zh>阅读资讯</span>
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </div>
-    </a>
+  <dialog class="app-dialog account-dialog" id="account-dialog">
+    <button class="dialog-close" data-close-dialog type="button" aria-label="关闭"><i class="bi bi-x-lg"></i></button>
+    <div id="signed-out-account">
+      <span class="dialog-mark"><img src="/markets/assets/lynncat-markets-icon.png" alt=""></span>
+      <h2>登录林猫账号</h2>
+      <p>同步积分、市场交流、德州扑克与水浒卡册。登录后保持页面在线，每分钟获得 1 积分。</p>
+      <div class="auth-tabs" role="tablist"><button class="is-active" data-auth-mode="login" type="button">登录</button><button data-auth-mode="register" type="button">注册</button></div>
+      <form id="auth-form">
+        <label>账号名<input id="auth-username" name="username" autocomplete="username" minlength="3" maxlength="32" required></label>
+        <label>密码<input id="auth-password" name="password" type="password" autocomplete="current-password" minlength="8" maxlength="128" required></label>
+        <small>密码至少 8 位，并同时包含字母和数字。</small>
+        <button class="dialog-primary" type="submit" id="auth-submit">登录</button>
+        <p class="form-feedback" id="auth-feedback" role="status"></p>
+      </form>
+    </div>
+    <div id="signed-in-account" hidden>
+      <span class="dialog-mark account-avatar"><i class="bi bi-person-fill"></i></span>
+      <h2 id="account-nickname">林猫用户</h2>
+      <p id="account-public-id">已登录</p>
+      <dl class="account-summary"><div><dt>积分余额</dt><dd id="account-points">—</dd></div><div><dt>累计获得</dt><dd id="account-earned">—</dd></div></dl>
+      <p class="online-credit-status" id="online-credit-status" role="status" aria-live="polite"><i class="bi bi-timer"></i><span>正在连接在线积分…</span></p>
+      <form class="profile-form" id="profile-form">
+        <label>显示名称<input id="profile-nickname" maxlength="14" autocomplete="nickname"></label>
+        <label class="toggle-row"><input id="profile-leaderboard-visible" type="checkbox"><span>在积分排行榜中公开显示</span></label>
+        <button class="dialog-primary" type="submit">保存账户资料</button>
+      </form>
+      <section class="ledger-section">
+        <div><strong>积分明细</strong><button id="ledger-refresh-button" type="button">刷新</button></div>
+        <ol id="account-ledger"><li>正在读取积分记录…</li></ol>
+      </section>
+      <button class="dialog-secondary" id="logout-button" type="button">退出登录</button>
+      <button class="danger-button" id="delete-account-button" type="button">删除林猫账户及全部数据</button>
+    </div>
+  </dialog>
 
-    <a class="app-card" href="sanguo/index.html">
-      <div class="app-card-header">
-        <div class="app-icon" style="background:linear-gradient(135deg,#8b0000,#3a0000)">⚔️</div>
-        <div class="app-meta">
-          <div class="app-name"><span data-en>Three Kingdoms Figures</span><span data-zh>三國人物深度評析</span></div>
-          <div class="app-category"><span data-en>History · Analysis</span><span data-zh>歷史 · 人物評析</span></div>
-        </div>
-      </div>
-      <p class="app-desc"><span data-en>100 key figures of the Three Kingdoms era, compared across official history (Records of the Three Kingdoms) and the classic novel. Deep-dive write-ups on each person's life, battles, and legacy.</span><span data-zh>收錄三國時期100位重要歷史人物，對照《三國志》正史與《三國演義》小說情節，深度解析生平、戰績與歷史評價。</span></p>
-      <div class="app-platforms">
-        <span class="platform-tag"><span data-en>Web</span><span data-zh>網頁</span></span>
-        <span class="platform-tag"><span data-en>100 Figures</span><span data-zh>100位人物</span></span>
-        <span class="platform-tag"><span data-en>Free</span><span data-zh>免費</span></span>
-      </div>
-      <div class="app-cta">
-        <span data-en>Explore figures</span><span data-zh>查看人物</span>
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </div>
-    </a>
+  <dialog class="app-dialog alerts-dialog" id="alerts-dialog">
+    <button class="dialog-close" data-close-dialog type="button" aria-label="关闭"><i class="bi bi-x-lg"></i></button>
+    <span class="dialog-mark"><i class="bi bi-bell-fill"></i></span>
+    <h2>价格提醒</h2><p>网页会在行情越过目标价时通知；提醒仅保存在当前浏览器。</p>
+    <form id="alert-form">
+      <label>资产<select id="alert-symbol"><option value="XAU">黄金 XAU</option><option value="SILVER">白银 XAG</option><option value="PLATINUM">铂金 XPT</option><option value="PALLADIUM">钯金 XPD</option><option value="BTC">比特币 BTC</option><option value="ETH">以太坊 ETH</option><option value="DOGE">狗狗币 DOGE</option><option value="TRUMP">Official Trump</option></select></label>
+      <div class="alert-form-row"><label>条件<select id="alert-direction"><option value="above">高于</option><option value="below">低于</option></select></label><label>币种<select id="alert-currency"><option value="CNY">人民币 CNY</option><option value="USD">美元 USD</option></select></label></div>
+      <label>目标价格<input id="alert-target" type="number" min="0" step="any" required><small id="alert-current-price">当前价格 —</small></label>
+      <button class="dialog-primary" type="submit">添加提醒</button>
+    </form>
+    <div class="alerts-list" id="alerts-list"></div>
+    <button class="dialog-secondary" id="notification-permission-button" type="button">允许浏览器通知</button>
+  </dialog>
 
-    <a class="app-card" href="christmas-carol/index.html">
-      <div class="app-card-header">
-        <div class="app-icon" style="background:linear-gradient(135deg,#9a2f36,#214f3d)">🎄</div>
-        <div class="app-meta">
-          <div class="app-name"><span data-en>A Christmas Carol</span><span data-zh>聖誕歡歌</span></div>
-          <div class="app-category"><span data-en>Classic · Bilingual Audiobook</span><span data-zh>經典 · 雙語有聲書</span></div>
-        </div>
-      </div>
-      <p class="app-desc"><span data-en>Read and listen to Charles Dickens' classic in Chinese and English. Follow the full book with synced audio, bilingual layout, and quick chapter navigation.</span><span data-zh>中英對照閱讀並收聽狄更斯經典《聖誕歡歌》。支援同步朗讀、雙語排版與分章快速導航。</span></p>
-      <div class="app-platforms">
-        <span class="platform-tag"><span data-en>Web</span><span data-zh>網頁</span></span>
-        <span class="platform-tag"><span data-en>Bilingual</span><span data-zh>中英對照</span></span>
-        <span class="platform-tag"><span data-en>Audiobook</span><span data-zh>有聲書</span></span>
-      </div>
-      <div class="app-cta">
-        <span data-en>Start reading</span><span data-zh>開始閱讀</span>
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </div>
-    </a>
+  <dialog class="app-dialog leaderboard-dialog" id="leaderboard-dialog">
+    <button class="dialog-close" data-close-dialog type="button" aria-label="关闭"><i class="bi bi-x-lg"></i></button>
+    <span class="dialog-mark trophy"><i class="bi bi-trophy-fill"></i></span>
+    <h2>积分排行榜</h2><p>运行林猫行情、参与交流和娱乐模块获得积分。</p>
+    <ol class="leaderboard-list" id="leaderboard-list"></ol>
+  </dialog>
 
-    <a class="app-card" href="poker/index.html">
-      <div class="app-card-header">
-        <div class="app-icon" style="background:linear-gradient(135deg,#17614a,#071b16);color:#d5b873">♠</div>
-        <div class="app-meta">
-          <div class="app-name"><span data-en>Flop Club</span><span data-zh>翻牌俱樂部</span></div>
-          <div class="app-category"><span data-en>Game · Texas Hold'em</span><span data-zh>遊戲 · 德州撲克</span></div>
-        </div>
-      </div>
-      <p class="app-desc"><span data-en>A calm, crafted single-player Texas Hold'em table. Practice hand rankings, position, and betting rhythm against three computer players — no account required.</span><span data-zh>一張安靜、講究的單機德州撲克練習桌。與三位電腦牌手練習牌型、位置和下注節奏，無需註冊。</span></p>
-      <div class="app-platforms">
-        <span class="platform-tag"><span data-en>Web</span><span data-zh>網頁</span></span>
-        <span class="platform-tag"><span data-en>Single player</span><span data-zh>單機練習</span></span>
-        <span class="platform-tag"><span data-en>Free</span><span data-zh>免費</span></span>
-      </div>
-      <div class="app-cta">
-        <span data-en>Take a seat</span><span data-zh>入座開局</span>
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </div>
-    </a>
+  <dialog class="app-dialog" id="blocked-authors-dialog">
+    <button class="dialog-close" data-close-dialog type="button" aria-label="关闭"><i class="bi bi-x-lg"></i></button>
+    <span class="dialog-mark"><i class="bi bi-person-slash"></i></span>
+    <h2>已屏蔽用户</h2><p>解除后，该用户仍在公开期内的交流内容会重新显示。</p>
+    <div class="alerts-list" id="blocked-authors-list"></div>
+  </dialog>
 
-    <!-- 暂时隐藏灵猫币入口（需要时取消注释即可恢复）
-    <a class="app-card" href="coin/index.html">
-      <div class="app-card-header">
-        <div class="app-icon" style="background:linear-gradient(135deg,#6a5210,#1a1406)">🪙</div>
-        <div class="app-meta">
-          <div class="app-name"><span data-en>Lynncat Coin</span><span data-zh>靈貓幣 · 線上挖礦</span></div>
-          <div class="app-category"><span data-en>Game · Idle Mining</span><span data-zh>遊戲 · 掛機挖礦</span></div>
-        </div>
-      </div>
-      <p class="app-desc"><span data-en>Log in and mine: the whole network produces 1 Lynncat Coin per second, split evenly among everyone online. Climb the leaderboard and send coins to other miners.</span><span data-zh>登入即開挖：全網每秒共產出 1 枚靈貓幣，由當前所有在線用戶均分。衝排行榜，還能把幣轉給其他礦工。</span></p>
-      <div class="app-platforms">
-        <span class="platform-tag"><span data-en>Web</span><span data-zh>網頁</span></span>
-        <span class="platform-tag"><span data-en>Login</span><span data-zh>需登入</span></span>
-        <span class="platform-tag"><span data-en>For fun</span><span data-zh>純娛樂</span></span>
-      </div>
-      <div class="app-cta">
-        <span data-en>Start mining</span><span data-zh>开始挖矿</span>
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </div>
-    </a>
-    -->
+  <dialog class="app-dialog ranks-dialog" id="ranks-dialog">
+    <button class="dialog-close" data-close-dialog type="button" aria-label="关闭"><i class="bi bi-x-lg"></i></button>
+    <h2>德州扑克牌型 / Hand Ranks</h2>
+    <ol class="ranks-list"><li><b>皇家同花顺</b><span>A-K-Q-J-10 同花</span></li><li><b>同花顺</b><span>五张连续同花</span></li><li><b>四条</b><span>四张相同点数</span></li><li><b>葫芦</b><span>三条加一对</span></li><li><b>同花</b><span>五张同一花色</span></li><li><b>顺子</b><span>五张连续点数</span></li><li><b>三条</b><span>三张相同点数</span></li><li><b>两对</b><span>两组对子</span></li><li><b>一对</b><span>两张相同点数</span></li><li><b>高牌</b><span>以最高牌比较</span></li></ol>
+  </dialog>
 
-    <!-- 暂时隐藏喂猫预约入口（需要时取消注释即可恢复）
-    <a class="app-card" href="feeding/index.html">
-      <div class="app-card-header">
-        <div class="app-icon">🐾</div>
-        <div class="app-meta">
-          <div class="app-name"><span data-en>Cat Feeding Booking</span><span data-zh>喂猫预约</span></div>
-          <div class="app-category"><span data-en>Service · Scheduling</span><span data-zh>服务 · 排期</span></div>
-        </div>
-      </div>
-      <p class="app-desc"><span data-en>Browse the feeder's open dates and book online.</span><span data-zh>查看喂猫员可接单的日期在线预约。</span></p>
-      <div class="app-platforms">
-        <span class="platform-tag"><span data-en>Web</span><span data-zh>网页</span></span>
-      </div>
-      <div class="app-cta">
-        <span data-en>Open</span><span data-zh>进入</span>
-      </div>
-    </a>
-    -->
-
-  </div>
-</section>
-
-<footer>
-  <p>© 2026 Lynncat · <a href="mailto:amwpessy@gmail.com">amwpessy@gmail.com</a></p>
-  <div class="footer-links">
-    <a href="ironhold/index.html"><span data-en>Ironhold</span><span data-zh>鐵壁雄關</span></a>
-    <a href="sokoban/index.html"><span data-en>Sokoban</span><span data-zh>推箱子</span></a>
-    <a href="markets/index.html"><span data-en>Markets</span><span data-zh>靈貓行情</span></a>
-    <a href="codexpilot/index.html"><span data-en>CodexPilot</span><span data-zh>Codex 駕駛艙</span></a>
-    <a href="xxxc/index.html"><span data-en>Lynncat Data</span><span data-zh>靈貓數據</span></a>
-    <a href="news/index.html"><span data-en>Daily News</span><span data-zh>靈貓資訊</span></a>
-    <a href="sanguo/index.html"><span data-en>Three Kingdoms</span><span data-zh>三國人物評析</span></a>
-    <a href="christmas-carol/index.html"><span data-en>A Christmas Carol</span><span data-zh>聖誕歡歌</span></a>
-    <a href="poker/index.html"><span data-en>Flop Club</span><span data-zh>翻牌俱樂部</span></a>
-    <a href="words/index.html"><span data-en>Word Garden</span><span data-zh>單詞花園</span></a>
-<!-- <a href="coin/index.html"><span data-en>Lynncat Coin</span><span data-zh>靈貓幣</span></a> -->
-    <!-- <a href="feeding/index.html"><span data-en>Cat Feeding</span><span data-zh>喂猫预约</span></a> -->
-    <a href="index.html"><span data-en>All Apps</span><span data-zh>全部作品</span></a>
-  </div>
-</footer>
-
-<script>
-(function(){
-  function apply(l){
-    document.body.setAttribute('data-lang', l);
-    document.documentElement.lang = (l === 'zh' ? 'zh-Hant' : 'en');
-    try { localStorage.setItem('lynncat-lang', l); } catch(e){}
-  }
-  window.toggleLang = function(){ apply(document.body.getAttribute('data-lang') === 'en' ? 'zh' : 'en'); };
-  var saved = 'en';
-  try { saved = localStorage.getItem('lynncat-lang') || 'en'; } catch(e){}
-  apply(saved);
-})();
-</script>
-
+  <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
+  <noscript>请启用 JavaScript 以使用实时行情、资讯、扑克和水浒集卡功能。</noscript>
 </body>
 </html>

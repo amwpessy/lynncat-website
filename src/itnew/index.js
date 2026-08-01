@@ -1,4 +1,5 @@
 import { handleItnewAdminRequest } from './admin.js';
+import { handleItnewArticlePage } from './articlePage.js';
 import { collectNextBatch } from './collector.js';
 import { handleItnewPublicRequest } from './public.js';
 
@@ -25,9 +26,13 @@ export async function handleItnewRequest(request, env, ctx = {}, handlers = defa
     return handlers.public(request, env, ctx);
   }
   if (/^\/itnew\/article\/[^/]+$/u.test(pathname)) {
-    // Fetch the canonical extensionless asset so Cloudflare's HTML handling
-    // serves article.html instead of redirecting the browser and dropping the slug.
-    return env.ASSETS.fetch(new Request(new URL('/itnew/article', url), request));
+    let slug;
+    try {
+      slug = decodeURIComponent(pathname.slice('/itnew/article/'.length));
+    } catch {
+      return new Response('Not found', { status: 404 });
+    }
+    return handleItnewArticlePage(request, env, slug);
   }
   if (pathname === '/itnew/admin') {
     return redirectWithTrailingSlash(url, '/itnew/admin/');

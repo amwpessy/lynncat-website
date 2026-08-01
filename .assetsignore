@@ -9,9 +9,12 @@ node_modules
 .claude
 .openai
 .superpowers
+.workbuddy
+.worktrees
 .dev.vars
 .DS_Store
 **/.DS_Store
+design-qa.md
 README.md
 wrangler.toml
 src
@@ -19,3 +22,4 @@ test
 dist
 docs
 migrations
+qa

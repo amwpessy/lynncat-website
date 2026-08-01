@@ -333,7 +333,7 @@ function publicAccount(user) {
 async function anonymousNickname(subjectHash, env) {
   const signature = await secretHmac(env.APPLE_SUBJECT_HASH_SALT, `nickname:${subjectHash}`, env);
   const suffix = Number.parseInt(signature.slice(0, 8), 16) % 10_000;
-  return `Lynncat ${String(suffix).padStart(4, '0')}`;
+  return `LC ${String(suffix).padStart(4, '0')}`;
 }
 
 async function secretHmac(secret, value, env) {

@@ -172,7 +172,7 @@ test('anonymous nickname is stable, HMAC-derived and never uses Apple profile da
   const second = await signedInEnv({ appleSubject: 'same-private-subject' });
   const other = await signedInEnv({ appleSubject: 'other-private-subject' });
 
-  assert.match(first.user.nickname, /^Lynncat \d{4}$/);
+  assert.match(first.user.nickname, /^LC \d{4}$/);
   assert.equal(first.user.nickname, second.user.nickname);
   assert.notEqual(first.user.nickname, other.user.nickname);
   assert.doesNotMatch(first.user.nickname, /private-subject/);

@@ -5,11 +5,18 @@ import { createMessageAccountEnv } from './helpers/market-account-fakes.mjs';
 
 const ACCOUNT_ROUTES = [
   { path: '/markets/auth/apple', methods: ['POST'], wrongMethod: 'GET' },
+  { path: '/markets/auth/password/login', methods: ['POST'], wrongMethod: 'GET' },
+  { path: '/markets/auth/password/register', methods: ['POST'], wrongMethod: 'GET' },
+  { path: '/markets/auth/password/link', methods: ['POST'], wrongMethod: 'GET' },
   { path: '/markets/auth/logout', methods: ['POST'], wrongMethod: 'GET' },
   { path: '/markets/account', methods: ['GET', 'DELETE'], wrongMethod: 'POST' },
   { path: '/markets/account/profile', methods: ['PUT'], wrongMethod: 'GET' },
   { path: '/markets/points/heartbeat', methods: ['POST'], wrongMethod: 'GET' },
   { path: '/markets/points/heartbeat/stop', methods: ['POST'], wrongMethod: 'GET' },
+  { path: '/markets/points/poker', methods: ['GET'], wrongMethod: 'POST' },
+  { path: '/markets/points/poker/settle', methods: ['POST'], wrongMethod: 'GET' },
+  { path: '/markets/points/shuihu', methods: ['GET'], wrongMethod: 'POST' },
+  { path: '/markets/points/shuihu/draw', methods: ['POST'], wrongMethod: 'GET' },
   { path: '/markets/points/ledger', methods: ['GET'], wrongMethod: 'POST' },
   { path: '/markets/leaderboard', methods: ['GET'], wrongMethod: 'POST' },
 ];

@@ -113,19 +113,24 @@ export async function handleDeleteMarketAccount(request, env) {
 
     try {
       const stored = await repository.findAppleCredential(principal.userId);
-      if (!stored?.encryptedRefreshToken) throw new Error('missing Apple credential');
-      const decrypt = env?.DECRYPT_APPLE_CREDENTIAL || decryptAppleCredential;
-      const credential = await decrypt(
-        stored.encryptedRefreshToken, stored.tokenKeyVersion, env,
-      );
-      const revoke = env?.REVOKE_APPLE_REFRESH_TOKEN || revokeAppleRefreshToken;
-      await revoke(credential.refreshToken, credential.clientId, env);
+      let expectedCredential = null;
+      if (stored?.encryptedRefreshToken) {
+        const decrypt = env?.DECRYPT_APPLE_CREDENTIAL || decryptAppleCredential;
+        const credential = await decrypt(
+          stored.encryptedRefreshToken, stored.tokenKeyVersion, env,
+        );
+        const revoke = env?.REVOKE_APPLE_REFRESH_TOKEN || revokeAppleRefreshToken;
+        await revoke(credential.refreshToken, credential.clientId, env);
+        expectedCredential = {
+          encryptedRefreshToken: stored.encryptedRefreshToken,
+          tokenKeyVersion: stored.tokenKeyVersion,
+        };
+      }
       const deleted = await repository.deleteAccountData(principal.userId, {
-        encryptedRefreshToken: stored.encryptedRefreshToken,
-        tokenKeyVersion: stored.tokenKeyVersion,
+        ...expectedCredential,
         deletedAt: nowFor(env),
       });
-      if (!deleted) throw new Error('Apple credential changed during deletion');
+      if (!deleted) throw new Error('account identity changed during deletion');
     } catch {
       throw marketError('account_deletion_retry', 503);
     }
@@ -264,23 +269,35 @@ function d1Repository(db) {
     },
 
     async deleteAccountData(userId, expectedCredential) {
+      const requiresAppleCredential = Boolean(expectedCredential.encryptedRefreshToken);
+      const deleteGuard = requiresAppleCredential
+        ? db.prepare(`
+            UPDATE market_users
+            SET status = 'deleted', deleted_at = ?, updated_at = ?
+            WHERE id = ? AND status = 'active'
+              AND EXISTS (
+                SELECT 1 FROM market_apple_credentials
+                WHERE user_id = market_users.id
+                  AND encrypted_refresh_token = ? AND token_key_version = ?
+              )
+          `).bind(
+            expectedCredential.deletedAt,
+            expectedCredential.deletedAt,
+            userId,
+            expectedCredential.encryptedRefreshToken,
+            expectedCredential.tokenKeyVersion,
+          )
+        : db.prepare(`
+            UPDATE market_users
+            SET status = 'deleted', deleted_at = ?, updated_at = ?
+            WHERE id = ? AND status = 'active'
+              AND NOT EXISTS (
+                SELECT 1 FROM market_apple_credentials
+                WHERE user_id = market_users.id
+              )
+          `).bind(expectedCredential.deletedAt, expectedCredential.deletedAt, userId);
       const results = await db.batch([
-        db.prepare(`
-          UPDATE market_users
-          SET status = 'deleted', deleted_at = ?, updated_at = ?
-          WHERE id = ? AND status = 'active'
-            AND EXISTS (
-              SELECT 1 FROM market_apple_credentials
-              WHERE user_id = market_users.id
-                AND encrypted_refresh_token = ? AND token_key_version = ?
-            )
-        `).bind(
-          expectedCredential.deletedAt,
-          expectedCredential.deletedAt,
-          userId,
-          expectedCredential.encryptedRefreshToken,
-          expectedCredential.tokenKeyVersion,
-        ),
+        deleteGuard,
         db.prepare(`
           DELETE FROM market_reports
           WHERE message_id IN (
@@ -323,14 +340,16 @@ function d1Repository(db) {
         `).bind(userId, userId),
         db.prepare(`
           DELETE FROM market_apple_credentials
-          WHERE user_id = ? AND encrypted_refresh_token = ? AND token_key_version = ?
+          WHERE user_id = ?
+            AND (? = 0 OR (encrypted_refresh_token = ? AND token_key_version = ?))
             AND EXISTS (
               SELECT 1 FROM market_users WHERE id = ? AND status = 'deleted'
             )
         `).bind(
           userId,
-          expectedCredential.encryptedRefreshToken,
-          expectedCredential.tokenKeyVersion,
+          requiresAppleCredential ? 1 : 0,
+          expectedCredential.encryptedRefreshToken ?? '',
+          expectedCredential.tokenKeyVersion ?? 0,
           userId,
         ),
         db.prepare(`

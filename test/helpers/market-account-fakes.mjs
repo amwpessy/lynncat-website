@@ -31,8 +31,13 @@ export function createAccountEnv(options = {}) {
     APPLE_SUBJECT_HASH_SALT: 'subject-salt',
     INSTALLATION_HASH_SALT: 'installation-salt',
     SESSION_HASH_SALT: 'session-salt',
+    LOGIN_IDENTIFIER_SALT: 'login-identifier-salt',
+    LOGIN_RATE_LIMIT_SALT: 'login-rate-limit-salt',
+    PASSWORD_PEPPER: 'password-pepper',
+    PASSWORD_HASH_ITERATIONS: 100_000,
     RANDOM_BYTES: deterministicBytes(),
     MARKET_AUTH_REPOSITORY: repo,
+    MARKET_PASSWORD_REPOSITORY: repo,
     MARKET_ACCOUNT_REPOSITORY: repo,
     repo,
     apple,
@@ -230,10 +235,16 @@ export function visibleUsers(count, options = {}) {
 function createAccountRepository(operationLog) {
   const users = new Map();
   const credentials = new Map();
+  const passwordCredentials = new Map();
+  const passwordAttempts = new Map();
   const devices = new Map();
   const sessions = new Map();
   const leases = new Map();
   const ledger = new Map();
+  const pokerHands = new Map();
+  const shuihuDraws = new Map();
+  const shuihuCollection = new Map();
+  const shuihuRewards = new Map();
   const messages = new Map();
   const reports = new Map();
   let nextHeartbeatConflict = null;
@@ -241,10 +252,16 @@ function createAccountRepository(operationLog) {
   return {
     users,
     credentials,
+    passwordCredentials,
+    passwordAttempts,
     devices,
     sessions,
     leases,
     ledger,
+    pokerHands,
+    shuihuDraws,
+    shuihuCollection,
+    shuihuRewards,
     messages,
     reports,
 
@@ -267,6 +284,51 @@ function createAccountRepository(operationLog) {
 
     async saveAppleCredential(credential) {
       credentials.set(credential.userId, { ...credential });
+    },
+
+    async findPasswordCredential(usernameHash) {
+      const credential = passwordCredentials.get(usernameHash);
+      return credential ? {
+        ...credential,
+        user: users.get(credential.userId) ?? null,
+      } : null;
+    },
+
+    async createPasswordAccount({ user, credential }) {
+      if (passwordCredentials.has(credential.usernameHash)) return false;
+      users.set(user.id, { ...user });
+      passwordCredentials.set(credential.usernameHash, { ...credential });
+      return true;
+    },
+
+    async savePasswordCredential(credential) {
+      const owner = passwordCredentials.get(credential.usernameHash);
+      if (owner && owner.userId !== credential.userId) {
+        throw new Error('UNIQUE constraint failed');
+      }
+      for (const [key, existing] of passwordCredentials) {
+        if (existing.userId === credential.userId) passwordCredentials.delete(key);
+      }
+      passwordCredentials.set(credential.usernameHash, { ...credential });
+    },
+
+    async restoreLegacyNickname(userId, currentNickname, fullNickname, updatedAt) {
+      const user = users.get(userId);
+      if (!user || user.status !== 'active' || user.nickname !== currentNickname) return false;
+      Object.assign(user, { nickname: fullNickname, updatedAt });
+      return true;
+    },
+
+    async findPasswordAttempt(attemptKeyHash) {
+      return passwordAttempts.get(attemptKeyHash) ?? null;
+    },
+
+    async savePasswordAttempt(attempt) {
+      passwordAttempts.set(attempt.attemptKeyHash, { ...attempt });
+    },
+
+    async clearPasswordAttempt(attemptKeyHash) {
+      passwordAttempts.delete(attemptKeyHash);
     },
 
     async findDevice(userId, installationHash) {
@@ -348,9 +410,12 @@ function createAccountRepository(operationLog) {
 
     async deleteAccountData(userId, expectedCredential) {
       const currentCredential = credentials.get(userId);
-      if (!currentCredential
-        || currentCredential.encryptedRefreshToken !== expectedCredential.encryptedRefreshToken
-        || currentCredential.tokenKeyVersion !== expectedCredential.tokenKeyVersion) {
+      const expectsAppleCredential = Boolean(expectedCredential.encryptedRefreshToken);
+      if ((expectsAppleCredential && (
+        !currentCredential
+          || currentCredential.encryptedRefreshToken !== expectedCredential.encryptedRefreshToken
+          || currentCredential.tokenKeyVersion !== expectedCredential.tokenKeyVersion
+      )) || (!expectsAppleCredential && currentCredential)) {
         operationLog.push('account-delete-guard-miss');
         return false;
       }
@@ -383,6 +448,9 @@ function createAccountRepository(operationLog) {
         if (device.userId === userId) devices.delete(key);
       }
       credentials.delete(userId);
+      for (const [key, credential] of passwordCredentials) {
+        if (credential.userId === userId) passwordCredentials.delete(key);
+      }
       users.delete(userId);
       return true;
     },
@@ -435,6 +503,143 @@ function createAccountRepository(operationLog) {
       }
       leases.delete(deviceId);
       return { removed: true, lease: current };
+    },
+
+    async loadPokerStatus({ userId, dayStart, dayEnd }) {
+      const dailyWon = [...pokerHands.values()]
+        .filter((hand) => hand.userId === userId
+          && hand.createdAt >= dayStart && hand.createdAt < dayEnd)
+        .reduce((total, hand) => total + Math.max(0, hand.appliedDelta), 0);
+      return { user: users.get(userId) ?? null, dailyWon };
+    },
+
+    async settlePokerHand({
+      userId, deviceId, handId, requestedDelta, idempotencyKey, now,
+      dailyLimit, dayKey, dayStart, dayEnd,
+    }) {
+      const existing = [...pokerHands.values()].find((hand) => (
+        hand.userId === userId
+          && (hand.idempotencyKey === idempotencyKey || hand.handId === handId)
+      ));
+      if (existing) {
+        const status = await this.loadPokerStatus({ userId, dayStart, dayEnd });
+        return { ...existing, dailyWon: status.dailyWon };
+      }
+      const user = users.get(userId);
+      if (!user || user.status !== 'active') return null;
+      const status = await this.loadPokerStatus({ userId, dayStart, dayEnd });
+      const appliedDelta = requestedDelta > 0
+        ? Math.min(requestedDelta, Math.max(0, dailyLimit - status.dailyWon))
+        : Math.max(requestedDelta, -user.pointsBalance);
+      user.pointsBalance += appliedDelta;
+      user.pointsEarnedTotal += Math.max(0, appliedDelta);
+      user.balanceChangedAt = now;
+      user.updatedAt = now;
+      const hand = {
+        id: `poker-${idempotencyKey}`,
+        userId,
+        deviceId,
+        handId,
+        requestedDelta,
+        appliedDelta,
+        pointsBalance: user.pointsBalance,
+        dayKey,
+        idempotencyKey,
+        createdAt: now,
+      };
+      pokerHands.set(idempotencyKey, hand);
+      return { ...hand, dailyWon: status.dailyWon + Math.max(0, appliedDelta) };
+    },
+
+    async loadShuihuStatus({ userId, dayStart, dayEnd }) {
+      const drawsUsed = [...shuihuDraws.values()]
+        .filter((draw) => draw.userId === userId
+          && draw.createdAt >= dayStart && draw.createdAt < dayEnd)
+        .length;
+      const collection = [...shuihuCollection.values()]
+        .filter((entry) => entry.userId === userId)
+        .map((entry) => ({ cardId: entry.cardId, copies: entry.copies }))
+        .sort((left, right) => left.cardId - right.cardId);
+      return {
+        user: users.get(userId) ?? null,
+        drawsUsed,
+        collection,
+        rewardClaimed: shuihuRewards.has(`${userId}:shuihu-108-v1`),
+      };
+    },
+
+    async drawShuihuCard({
+      userId, deviceId, cardId, idempotencyKey, now, cost, dailyLimit,
+      completionReward, dayKey, dayStart, dayEnd,
+    }) {
+      const existing = [...shuihuDraws.values()].find((draw) => (
+        draw.userId === userId && draw.idempotencyKey === idempotencyKey
+      ));
+      if (existing) {
+        const status = await this.loadShuihuStatus({ userId, dayStart, dayEnd });
+        const entry = status.collection.find((item) => item.cardId === existing.cardId);
+        return {
+          cardId: existing.cardId,
+          isNew: existing.isNew,
+          copies: entry?.copies ?? existing.copies,
+          cost,
+          rewardGranted: existing.rewardGranted,
+          status,
+        };
+      }
+
+      const user = users.get(userId);
+      if (!user || user.status !== 'active') return null;
+      const before = await this.loadShuihuStatus({ userId, dayStart, dayEnd });
+      if (user.pointsBalance < cost || before.drawsUsed >= dailyLimit) return null;
+
+      user.pointsBalance -= cost;
+      user.balanceChangedAt = now;
+      user.updatedAt = now;
+      const collectionKey = `${userId}:${cardId}`;
+      const previous = shuihuCollection.get(collectionKey);
+      const entry = {
+        userId,
+        cardId,
+        copies: (previous?.copies ?? 0) + 1,
+        firstDrawnAt: previous?.firstDrawnAt ?? now,
+        lastDrawnAt: now,
+      };
+      shuihuCollection.set(collectionKey, entry);
+
+      const rewardKey = `${userId}:shuihu-108-v1`;
+      const uniqueCount = [...shuihuCollection.values()]
+        .filter((candidate) => candidate.userId === userId)
+        .length;
+      const rewardGranted = uniqueCount === 108 && !shuihuRewards.has(rewardKey);
+      if (rewardGranted) {
+        shuihuRewards.set(rewardKey, {
+          userId,
+          setKey: 'shuihu-108-v1',
+          pointsAwarded: completionReward,
+          idempotencyKey,
+          awardedAt: now,
+        });
+        user.pointsBalance += completionReward;
+        user.pointsEarnedTotal += completionReward;
+      }
+
+      const draw = {
+        id: `shuihu-${idempotencyKey}`,
+        userId,
+        deviceId,
+        cardId,
+        isNew: !previous,
+        copies: entry.copies,
+        cost,
+        rewardGranted,
+        dayKey,
+        idempotencyKey,
+        createdAt: now,
+      };
+      shuihuDraws.set(idempotencyKey, draw);
+      const status = await this.loadShuihuStatus({ userId, dayStart, dayEnd });
+      return { ...draw, status };
     },
   };
 }

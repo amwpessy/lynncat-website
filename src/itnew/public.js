@@ -21,6 +21,7 @@ function jsonResponse(body, status = 200, cacheControl = JSON_CACHE) {
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
       'Cache-Control': cacheControl,
+      'X-Robots-Tag': 'noindex, nofollow',
     },
   });
 }
@@ -230,7 +231,7 @@ async function listArticlesService({ request, env }) {
   });
 }
 
-async function articleDetailService({ env, params }) {
+export async function publishedArticleForSlug(env, slug) {
   if (!env?.ITNEW_DB) throw new PublicApiError('internal_error', 500);
   const db = env.ITNEW_DB;
   const row = await db.prepare(`
@@ -244,8 +245,8 @@ async function articleDetailService({ env, params }) {
     JOIN itnew_sources AS s ON s.id = a.source_id
     WHERE a.slug = ? AND a.status = 'published'
     LIMIT 1
-  `).bind(params.slug).first();
-  if (!row) throw new PublicApiError('not_found', 404);
+  `).bind(slug).first();
+  if (!row) return null;
 
   let sections = [];
   if (row.rights_mode === 'licensed_full') {
@@ -258,7 +259,13 @@ async function articleDetailService({ env, params }) {
     `).bind(row.id).all();
     sections = result.results.map(({ html }) => html);
   }
-  return jsonResponse(publicDetail(row, sections));
+  return publicDetail(row, sections);
+}
+
+async function articleDetailService({ env, params }) {
+  const article = await publishedArticleForSlug(env, params.slug);
+  if (!article) throw new PublicApiError('not_found', 404);
+  return jsonResponse(article);
 }
 
 function decodedArticleImageKey(encodedKey) {

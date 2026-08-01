@@ -3,6 +3,12 @@ import { authenticateMarketRequest } from './marketAuth.js';
 export const HEARTBEAT_MIN_GAP_MS = 15_000;
 export const HEARTBEAT_STALE_MS = 45_000;
 export const CREDIT_SECONDS = 60;
+export const POKER_DAILY_WIN_LIMIT = 7_500;
+export const SHUIHU_DRAW_COST = 1_000;
+export const SHUIHU_DAILY_DRAW_LIMIT = 10;
+export const SHUIHU_CARD_COUNT = 108;
+export const SHUIHU_COMPLETION_REWARD = 1_000_000;
+const CHINA_UTC_OFFSET_MS = 8 * 60 * 60 * 1_000;
 
 export function nextLeaseState(lease, now) {
   if (!lease || now - lease.lastHeartbeatAt > HEARTBEAT_STALE_MS) {
@@ -89,6 +95,199 @@ export async function handleMarketHeartbeatStop(request, env) {
   } catch (error) {
     return marketFailure(error);
   }
+}
+
+export function pokerDayWindow(now) {
+  const shifted = new Date(now + CHINA_UTC_OFFSET_MS);
+  const year = shifted.getUTCFullYear();
+  const month = shifted.getUTCMonth();
+  const day = shifted.getUTCDate();
+  const dayKey = [
+    year,
+    String(month + 1).padStart(2, '0'),
+    String(day).padStart(2, '0'),
+  ].join('-');
+  const dayStart = Date.UTC(year, month, day) - CHINA_UTC_OFFSET_MS;
+  const resetsAt = Date.UTC(year, month, day + 1) - CHINA_UTC_OFFSET_MS;
+  return { dayKey, dayStart, dayEnd: resetsAt, resetsAt };
+}
+
+export async function handleMarketPokerStatus(request, env) {
+  try {
+    if (request.method !== 'GET') throw marketError('method_not_allowed', 405);
+    const principal = await authenticateMarketRequest(request, env);
+    const window = pokerDayWindow(nowFor(env));
+    const state = await repositoryFor(env).loadPokerStatus({
+      userId: principal.userId,
+      ...window,
+    });
+    if (!state?.user) throw marketError('account_not_found', 404);
+    return pokerStatusResponse(state, window);
+  } catch (error) {
+    return marketFailure(error);
+  }
+}
+
+export async function handleMarketPokerSettlement(request, env) {
+  try {
+    if (request.method !== 'POST') throw marketError('method_not_allowed', 405);
+    const principal = await authenticateMarketRequest(request, env);
+    const body = await parseJson(request);
+    if (!body) throw marketError('invalid_json', 400);
+    const handId = cleanHandId(body.handId);
+    const requestedDelta = strictPointDelta(body.delta);
+    const idempotencyKey = cleanIdempotencyKey(request.headers.get('Idempotency-Key'));
+    if (!handId) throw marketError('invalid_hand_id', 400);
+    if (requestedDelta == null) throw marketError('invalid_hand_delta', 400);
+    if (!idempotencyKey) throw marketError('invalid_idempotency_key', 400);
+
+    const now = nowFor(env);
+    const window = pokerDayWindow(now);
+    const settlement = await repositoryFor(env).settlePokerHand({
+      userId: principal.userId,
+      deviceId: principal.deviceId,
+      handId,
+      requestedDelta,
+      idempotencyKey,
+      now,
+      dailyLimit: POKER_DAILY_WIN_LIMIT,
+      ...window,
+    });
+    if (!settlement) throw marketError('poker_settlement_unavailable', 503);
+    return json({ settlement: pokerSettlementPayload(settlement, window) });
+  } catch (error) {
+    return marketFailure(error);
+  }
+}
+
+export async function handleMarketShuihuStatus(request, env) {
+  try {
+    if (request.method !== 'GET') throw marketError('method_not_allowed', 405);
+    const principal = await authenticateMarketRequest(request, env);
+    const window = pokerDayWindow(nowFor(env));
+    const state = await repositoryFor(env).loadShuihuStatus({
+      userId: principal.userId,
+      ...window,
+    });
+    if (!state?.user) throw marketError('account_not_found', 404);
+    return json({ cards: shuihuStatusPayload(state, window) });
+  } catch (error) {
+    return marketFailure(error);
+  }
+}
+
+export async function handleMarketShuihuDraw(request, env) {
+  try {
+    if (request.method !== 'POST') throw marketError('method_not_allowed', 405);
+    const principal = await authenticateMarketRequest(request, env);
+    const idempotencyKey = cleanIdempotencyKey(request.headers.get('Idempotency-Key'));
+    if (!idempotencyKey) throw marketError('invalid_idempotency_key', 400);
+
+    const now = nowFor(env);
+    const window = pokerDayWindow(now);
+    const repository = repositoryFor(env);
+    const result = await repository.drawShuihuCard({
+      userId: principal.userId,
+      deviceId: principal.deviceId,
+      cardId: randomShuihuCardId(env),
+      idempotencyKey,
+      now,
+      cost: SHUIHU_DRAW_COST,
+      dailyLimit: SHUIHU_DAILY_DRAW_LIMIT,
+      completionReward: SHUIHU_COMPLETION_REWARD,
+      ...window,
+    });
+    if (!result) {
+      const state = await repository.loadShuihuStatus({
+        userId: principal.userId,
+        ...window,
+      });
+      if (!state?.user) throw marketError('account_not_found', 404);
+      if (Number(state.drawsUsed ?? 0) >= SHUIHU_DAILY_DRAW_LIMIT) {
+        throw marketError('daily_draw_limit', 429);
+      }
+      if (Number(state.user.pointsBalance ?? 0) < SHUIHU_DRAW_COST) {
+        throw marketError('insufficient_points', 409);
+      }
+      throw marketError('card_draw_unavailable', 503);
+    }
+    return json({ draw: shuihuDrawPayload(result, window) });
+  } catch (error) {
+    return marketFailure(error);
+  }
+}
+
+function pokerStatusResponse(state, window) {
+  const dailyWon = Math.max(0, Number(state.dailyWon ?? 0));
+  return json({
+    poker: {
+      pointsBalance: Number(state.user.pointsBalance),
+      dailyWon,
+      dailyLimit: POKER_DAILY_WIN_LIMIT,
+      dailyRemaining: Math.max(0, POKER_DAILY_WIN_LIMIT - dailyWon),
+      dayKey: window.dayKey,
+      resetsAt: window.resetsAt,
+    },
+  });
+}
+
+function shuihuStatusPayload(state, window) {
+  const collection = normalizeShuihuCollection(state.collection);
+  return {
+    pointsBalance: Number(state.user.pointsBalance),
+    drawsUsed: Math.max(0, Number(state.drawsUsed ?? 0)),
+    dailyLimit: SHUIHU_DAILY_DRAW_LIMIT,
+    drawsRemaining: Math.max(0, SHUIHU_DAILY_DRAW_LIMIT - Number(state.drawsUsed ?? 0)),
+    dayKey: window.dayKey,
+    resetsAt: window.resetsAt,
+    uniqueCount: collection.length,
+    totalCopies: collection.reduce((total, entry) => total + entry.copies, 0),
+    rewardClaimed: Boolean(state.rewardClaimed),
+    collection,
+  };
+}
+
+function shuihuDrawPayload(result, window) {
+  const status = shuihuStatusPayload(result.status, window);
+  return {
+    cardId: Number(result.cardId),
+    isNew: Boolean(result.isNew),
+    copies: Number(result.copies),
+    cost: SHUIHU_DRAW_COST,
+    ...status,
+    rewardGranted: Boolean(result.rewardGranted),
+    rewardAmount: result.rewardGranted ? SHUIHU_COMPLETION_REWARD : 0,
+  };
+}
+
+function normalizeShuihuCollection(collection) {
+  return (Array.isArray(collection) ? collection : [])
+    .map((entry) => ({
+      cardId: Number(entry.cardId),
+      copies: Math.max(0, Number(entry.copies)),
+    }))
+    .filter((entry) => (
+      Number.isInteger(entry.cardId)
+      && entry.cardId >= 1
+      && entry.cardId <= SHUIHU_CARD_COUNT
+      && entry.copies > 0
+    ))
+    .sort((left, right) => left.cardId - right.cardId);
+}
+
+function pokerSettlementPayload(settlement, window) {
+  const dailyWon = Math.max(0, Number(settlement.dailyWon ?? 0));
+  return {
+    handId: settlement.handId,
+    requestedDelta: Number(settlement.requestedDelta),
+    appliedDelta: Number(settlement.appliedDelta),
+    pointsBalance: Number(settlement.pointsBalance),
+    dailyWon,
+    dailyLimit: POKER_DAILY_WIN_LIMIT,
+    dailyRemaining: Math.max(0, POKER_DAILY_WIN_LIMIT - dailyWon),
+    dayKey: window.dayKey,
+    resetsAt: window.resetsAt,
+  };
 }
 
 function heartbeatResponse(state, serverTime, credited) {
@@ -226,6 +425,246 @@ function d1Repository(db) {
       const result = await statement.run();
       return { removed: Number(result.meta?.changes) === 1 };
     },
+
+    async loadPokerStatus({ userId, dayStart, dayEnd }) {
+      const [user, winnings] = await db.batch([
+        db.prepare(`
+          SELECT id, points_balance
+          FROM market_users WHERE id = ? AND status = 'active' LIMIT 1
+        `).bind(userId),
+        db.prepare(`
+          SELECT COALESCE(SUM(CASE WHEN applied_delta > 0 THEN applied_delta ELSE 0 END), 0) AS daily_won
+          FROM market_poker_hands
+          WHERE user_id = ? AND created_at >= ? AND created_at < ?
+        `).bind(userId, dayStart, dayEnd),
+      ]);
+      return {
+        user: mapUser(user.results?.[0]),
+        dailyWon: Number(winnings.results?.[0]?.daily_won ?? 0),
+      };
+    },
+
+    async settlePokerHand({
+      userId, deviceId, handId, requestedDelta, idempotencyKey, now,
+      dailyLimit, dayKey, dayStart, dayEnd,
+    }) {
+      const rowId = randomId('poker');
+      await db.batch([
+        db.prepare(`
+          WITH input(
+            id, user_id, device_id, hand_id, requested_delta, day_key,
+            idempotency_key, created_at, daily_limit, day_start, day_end
+          ) AS (VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)),
+          account AS (
+            SELECT u.points_balance, i.*
+            FROM market_users u JOIN input i ON i.user_id = u.id
+            WHERE u.status = 'active'
+          ),
+          daily AS (
+            SELECT COALESCE(SUM(
+              CASE WHEN h.applied_delta > 0 THEN h.applied_delta ELSE 0 END
+            ), 0) AS daily_won
+            FROM market_poker_hands h, input i
+            WHERE h.user_id = i.user_id
+              AND h.created_at >= i.day_start AND h.created_at < i.day_end
+          ),
+          calculated AS (
+            SELECT account.*,
+              CASE
+                WHEN requested_delta > 0
+                  THEN MIN(requested_delta, MAX(0, daily_limit - daily_won))
+                ELSE MAX(requested_delta, -points_balance)
+              END AS applied_delta
+            FROM account, daily
+          )
+          INSERT INTO market_poker_hands (
+            id, user_id, device_id, hand_id, requested_delta, applied_delta,
+            balance_after, play_day, idempotency_key, created_at
+          )
+          SELECT id, user_id, device_id, hand_id, requested_delta, applied_delta,
+            points_balance + applied_delta, day_key, idempotency_key, created_at
+          FROM calculated
+          WHERE NOT EXISTS (
+            SELECT 1 FROM market_poker_hands
+            WHERE idempotency_key = calculated.idempotency_key
+              OR (user_id = calculated.user_id AND hand_id = calculated.hand_id)
+          )
+        `).bind(
+          rowId, userId, deviceId, handId, requestedDelta, dayKey,
+          idempotencyKey, now, dailyLimit, dayStart, dayEnd,
+        ),
+        db.prepare(`
+          UPDATE market_users
+          SET points_balance = points_balance + COALESCE((
+                SELECT applied_delta FROM market_poker_hands WHERE id = ?
+              ), 0),
+            points_earned_total = points_earned_total + MAX(0, COALESCE((
+                SELECT applied_delta FROM market_poker_hands WHERE id = ?
+              ), 0)),
+            balance_changed_at = ?, updated_at = ?
+          WHERE id = ? AND changes() = 1
+        `).bind(rowId, rowId, now, now, userId),
+      ]);
+
+      const row = await db.prepare(`
+        SELECT h.hand_id, h.requested_delta, h.applied_delta, h.balance_after,
+          COALESCE((
+            SELECT SUM(CASE WHEN d.applied_delta > 0 THEN d.applied_delta ELSE 0 END)
+            FROM market_poker_hands d
+            WHERE d.user_id = h.user_id AND d.created_at >= ? AND d.created_at < ?
+          ), 0) AS daily_won
+        FROM market_poker_hands h
+        WHERE h.user_id = ? AND (h.idempotency_key = ? OR h.hand_id = ?)
+        ORDER BY h.created_at ASC LIMIT 1
+      `).bind(dayStart, dayEnd, userId, idempotencyKey, handId).first();
+      return mapPokerSettlement(row);
+    },
+
+    async loadShuihuStatus({ userId, dayStart, dayEnd }) {
+      const [user, draws, collection, reward] = await db.batch([
+        db.prepare(`
+          SELECT id, points_balance
+          FROM market_users WHERE id = ? AND status = 'active' LIMIT 1
+        `).bind(userId),
+        db.prepare(`
+          SELECT COUNT(*) AS draws_used
+          FROM market_shuihu_draws
+          WHERE user_id = ? AND created_at >= ? AND created_at < ?
+        `).bind(userId, dayStart, dayEnd),
+        db.prepare(`
+          SELECT card_id, copies
+          FROM market_shuihu_collection
+          WHERE user_id = ?
+          ORDER BY card_id ASC
+        `).bind(userId),
+        db.prepare(`
+          SELECT 1 AS claimed
+          FROM market_shuihu_rewards
+          WHERE user_id = ? AND set_key = 'shuihu-108-v1'
+          LIMIT 1
+        `).bind(userId),
+      ]);
+      return {
+        user: mapUser(user.results?.[0]),
+        drawsUsed: Number(draws.results?.[0]?.draws_used ?? 0),
+        collection: (collection.results ?? []).map(mapShuihuCollectionEntry),
+        rewardClaimed: Boolean(reward.results?.[0]?.claimed),
+      };
+    },
+
+    async drawShuihuCard({
+      userId, deviceId, cardId, idempotencyKey, now, cost, dailyLimit,
+      completionReward, dayKey, dayStart, dayEnd,
+    }) {
+      const drawId = randomId('shuihu');
+      const rewardId = randomId('reward');
+      await db.batch([
+        db.prepare(`
+          WITH input(
+            id, user_id, device_id, card_id, points_cost, draw_day,
+            idempotency_key, created_at, daily_limit, day_start, day_end
+          ) AS (VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)),
+          account AS (
+            SELECT u.points_balance, i.*
+            FROM market_users u JOIN input i ON i.user_id = u.id
+            WHERE u.status = 'active'
+          ),
+          daily AS (
+            SELECT COUNT(*) AS draws_used
+            FROM market_shuihu_draws d, input i
+            WHERE d.user_id = i.user_id
+              AND d.created_at >= i.day_start AND d.created_at < i.day_end
+          )
+          INSERT INTO market_shuihu_draws (
+            id, user_id, device_id, card_id, points_cost, balance_after,
+            draw_day, is_new, idempotency_key, created_at
+          )
+          SELECT id, user_id, device_id, card_id, points_cost,
+            points_balance - points_cost, draw_day,
+            CASE WHEN EXISTS (
+              SELECT 1 FROM market_shuihu_collection c
+              WHERE c.user_id = account.user_id AND c.card_id = account.card_id
+            ) THEN 0 ELSE 1 END,
+            idempotency_key, created_at
+          FROM account, daily
+          WHERE points_balance >= points_cost
+            AND draws_used < daily_limit
+            AND NOT EXISTS (
+              SELECT 1 FROM market_shuihu_draws
+              WHERE idempotency_key = account.idempotency_key
+            )
+        `).bind(
+          drawId, userId, deviceId, cardId, cost, dayKey,
+          idempotencyKey, now, dailyLimit, dayStart, dayEnd,
+        ),
+        db.prepare(`
+          UPDATE market_users
+          SET points_balance = points_balance - ?,
+            balance_changed_at = ?, updated_at = ?
+          WHERE id = ? AND EXISTS (
+            SELECT 1 FROM market_shuihu_draws WHERE id = ?
+          )
+        `).bind(cost, now, now, userId, drawId),
+        db.prepare(`
+          INSERT INTO market_shuihu_collection (
+            user_id, card_id, copies, first_drawn_at, last_drawn_at
+          )
+          SELECT user_id, card_id, 1, created_at, created_at
+          FROM market_shuihu_draws WHERE id = ?
+          ON CONFLICT(user_id, card_id) DO UPDATE SET
+            copies = copies + 1,
+            last_drawn_at = excluded.last_drawn_at
+        `).bind(drawId),
+        db.prepare(`
+          INSERT INTO market_shuihu_rewards (
+            id, user_id, set_key, points_awarded, trigger_draw_id, awarded_at
+          )
+          SELECT ?, ?, 'shuihu-108-v1', ?, ?, ?
+          WHERE EXISTS (SELECT 1 FROM market_shuihu_draws WHERE id = ?)
+            AND (
+              SELECT COUNT(*) FROM market_shuihu_collection WHERE user_id = ?
+            ) = ?
+          ON CONFLICT(user_id, set_key) DO NOTHING
+        `).bind(
+          rewardId, userId, completionReward, drawId, now,
+          drawId, userId, SHUIHU_CARD_COUNT,
+        ),
+        db.prepare(`
+          UPDATE market_users
+          SET points_balance = points_balance + ?,
+            points_earned_total = points_earned_total + ?,
+            balance_changed_at = ?, updated_at = ?
+          WHERE id = ? AND EXISTS (
+            SELECT 1 FROM market_shuihu_rewards WHERE trigger_draw_id = ?
+          )
+        `).bind(completionReward, completionReward, now, now, userId, drawId),
+      ]);
+
+      const draw = await db.prepare(`
+        SELECT id, card_id, points_cost, is_new
+        FROM market_shuihu_draws
+        WHERE user_id = ? AND idempotency_key = ?
+        LIMIT 1
+      `).bind(userId, idempotencyKey).first();
+      if (!draw) return null;
+
+      const status = await this.loadShuihuStatus({ userId, dayStart, dayEnd });
+      const entry = status.collection.find((item) => item.cardId === Number(draw.card_id));
+      const reward = await db.prepare(`
+        SELECT 1 AS granted
+        FROM market_shuihu_rewards
+        WHERE user_id = ? AND set_key = 'shuihu-108-v1' AND trigger_draw_id = ?
+        LIMIT 1
+      `).bind(userId, draw.id).first();
+      return {
+        cardId: Number(draw.card_id),
+        isNew: Boolean(draw.is_new),
+        copies: Number(entry?.copies ?? 0),
+        cost: Number(draw.points_cost),
+        rewardGranted: Boolean(reward?.granted),
+        status,
+      };
+    },
   };
 }
 
@@ -246,6 +685,24 @@ function mapLease(row) {
   };
 }
 
+function mapPokerSettlement(row) {
+  if (!row) return null;
+  return {
+    handId: row.hand_id,
+    requestedDelta: Number(row.requested_delta),
+    appliedDelta: Number(row.applied_delta),
+    pointsBalance: Number(row.balance_after),
+    dailyWon: Number(row.daily_won),
+  };
+}
+
+function mapShuihuCollectionEntry(row) {
+  return {
+    cardId: Number(row.card_id),
+    copies: Number(row.copies),
+  };
+}
+
 function strictLeaseVersion(value) {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : null;
 }
@@ -254,6 +711,37 @@ function cleanIdempotencyKey(value) {
   if (typeof value !== 'string') return '';
   const key = value.trim();
   return /^[A-Za-z0-9._:-]{1,200}$/.test(key) ? key : '';
+}
+
+function cleanHandId(value) {
+  if (typeof value !== 'string') return '';
+  const handId = value.trim().toLowerCase();
+  return /^[a-z0-9-]{8,80}$/.test(handId) ? handId : '';
+}
+
+function strictPointDelta(value) {
+  return typeof value === 'number'
+    && Number.isSafeInteger(value)
+    && Math.abs(value) <= 1_000_000
+    ? value
+    : null;
+}
+
+export function randomShuihuCardId(env) {
+  const injected = typeof env?.RANDOM_SHUIHU_CARD_ID === 'function'
+    ? env.RANDOM_SHUIHU_CARD_ID()
+    : env?.RANDOM_SHUIHU_CARD_ID;
+  if (Number.isInteger(injected) && injected >= 1 && injected <= SHUIHU_CARD_COUNT) {
+    return Number(injected);
+  }
+
+  const sampleSpace = 0x1_0000_0000;
+  const unbiasedCeiling = sampleSpace - (sampleSpace % SHUIHU_CARD_COUNT);
+  const values = new Uint32Array(1);
+  do {
+    crypto.getRandomValues(values);
+  } while (values[0] >= unbiasedCeiling);
+  return (values[0] % SHUIHU_CARD_COUNT) + 1;
 }
 
 async function parseJson(request) {

@@ -2,16 +2,27 @@ import { handleSina } from './sina.js';
 import { handleNewsFetch, runNewsFetch } from './newsFetch.js';
 import { handleMarketAccount } from './marketAccount.js';
 import { handleMarketAuth } from './marketAuth.js';
-import { handleMarketHeartbeat, handleMarketHeartbeatStop } from './marketPoints.js';
+import { handleMarketPasswordAuth } from './marketPasswordAuth.js';
+import {
+  handleMarketHeartbeat,
+  handleMarketHeartbeatStop,
+  handleMarketPokerSettlement,
+  handleMarketPokerStatus,
+  handleMarketShuihuDraw,
+  handleMarketShuihuStatus,
+} from './marketPoints.js';
 import { handleMessages, normalizeMarketPointsMode } from './messages.js';
 import { handleItnewRequest, runItnewCollection } from './itnew/index.js';
+import { handleMarketPublicData } from './marketDashboard.js';
+import { handleSitemap, withNoIndex } from './seo.js';
+import { handleTreasuryYields } from './treasuryYields.js';
 
 const MESSAGE_STATUSES = new Set(['active', 'hidden', 'removed']);
 const AUTHOR_ACTIONS = new Set(['ban', 'unban']);
 const REPORT_STATUSES = new Set(['open', 'resolved', 'dismissed']);
 const PRIVATE_ASSET_PREFIXES = [
   '/src/', '/test/', '/dist/', '/docs/', '/migrations/', '/.git/', '/.claude/',
-  '/.openai/', '/.superpowers/', '/.wrangler/',
+  '/.openai/', '/.superpowers/', '/.wrangler/', '/qa/',
 ];
 const PRIVATE_ASSET_PATHS = new Set([
   '/docs', '/migrations', '/.superpowers', '/.DS_Store', '/.dev.vars', '/.assetsignore',
@@ -19,17 +30,28 @@ const PRIVATE_ASSET_PATHS = new Set([
 ]);
 const MARKET_API_ROUTES = new Map([
   ['/markets/auth/apple', { methods: ['POST'], handler: handleMarketAuth }],
+  ['/markets/auth/password/login', { methods: ['POST'], handler: handleMarketPasswordAuth }],
+  ['/markets/auth/password/register', { methods: ['POST'], handler: handleMarketPasswordAuth }],
+  ['/markets/auth/password/link', { methods: ['POST'], handler: handleMarketPasswordAuth }],
   ['/markets/auth/logout', { methods: ['POST'], handler: handleMarketAccount }],
   ['/markets/account', { methods: ['GET', 'DELETE'], handler: handleMarketAccount }],
   ['/markets/account/profile', { methods: ['PUT'], handler: handleMarketAccount }],
   ['/markets/points/heartbeat', { methods: ['POST'], handler: handleMarketHeartbeat }],
   ['/markets/points/heartbeat/stop', { methods: ['POST'], handler: handleMarketHeartbeatStop }],
+  ['/markets/points/poker', { methods: ['GET'], handler: handleMarketPokerStatus }],
+  ['/markets/points/poker/settle', { methods: ['POST'], handler: handleMarketPokerSettlement }],
+  ['/markets/points/shuihu', { methods: ['GET'], handler: handleMarketShuihuStatus }],
+  ['/markets/points/shuihu/draw', { methods: ['POST'], handler: handleMarketShuihuDraw }],
   ['/markets/points/ledger', { methods: ['GET'], handler: handleMarketAccount }],
   ['/markets/leaderboard', { methods: ['GET'], handler: handleMarketAccount }],
 ]);
 const MARKET_API_NAMESPACES = [
   '/markets/auth', '/markets/account', '/markets/points', '/markets/leaderboard', '/markets/messages',
 ];
+const MARKET_PUBLIC_DATA_ROUTES = new Set([
+  '/markets/dashboard', '/markets/live', '/markets/history', '/markets/cross-history', '/markets/news', '/markets/events',
+  '/markets/details',
+]);
 const MARKET_CORS_BASE_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'Authorization, Content-Type, Idempotency-Key',
@@ -41,28 +63,38 @@ export default {
     const url = new URL(request.url);
 
     if (isPrivateAssetPath(url.pathname)) return new Response('Not found', { status: 404 });
+    if (url.pathname === '/sitemap.xml') return handleSitemap(request, env);
 
-    if (url.pathname === '/xxxc/sina') return handleSina(request);
-    if (url.pathname === '/news/fetch') return handleNewsFetch(request, env);
+    if (url.pathname === '/xxxc/sina') return withNoIndex(await handleSina(request));
+    if (url.pathname === '/xxxc/treasury-yields') {
+      return withNoIndex(await handleTreasuryYields(request));
+    }
+    if (url.pathname === '/news/fetch') return withNoIndex(await handleNewsFetch(request, env));
+    if (MARKET_PUBLIC_DATA_ROUTES.has(url.pathname)) {
+      return withNoIndex(await handleMarketPublicData(request, env));
+    }
     if (url.pathname === '/markets/messages' || /^\/markets\/messages\/[^/]+\/reports$/.test(url.pathname)) {
-      return handleMessages(request, env, marketPointsMode(env));
+      return withNoIndex(await handleMessages(request, env, marketPointsMode(env)));
     }
 
     const marketApiResponse = await dispatchMarketApi(request, env);
-    if (marketApiResponse) return marketApiResponse;
+    if (marketApiResponse) return withNoIndex(marketApiResponse);
 
     if (url.pathname.startsWith('/markets/moderation')) {
       if (!requireModerator(request, env)) return authenticationRequired();
       if (url.pathname === '/markets/moderation') {
         return env.ASSETS.fetch(new Request(new URL('/markets/moderation.html', url), request));
       }
-      return handleModeration(request, env);
+      return withNoIndex(await handleModeration(request, env));
     }
 
     if (url.pathname === '/itnew' || url.pathname.startsWith('/itnew/')) {
       return handleItnewRequest(request, env, ctx);
     }
 
+    if (isNoIndexAssetPath(url.pathname)) {
+      return withNoIndex(await env.ASSETS.fetch(request));
+    }
     return env.ASSETS.fetch(request);
   },
 
@@ -191,6 +223,14 @@ export function isPrivateAssetPath(pathname) {
   return PRIVATE_ASSET_PATHS.has(pathname)
     || pathname.endsWith('/.DS_Store')
     || PRIVATE_ASSET_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+}
+
+export function isNoIndexAssetPath(pathname) {
+  try {
+    return decodeURIComponent(pathname) === '/words/总单词.txt';
+  } catch {
+    return false;
+  }
 }
 
 export function requireModerator(request, env) {

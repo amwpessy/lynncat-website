@@ -2,7 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { handleMarketAuth } from '../src/marketAuth.js';
-import { handleMarketHeartbeat, handleMarketHeartbeatStop } from '../src/marketPoints.js';
+import {
+  handleMarketHeartbeat,
+  handleMarketHeartbeatStop,
+  handleMarketPokerSettlement,
+  handleMarketPokerStatus,
+  pokerDayWindow,
+} from '../src/marketPoints.js';
 import {
   appleCredentialRequest,
   bearerRequest,
@@ -304,6 +310,99 @@ test('D1 credited lease mutations guard the ledger idempotency key before updati
   assert.match(source, /NOT EXISTS \(\s*SELECT 1 FROM market_point_ledger WHERE idempotency_key = \?\s*\)/);
 });
 
+test('poker day windows reset at midnight in China Standard Time', () => {
+  const beforeMidnight = Date.parse('2026-07-23T15:59:59.000Z');
+  const afterMidnight = beforeMidnight + 1_000;
+
+  assert.equal(pokerDayWindow(beforeMidnight).dayKey, '2026-07-23');
+  assert.equal(pokerDayWindow(afterMidnight).dayKey, '2026-07-24');
+  assert.equal(pokerDayWindow(beforeMidnight).resetsAt, afterMidnight);
+});
+
+test('poker settlements apply wins and losses to the account balance', async () => {
+  const { env, sessionToken } = await signedInEnv({ now: Date.parse('2026-07-23T08:00:00Z'), points: 1_000 });
+
+  const win = await settlePoker(env, sessionToken, 'hand-win-0001', 600, 'poker-win-1');
+  const loss = await settlePoker(env, sessionToken, 'hand-loss-001', -250, 'poker-loss-1');
+
+  assert.equal(win.appliedDelta, 600);
+  assert.equal(loss.appliedDelta, -250);
+  assert.equal(loss.pointsBalance, 1_350);
+  assert.equal(env.repo.user.pointsBalance, 1_350);
+});
+
+test('poker losses are clamped so points can never become negative', async () => {
+  const { env, sessionToken } = await signedInEnv({ now: Date.parse('2026-07-23T08:00:00Z'), points: 120 });
+
+  const loss = await settlePoker(env, sessionToken, 'hand-allin-01', -800, 'poker-allin');
+
+  assert.equal(loss.appliedDelta, -120);
+  assert.equal(loss.pointsBalance, 0);
+  assert.equal(env.repo.user.pointsBalance, 0);
+});
+
+test('poker winnings are capped at 7500 points per China day', async () => {
+  const { env, sessionToken } = await signedInEnv({ now: Date.parse('2026-07-23T08:00:00Z'), points: 100 });
+
+  const first = await settlePoker(env, sessionToken, 'hand-cap-0001', 7_400, 'poker-cap-1');
+  const second = await settlePoker(env, sessionToken, 'hand-cap-0002', 500, 'poker-cap-2');
+
+  assert.equal(first.appliedDelta, 7_400);
+  assert.equal(second.appliedDelta, 100);
+  assert.equal(second.dailyWon, 7_500);
+  assert.equal(second.dailyRemaining, 0);
+  assert.equal(second.pointsBalance, 7_600);
+});
+
+test('duplicate poker settlements are idempotent by request key and hand id', async () => {
+  const { env, sessionToken } = await signedInEnv({ now: Date.parse('2026-07-23T08:00:00Z'), points: 100 });
+
+  const first = await settlePoker(env, sessionToken, 'hand-repeat-01', 500, 'poker-repeat-1');
+  const repeatedKey = await settlePoker(env, sessionToken, 'hand-repeat-01', 500, 'poker-repeat-1');
+  const repeatedHand = await settlePoker(env, sessionToken, 'hand-repeat-01', 900, 'poker-repeat-2');
+
+  assert.deepEqual(repeatedKey, first);
+  assert.equal(repeatedHand.appliedDelta, 500);
+  assert.equal(env.repo.user.pointsBalance, 600);
+  assert.equal(env.repo.pokerHands.size, 1);
+});
+
+test('poker status reports authoritative balance and daily remaining points', async () => {
+  const { env, sessionToken } = await signedInEnv({ now: Date.parse('2026-07-23T08:00:00Z'), points: 1_000 });
+  await settlePoker(env, sessionToken, 'hand-status-01', 320, 'poker-status-1');
+
+  const response = await handleMarketPokerStatus(new Request(
+    'https://unit.test/markets/points/poker',
+    { headers: { Authorization: bearerRequest(sessionToken).headers.get('Authorization') } },
+  ), env);
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.poker.pointsBalance, 1_320);
+  assert.equal(body.poker.dailyWon, 320);
+  assert.equal(body.poker.dailyRemaining, 7_180);
+});
+
+test('poker settlement validates the hand result and requires authentication', async () => {
+  const anonymousEnv = createAccountEnv({ now: Date.parse('2026-07-23T08:00:00Z') });
+  const noSession = await handleMarketPokerSettlement(new Request(
+    'https://unit.test/markets/points/poker/settle',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Idempotency-Key': 'poker-no-session' },
+      body: JSON.stringify({ handId: 'hand-guest-01', delta: 20 }),
+    },
+  ), anonymousEnv);
+  assert.equal(noSession.status, 401);
+
+  const { env, sessionToken } = await signedInEnv({ now: anonymousEnv.NOW(), points: 100 });
+  const invalid = await pokerSettlementResponse(
+    env, sessionToken, '{"handId":"bad","delta":20}', 'poker-invalid',
+  );
+  assert.equal(invalid.status, 400);
+  assert.deepEqual(await invalid.json(), { error: 'invalid_hand_id' });
+});
+
 async function signedInEnv({ now, points }) {
   const env = createAccountEnv({ now });
   const login = await handleMarketAuth(appleCredentialRequest(), env);
@@ -364,6 +463,50 @@ function stopResponse(env, sessionToken, body) {
   }), env);
 }
 
+async function settlePoker(env, sessionToken, handId, delta, idempotencyKey) {
+  const response = await pokerSettlementResponse(
+    env,
+    sessionToken,
+    JSON.stringify({ handId, delta }),
+    idempotencyKey,
+  );
+  assert.equal(response.status, 200);
+  return (await response.json()).settlement;
+}
+
+function pokerSettlementResponse(env, sessionToken, body, idempotencyKey) {
+  return handleMarketPokerSettlement(new Request(
+    'https://unit.test/markets/points/poker/settle',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: bearerRequest(sessionToken).headers.get('Authorization'),
+        'Content-Type': 'application/json',
+        'Idempotency-Key': idempotencyKey,
+      },
+      body,
+    },
+  ), env);
+}
+
 function pickLease(result) {
   return { activeSeconds: result.activeSeconds, leaseVersion: result.leaseVersion };
 }
+
+test('web heartbeat starts at lease zero and mirrors the Mac twenty-second cadence', async () => {
+  const [source, page] = await Promise.all([
+    readFile(new URL('../markets-home.js', import.meta.url), 'utf8'),
+    readFile(new URL('../index.html', import.meta.url), 'utf8'),
+  ]);
+
+  assert.match(source, /leaseVersion:\s*0/);
+  assert.match(source, /payload\.leaseVersion \?\? state\.leaseVersion/);
+  assert.match(source, /setInterval\(heartbeat,\s*20_000\)/);
+  assert.match(source, /if \(payload\.credited\) state\.account\.pointsEarnedTotal/);
+  assert.match(source, /state\.pokerStatus\.pointsBalance = Number\(payload\.pointsBalance\)/);
+  assert.match(source, /state\.cardsStatus\.pointsBalance = Number\(payload\.pointsBalance\)/);
+  assert.match(source, /points\/heartbeat\/stop/);
+  assert.doesNotMatch(source, /localStorage\.getItem\("lynncat-lease-version"\)/);
+  assert.match(page, /每分钟获得 1 积分/);
+  assert.match(page, /id="online-credit-status"/);
+});
