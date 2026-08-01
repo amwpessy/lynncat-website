@@ -100,17 +100,19 @@
 
       <section class="downloads" aria-label="Downloads">
         <article class="card featured">
-          <div class="card-head"><div><h2>macOS <span data-zh>官网版</span><span data-en>Direct Build</span></h2><div class="platform">Apple Silicon · macOS 14+</div></div><div aria-hidden="true">⌘</div></div>
-          <div class="version">Version 1.3 · Build 7</div>
-          <div><a class="button" href="./downloads/Lynncat-Markets-1.3-Direct.zip" download><span data-zh>下载 macOS 官网版</span><span data-en>Download for macOS</span> <span aria-hidden="true">↓</span></a></div>
-          <p class="meta"><span data-zh>下载后双击解压，再将应用拖入“应用程序”文件夹。</span><span data-en>Unzip the file and move the app to your Applications folder.</span></p>
-          <div class="notice"><span data-zh>这是未签名、未公证的官网测试包。首次打开若被 macOS 拦截，请在应用上点右键，选择“打开”，再确认。</span><span data-en>This is an unsigned, not notarized website test build. If macOS blocks the first launch, right-click the app, choose “Open”, then confirm.</span></div>
+          <div class="card-head"><div><h2>macOS <span data-zh>官网版</span><span data-en>Direct Build</span></h2><div class="platform">Apple Silicon + Intel · macOS 14+</div></div><div aria-hidden="true">⌘</div></div>
+          <div class="version">Version 1.5 · Build 8</div>
+          <div><a class="button" href="./downloads/Lynncat-Markets-1.5-Direct.dmg" download><span data-zh>下载 macOS 官网版</span><span data-en>Download for macOS</span> <span aria-hidden="true">↓</span></a></div>
+          <p class="meta"><span data-zh>打开 DMG，将“林猫行情”拖入“应用程序”文件夹。</span><span data-en>Open the DMG and drag Lynncat Markets into Applications.</span></p>
+          <div class="notice"><span data-zh>已使用 Developer ID 签名并通过 Apple 公证，可在 Intel 与 Apple 芯片 Mac 上安全安装。</span><span data-en>Developer ID signed and Apple-notarized for safe installation on Intel and Apple silicon Macs.</span></div>
         </article>
 
         <article class="card">
           <div class="card-head"><div><h2>iOS <span data-zh>官网版</span><span data-en>Direct Build</span></h2><div class="platform">iPhone · iOS 17+</div></div><div aria-hidden="true">◉</div></div>
-          <div class="version">Version 1.4 · Build 6</div>
-          <div class="pending"><strong><span data-zh>等待 Apple 签名包</span><span data-en>Apple-signed package required</span></strong><span data-zh>iOS 不能像 macOS 一样直接下载并安装网页文件。Ad Hoc 或 Enterprise 包签名完成后，这里会启用官网直装链接。</span><span data-en>iOS web installation requires an Apple-signed Ad Hoc or Enterprise package. The direct install link will be enabled after signing.</span></div>
+          <div class="version">Version 1.5 · Build 8</div>
+          <div class="pending"><strong><span data-zh>普通用户请使用 App Store</span><span data-en>Use the App Store for normal installation</span></strong><span data-zh>个人开发者无法向任意 iPhone 提供网页直接安装。下方自签 IPA 不含设备标识，需使用 AltStore、SideStore 或自己的开发者证书重新签名。</span><span data-en>Individual developers cannot offer universal iPhone installation from a website. The self-sign IPA below contains no device identifiers and must be re-signed with AltStore, SideStore or your own developer certificate.</span></div>
+          <div><a class="button" href="./downloads/Lynncat-Markets-1.5-iOS-SelfSign.ipa" download><span data-zh>下载 iOS 自签版</span><span data-en>Download self-sign IPA</span> <span aria-hidden="true">↓</span></a></div>
+          <p class="meta"><span data-zh>自签版包含林猫帐号登录及官网版功能；账号与 Mac 官网版数据互通。</span><span data-en>The self-sign build includes Lynncat account access and shares cloud data with the macOS direct build.</span></p>
           <a class="button secondary" href="https://apps.apple.com/app/id6782930494" target="_blank" rel="noopener"><span data-zh>从 App Store 安装</span><span data-en>Install from the App Store</span> <span aria-hidden="true">↗</span></a>
         </article>
       </section>
@@ -119,7 +121,7 @@
         <h2><span data-zh>安装说明</span><span data-en>Installation Notes</span></h2>
         <div class="steps">
           <div class="step"><b>01 · <span data-zh>下载</span><span data-en>Download</span></b><p><span data-zh>选择设备对应的版本。官网版与 App Store 版使用相同的市场数据服务。</span><span data-en>Choose the build for your device. Both distribution channels use the same market data services.</span></p></div>
-          <div class="step"><b>02 · <span data-zh>安装</span><span data-en>Install</span></b><p><span data-zh>macOS 官网包需要首次手动确认；iOS 官网包必须使用有效的 Apple 配置文件。</span><span data-en>macOS may need a one-time manual confirmation; iOS direct builds require a valid Apple provisioning profile.</span></p></div>
+          <div class="step"><b>02 · <span data-zh>安装</span><span data-en>Install</span></b><p><span data-zh>macOS 官网包已通过 Apple 公证；iOS 自签包需要使用有效的 Apple 配置文件重新签名。</span><span data-en>The macOS build is Apple-notarized; the iOS self-sign build must be re-signed with a valid Apple provisioning profile.</span></p></div>
           <div class="step"><b>03 · <span data-zh>登录</span><span data-en>Sign in</span></b><p><span data-zh>登录林猫帐号后，积分、留言、排行榜等云端数据会在设备之间同步。</span><span data-en>Sign in with a Lynncat account to sync points, messages and rankings across devices.</span></p></div>
         </div>
       </section>
